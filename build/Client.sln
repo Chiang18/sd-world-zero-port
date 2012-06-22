@@ -1,0 +1,26 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 10.00
+# Visual Studio 2008
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Engine", "..\src\Engine\Engine.vcproj", "{79BFE790-6C47-4CED-8238-589B2B719DF8}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Base", "..\src\Base\Base.vcproj", "{DBE03B13-7E55-419A-8596-745C2B1CF1B4}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Win32 = Debug|Win32
+		Release|Win32 = Release|Win32
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{79BFE790-6C47-4CED-8238-589B2B719DF8}.Debug|Win32.ActiveCfg = Debug|Win32
+		{79BFE790-6C47-4CED-8238-589B2B719DF8}.Debug|Win32.Build.0 = Debug|Win32
+		{79BFE790-6C47-4CED-8238-589B2B719DF8}.Release|Win32.ActiveCfg = Release|Win32
+		{79BFE790-6C47-4CED-8238-589B2B719DF8}.Release|Win32.Build.0 = Release|Win32
+		{DBE03B13-7E55-419A-8596-745C2B1CF1B4}.Debug|Win32.ActiveCfg = Debug|Win32
+		{DBE03B13-7E55-419A-8596-745C2B1CF1B4}.Debug|Win32.Build.0 = Debug|Win32
+		{DBE03B13-7E55-419A-8596-745C2B1CF1B4}.Release|Win32.ActiveCfg = Release|Win32
+		{DBE03B13-7E55-419A-8596-745C2B1CF1B4}.Release|Win32.Build.0 = Release|Win32
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+EndGlobal
