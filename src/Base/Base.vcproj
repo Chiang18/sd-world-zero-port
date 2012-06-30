@@ -17,9 +17,9 @@
 	<Configurations>
 		<Configuration
 			Name="Debug|Win32"
-			OutputDirectory="$(SolutionDir)$(ConfigurationName)"
-			IntermediateDirectory="$(ConfigurationName)"
-			ConfigurationType="1"
+			OutputDirectory="../../obj/$(ConfigurationName)/$(ProjectName)"
+			IntermediateDirectory="../../obj/$(ConfigurationName)/$(ProjectName)"
+			ConfigurationType="4"
 			CharacterSet="2"
 			>
 			<Tool
@@ -56,15 +56,10 @@
 				Name="VCPreLinkEventTool"
 			/>
 			<Tool
-				Name="VCLinkerTool"
-				GenerateDebugInformation="true"
-				TargetMachine="1"
+				Name="VCLibrarianTool"
 			/>
 			<Tool
 				Name="VCALinkTool"
-			/>
-			<Tool
-				Name="VCManifestTool"
 			/>
 			<Tool
 				Name="VCXDCMakeTool"
@@ -74,9 +69,6 @@
 			/>
 			<Tool
 				Name="VCFxCopTool"
-			/>
-			<Tool
-				Name="VCAppVerifierTool"
 			/>
 			<Tool
 				Name="VCPostBuildEventTool"
@@ -167,6 +159,14 @@
 		<Filter
 			Name="Math"
 			>
+			<File
+				RelativePath=".\sdMath.cpp"
+				>
+			</File>
+			<File
+				RelativePath=".\sdMath.h"
+				>
+			</File>
 		</Filter>
 		<Filter
 			Name="FileSystem"
@@ -179,6 +179,10 @@
 		<Filter
 			Name="Util"
 			>
+			<File
+				RelativePath=".\sdSingleton.h"
+				>
+			</File>
 		</Filter>
 		<Filter
 			Name="ProfileSystem"
