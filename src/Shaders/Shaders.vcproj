@@ -2,9 +2,9 @@
 <VisualStudioProject
 	ProjectType="Visual C++"
 	Version="9.00"
-	Name="Base"
-	ProjectGUID="{DBE03B13-7E55-419A-8596-745C2B1CF1B4}"
-	RootNamespace="Base"
+	Name="Shaders"
+	ProjectGUID="{370F30F9-E9C9-4AC5-B3E8-2E90A3DC5F99}"
+	RootNamespace="Shaders"
 	TargetFrameworkVersion="196613"
 	>
 	<Platforms>
@@ -13,11 +13,14 @@
 		/>
 	</Platforms>
 	<ToolFiles>
+		<ToolFile
+			RelativePath=".\FXCompiler.rules"
+		/>
 	</ToolFiles>
 	<Configurations>
 		<Configuration
 			Name="Debug|Win32"
-			OutputDirectory="../../obj/$(ConfigurationName)/$(ProjectName)"
+			OutputDirectory="../../../project_game/dependence/engine/shader"
 			IntermediateDirectory="../../obj/$(ConfigurationName)/$(ProjectName)"
 			ConfigurationType="4"
 			CharacterSet="2"
@@ -27,6 +30,9 @@
 			/>
 			<Tool
 				Name="VCCustomBuildTool"
+			/>
+			<Tool
+				Name="FX Compiler"
 			/>
 			<Tool
 				Name="VCXMLDataGeneratorTool"
@@ -40,7 +46,6 @@
 			<Tool
 				Name="VCCLCompilerTool"
 				Optimization="0"
-				PreprocessorDefinitions="WIN32;_DEBUG;_LIB"
 				MinimalRebuild="true"
 				BasicRuntimeChecks="3"
 				RuntimeLibrary="3"
@@ -88,6 +93,9 @@
 			/>
 			<Tool
 				Name="VCCustomBuildTool"
+			/>
+			<Tool
+				Name="FX Compiler"
 			/>
 			<Tool
 				Name="VCXMLDataGeneratorTool"
@@ -150,65 +158,57 @@
 	</References>
 	<Files>
 		<Filter
-			Name="Memory"
+			Name="FX"
 			>
-		</Filter>
-		<Filter
-			Name="MultiThread"
-			>
-		</Filter>
-		<Filter
-			Name="Math"
-			>
-			<File
-				RelativePath=".\sdMath.cpp"
+			<Filter
+				Name="rendersystem"
 				>
-			</File>
-			<File
-				RelativePath=".\sdMath.h"
-				>
-			</File>
+				<Filter
+					Name="static_mesh"
+					>
+					<File
+						RelativePath=".\rendersystem\staticmesh\earlyz.fx"
+						>
+					</File>
+					<File
+						RelativePath=".\rendersystem\staticmesh\MRT3Geometry.fx"
+						>
+					</File>
+				</Filter>
+			</Filter>
 		</Filter>
 		<Filter
-			Name="FileSystem"
+			Name="Header"
 			>
-		</Filter>
-		<Filter
-			Name="LogSystem"
-			>
-		</Filter>
-		<Filter
-			Name="Util"
-			>
-			<File
-				RelativePath=".\sdFileUtil.h"
+			<Filter
+				Name="rendersystem"
 				>
-			</File>
-			<File
-				RelativePath=".\sdGDIUtil.h"
-				>
-			</File>
-			<File
-				RelativePath=".\sdSingleton.h"
-				>
-			</File>
+				<File
+					RelativePath=".\rendersystem\common.h"
+					>
+				</File>
+				<File
+					RelativePath=".\rendersystem\common_define.h"
+					>
+				</File>
+				<File
+					RelativePath=".\rendersystem\common_sampler.h"
+					>
+				</File>
+				<Filter
+					Name="static_mesh"
+					>
+					<File
+						RelativePath=".\rendersystem\staticmesh\MRT3GeometryImplment.h"
+						>
+					</File>
+					<File
+						RelativePath=".\rendersystem\staticmesh\static_mesh_common.h"
+						>
+					</File>
+				</Filter>
+			</Filter>
 		</Filter>
-		<Filter
-			Name="ProfileSystem"
-			>
-		</Filter>
-		<File
-			RelativePath=".\sdBase.h"
-			>
-		</File>
-		<File
-			RelativePath=".\Stdafx.cpp"
-			>
-		</File>
-		<File
-			RelativePath=".\Stdafx.h"
-			>
-		</File>
 	</Files>
 	<Globals>
 	</Globals>

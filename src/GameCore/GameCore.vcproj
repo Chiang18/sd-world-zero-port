@@ -2,9 +2,9 @@
 <VisualStudioProject
 	ProjectType="Visual C++"
 	Version="9.00"
-	Name="Base"
-	ProjectGUID="{DBE03B13-7E55-419A-8596-745C2B1CF1B4}"
-	RootNamespace="Base"
+	Name="GameCore"
+	ProjectGUID="{E48BBD73-8299-4643-8DE2-31CE1DCFF01E}"
+	RootNamespace="GameCore"
 	TargetFrameworkVersion="196613"
 	>
 	<Platforms>
@@ -20,6 +20,7 @@
 			OutputDirectory="../../obj/$(ConfigurationName)/$(ProjectName)"
 			IntermediateDirectory="../../obj/$(ConfigurationName)/$(ProjectName)"
 			ConfigurationType="4"
+			InheritedPropertySheets="..\Engine\GB_Config_Debug.vsprops;..\Engine\GB_Precompiled_Headers.vsprops;..\Engine\GB_Language.vsprops;..\Engine\GB_Target_StaticLib.vsprops"
 			CharacterSet="2"
 			>
 			<Tool
@@ -39,11 +40,15 @@
 			/>
 			<Tool
 				Name="VCCLCompilerTool"
+				AdditionalOptions="/EHsc"
 				Optimization="0"
-				PreprocessorDefinitions="WIN32;_DEBUG;_LIB"
+				AdditionalIncludeDirectories="../gamecore;../gamecore/config;../gamecore/input;../base;../engine;../engine/utility;../engine/rendersystem;../../thirdparty/gamebryo/sdk/win32/include"
+				PreprocessorDefinitions="WIN32;_DEBUG;_LIB;_USRDLL;NIDEBUG;EE_EFD_IMPORT;NIANIMATION_IMPORT;NIMAIN_IMPORT;NIMESH_IMPORT;NISYSTEM_IMPORT;NIFLOODGATE_IMPORT;NIDX9RENDERER_IMPORT"
 				MinimalRebuild="true"
 				BasicRuntimeChecks="3"
 				RuntimeLibrary="3"
+				UsePrecompiledHeader="1"
+				PrecompiledHeaderThrough="Stdafx.h"
 				WarningLevel="3"
 				DebugInformationFormat="4"
 			/>
@@ -150,63 +155,39 @@
 	</References>
 	<Files>
 		<Filter
-			Name="Memory"
+			Name="Input"
 			>
 		</Filter>
 		<Filter
-			Name="MultiThread"
-			>
-		</Filter>
-		<Filter
-			Name="Math"
+			Name="Config"
 			>
 			<File
-				RelativePath=".\sdMath.cpp"
+				RelativePath=".\Config\sdGameConfig.cpp"
 				>
 			</File>
 			<File
-				RelativePath=".\sdMath.h"
-				>
-			</File>
-		</Filter>
-		<Filter
-			Name="FileSystem"
-			>
-		</Filter>
-		<Filter
-			Name="LogSystem"
-			>
-		</Filter>
-		<Filter
-			Name="Util"
-			>
-			<File
-				RelativePath=".\sdFileUtil.h"
+				RelativePath=".\Config\sdGameConfig.h"
 				>
 			</File>
 			<File
-				RelativePath=".\sdGDIUtil.h"
+				RelativePath=".\Config\sdVideoConfig.cpp"
 				>
 			</File>
 			<File
-				RelativePath=".\sdSingleton.h"
+				RelativePath=".\Config\sdVideoConfig.h"
 				>
 			</File>
-		</Filter>
-		<Filter
-			Name="ProfileSystem"
-			>
 		</Filter>
 		<File
-			RelativePath=".\sdBase.h"
+			RelativePath=".\sdGameCore.h"
 			>
 		</File>
 		<File
-			RelativePath=".\Stdafx.cpp"
+			RelativePath=".\stdafx.cpp"
 			>
 		</File>
 		<File
-			RelativePath=".\Stdafx.h"
+			RelativePath=".\stdafx.h"
 			>
 		</File>
 	</Files>
