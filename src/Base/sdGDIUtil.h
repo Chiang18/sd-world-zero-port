@@ -9,22 +9,25 @@
 #ifndef _GDI_UTIL_H__
 #define _GDI_UTIL_H__
 
-class sdGDIUtil
+namespace Base
 {
-public:
-	// »ñÈ¡ÆÁÄ»³ß´ç
-	// GetSystemMetrics()
-	// GetDeviceCaps()
-	// SystemParametersInfo()
-	// EnumDisplaySettings()
-	// GetWindowRect()
-	static GetScreenInfo(unsigned int uiWidth, unsigned int uiHeight, bool bFullScreen)
-	{
-		HDC hDC = ::GetDC(NULL);
-		uiWidth = ::GetDeviceCaps(hDC, HORZRES);
-		uiHeight = ::GetDeviceCaps(hDC, VERTRES);
-		::ReleaseDC(NULL, hDC);
-	}
-};
 
+	class sdGDIUtil
+	{
+	public:
+		// »ñÈ¡ÆÁÄ»³ß´ç
+		// GetSystemMetrics()
+		// GetDeviceCaps()
+		// SystemParametersInfo()
+		// EnumDisplaySettings()
+		// GetWindowRect()
+		static GetScreenInfo(unsigned int uiWidth, unsigned int uiHeight, bool bFullScreen)
+		{
+			HDC hDC = ::GetDC(NULL);
+			uiWidth = ::GetDeviceCaps(hDC, HORZRES);
+			uiHeight = ::GetDeviceCaps(hDC, VERTRES);
+			::ReleaseDC(NULL, hDC);
+		}
+	};
+}
 #endif

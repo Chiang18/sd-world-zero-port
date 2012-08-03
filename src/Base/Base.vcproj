@@ -40,7 +40,8 @@
 			<Tool
 				Name="VCCLCompilerTool"
 				Optimization="0"
-				PreprocessorDefinitions="WIN32;_DEBUG;_LIB"
+				AdditionalIncludeDirectories="../base;../base/math"
+				PreprocessorDefinitions="WIN32;_DEBUG;_LIB;_CRT_SECURE_NO_WARNINGS"
 				MinimalRebuild="true"
 				BasicRuntimeChecks="3"
 				RuntimeLibrary="3"
@@ -150,22 +151,46 @@
 	</References>
 	<Files>
 		<Filter
-			Name="Memory"
-			>
-		</Filter>
-		<Filter
 			Name="MultiThread"
 			>
+			<File
+				RelativePath=".\sdCriticalSection.h"
+				>
+			</File>
 		</Filter>
 		<Filter
 			Name="Math"
 			>
 			<File
-				RelativePath=".\sdMath.cpp"
+				RelativePath=".\Math\sdAxisAlignedBox.cpp"
 				>
 			</File>
 			<File
-				RelativePath=".\sdMath.h"
+				RelativePath=".\Math\sdAxisAlignedBox.h"
+				>
+			</File>
+			<File
+				RelativePath=".\Math\sdMath.cpp"
+				>
+			</File>
+			<File
+				RelativePath=".\Math\sdMath.h"
+				>
+			</File>
+			<File
+				RelativePath=".\Math\sdVector2.h"
+				>
+			</File>
+			<File
+				RelativePath=".\Math\sdVector3.cpp"
+				>
+			</File>
+			<File
+				RelativePath=".\Math\sdVector3.h"
+				>
+			</File>
+			<File
+				RelativePath=".\Math\sdVector4.h"
 				>
 			</File>
 		</Filter>
@@ -174,8 +199,60 @@
 			>
 		</Filter>
 		<Filter
-			Name="LogSystem"
+			Name="Misc"
 			>
+			<File
+				RelativePath=".\sdFSM.cpp"
+				>
+			</File>
+			<File
+				RelativePath=".\sdFSM.h"
+				>
+			</File>
+			<File
+				RelativePath=".\sdSingleton.h"
+				>
+			</File>
+			<File
+				RelativePath=".\sdStaticAssert.h"
+				>
+			</File>
+			<File
+				RelativePath=".\sdTimeMgr.cpp"
+				>
+			</File>
+			<File
+				RelativePath=".\sdTimeMgr.h"
+				>
+			</File>
+			<Filter
+				Name="Memory"
+				>
+			</Filter>
+			<Filter
+				Name="Log"
+				>
+				<File
+					RelativePath=".\sdLogger.cpp"
+					>
+				</File>
+				<File
+					RelativePath=".\sdLogger.h"
+					>
+				</File>
+			</Filter>
+			<Filter
+				Name="Profile"
+				>
+				<File
+					RelativePath=".\sdProfile.cpp"
+					>
+				</File>
+				<File
+					RelativePath=".\sdProfile.h"
+					>
+				</File>
+			</Filter>
 		</Filter>
 		<Filter
 			Name="Util"
@@ -189,13 +266,9 @@
 				>
 			</File>
 			<File
-				RelativePath=".\sdSingleton.h"
+				RelativePath=".\sdStrUtil.h"
 				>
 			</File>
-		</Filter>
-		<Filter
-			Name="ProfileSystem"
-			>
 		</Filter>
 		<File
 			RelativePath=".\sdBase.h"
