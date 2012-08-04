@@ -1,0 +1,66 @@
+Microsoft Visual Studio Solution File, Format Version 10.00
+# Visual Studio 2008
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "efd", "efd\efd.vcproj", "{547B8DFB-1485-4395-A457-23D08ACAD334}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "efdLogService", "efdLogService\efdLogService.vcproj", "{89AFA150-CAC7-4925-AB06-91E8722F0498}"
+	ProjectSection(ProjectDependencies) = postProject
+		{547B8DFB-1485-4395-A457-23D08ACAD334} = {547B8DFB-1485-4395-A457-23D08ACAD334}
+		{DF4BB1B9-862D-4E39-9A70-F8244DB37412} = {DF4BB1B9-862D-4E39-9A70-F8244DB37412}
+	EndProjectSection
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "efdNetwork", "efdNetwork\efdNetwork.vcproj", "{DF4BB1B9-862D-4E39-9A70-F8244DB37412}"
+	ProjectSection(ProjectDependencies) = postProject
+		{547B8DFB-1485-4395-A457-23D08ACAD334} = {547B8DFB-1485-4395-A457-23D08ACAD334}
+	EndProjectSection
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Win32 = Debug|Win32
+		DebugDLL|Win32 = DebugDLL|Win32
+		Release|Win32 = Release|Win32
+		ReleaseDLL|Win32 = ReleaseDLL|Win32
+		Shipping|Win32 = Shipping|Win32
+		ShippingDLL|Win32 = ShippingDLL|Win32
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{547B8DFB-1485-4395-A457-23D08ACAD334}.Debug|Win32.ActiveCfg = Debug|Win32
+		{547B8DFB-1485-4395-A457-23D08ACAD334}.Debug|Win32.Build.0 = Debug|Win32
+		{547B8DFB-1485-4395-A457-23D08ACAD334}.DebugDLL|Win32.ActiveCfg = DebugDLL|Win32
+		{547B8DFB-1485-4395-A457-23D08ACAD334}.DebugDLL|Win32.Build.0 = DebugDLL|Win32
+		{547B8DFB-1485-4395-A457-23D08ACAD334}.Release|Win32.ActiveCfg = Release|Win32
+		{547B8DFB-1485-4395-A457-23D08ACAD334}.Release|Win32.Build.0 = Release|Win32
+		{547B8DFB-1485-4395-A457-23D08ACAD334}.ReleaseDLL|Win32.ActiveCfg = ReleaseDLL|Win32
+		{547B8DFB-1485-4395-A457-23D08ACAD334}.ReleaseDLL|Win32.Build.0 = ReleaseDLL|Win32
+		{547B8DFB-1485-4395-A457-23D08ACAD334}.Shipping|Win32.ActiveCfg = Shipping|Win32
+		{547B8DFB-1485-4395-A457-23D08ACAD334}.Shipping|Win32.Build.0 = Shipping|Win32
+		{547B8DFB-1485-4395-A457-23D08ACAD334}.ShippingDLL|Win32.ActiveCfg = ShippingDLL|Win32
+		{547B8DFB-1485-4395-A457-23D08ACAD334}.ShippingDLL|Win32.Build.0 = ShippingDLL|Win32
+		{89AFA150-CAC7-4925-AB06-91E8722F0498}.Debug|Win32.ActiveCfg = Debug|Win32
+		{89AFA150-CAC7-4925-AB06-91E8722F0498}.Debug|Win32.Build.0 = Debug|Win32
+		{89AFA150-CAC7-4925-AB06-91E8722F0498}.DebugDLL|Win32.ActiveCfg = DebugDLL|Win32
+		{89AFA150-CAC7-4925-AB06-91E8722F0498}.DebugDLL|Win32.Build.0 = DebugDLL|Win32
+		{89AFA150-CAC7-4925-AB06-91E8722F0498}.Release|Win32.ActiveCfg = Release|Win32
+		{89AFA150-CAC7-4925-AB06-91E8722F0498}.Release|Win32.Build.0 = Release|Win32
+		{89AFA150-CAC7-4925-AB06-91E8722F0498}.ReleaseDLL|Win32.ActiveCfg = ReleaseDLL|Win32
+		{89AFA150-CAC7-4925-AB06-91E8722F0498}.ReleaseDLL|Win32.Build.0 = ReleaseDLL|Win32
+		{89AFA150-CAC7-4925-AB06-91E8722F0498}.Shipping|Win32.ActiveCfg = Shipping|Win32
+		{89AFA150-CAC7-4925-AB06-91E8722F0498}.Shipping|Win32.Build.0 = Shipping|Win32
+		{89AFA150-CAC7-4925-AB06-91E8722F0498}.ShippingDLL|Win32.ActiveCfg = ShippingDLL|Win32
+		{89AFA150-CAC7-4925-AB06-91E8722F0498}.ShippingDLL|Win32.Build.0 = ShippingDLL|Win32
+		{DF4BB1B9-862D-4E39-9A70-F8244DB37412}.Debug|Win32.ActiveCfg = Debug|Win32
+		{DF4BB1B9-862D-4E39-9A70-F8244DB37412}.Debug|Win32.Build.0 = Debug|Win32
+		{DF4BB1B9-862D-4E39-9A70-F8244DB37412}.DebugDLL|Win32.ActiveCfg = DebugDLL|Win32
+		{DF4BB1B9-862D-4E39-9A70-F8244DB37412}.DebugDLL|Win32.Build.0 = DebugDLL|Win32
+		{DF4BB1B9-862D-4E39-9A70-F8244DB37412}.Release|Win32.ActiveCfg = Release|Win32
+		{DF4BB1B9-862D-4E39-9A70-F8244DB37412}.Release|Win32.Build.0 = Release|Win32
+		{DF4BB1B9-862D-4E39-9A70-F8244DB37412}.ReleaseDLL|Win32.ActiveCfg = ReleaseDLL|Win32
+		{DF4BB1B9-862D-4E39-9A70-F8244DB37412}.ReleaseDLL|Win32.Build.0 = ReleaseDLL|Win32
+		{DF4BB1B9-862D-4E39-9A70-F8244DB37412}.Shipping|Win32.ActiveCfg = Shipping|Win32
+		{DF4BB1B9-862D-4E39-9A70-F8244DB37412}.Shipping|Win32.Build.0 = Shipping|Win32
+		{DF4BB1B9-862D-4E39-9A70-F8244DB37412}.ShippingDLL|Win32.ActiveCfg = ShippingDLL|Win32
+		{DF4BB1B9-862D-4E39-9A70-F8244DB37412}.ShippingDLL|Win32.Build.0 = ShippingDLL|Win32
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+EndGlobal

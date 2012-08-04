@@ -1,0 +1,121 @@
+<BuildManagerProject><BuildConfigList><Config name="Microsoft Visual C++ 6.0" id="{C9B4B7AA-700F-4857-A2A5-7E291D789639}"><BatchCommand>call "C:\Programme\Microsoft Visual Studio\VC98\Bin\vcvars32.bat"
+cd lib
+call configure.bat -c msvc6 -x</BatchCommand><Comment></Comment></Config><Config name="Microsoft Visual C++ .NET 2003" id="{511B0C0C-BD42-4EF0-83FE-1F621AFFD3EF}"><BatchCommand>call "C:\Programme\Microsoft Visual Studio .NET 2003\Vc7\bin\vcvars32.bat"
+cd lib
+call configure.bat -c msvc71 -x</BatchCommand><Comment></Comment></Config><Config name="Microsoft Visual C++ 2005 beta1" id="{CD2DEA17-8C64-43EE-9C0E-29A5FAE9915A}"><BatchCommand>SET INCLUDE=%INCLUDE%;C:\Programme\Microsoft SDK\include
+call "C:\Programme\Microsoft Visual Studio 8\VC\bin\vcvars32.bat"
+cd lib
+call configure.bat -c msvc8 -x</BatchCommand><Comment>adds Platform SDK path to INCLUDE</Comment></Config><Config name="Microsoft eMbedded Visual C++ 3.0 ARM" id="{E9024E38-DD00-4E04-867F-CC972AF5FA77}"><BatchCommand>set PLATFORM=Pocket PC 2002
+call "C:\Programme\WindowsCE eMbedded Tools\EVC\WCE300\BIN\WCEARM.BAT"
+cd lib
+call configure.bat -c evc3 -p ARM -x</BatchCommand><Comment></Comment></Config><Config name="Microsoft eMbedded Visual C++ 3.0 x86" id="{D6145B97-3BB0-42DE-A26E-6DBC8355BE36}"><BatchCommand>set PLATFORM=Pocket PC 2002
+call "C:\Programme\WindowsCE eMbedded Tools\EVC\WCE300\BIN\WCEx86.BAT"
+cd lib
+call configure.bat -c evc3 -p x86 -x</BatchCommand><Comment></Comment></Config><Config name="Microsoft eMbedded Visual C++ 3.0 MIPS" id="{D22676DF-5C0E-4219-AFCE-136447819CF4}"><BatchCommand>set PLATFORM=Pocket PC 2002
+call "C:\Programme\WindowsCE eMbedded Tools\EVC\WCE300\BIN\WCEMIPS.BAT"
+cd lib
+call configure.bat -c evc3 -p MIPS -x</BatchCommand><Comment></Comment></Config><Config name="Microsoft eMbedded Visual C++ .NET ARM" id="{465E1890-0D2F-4D95-8798-B475B1A85A89}"><BatchCommand>call "C:\Programme\Microsoft eMbedded C++ 4.0\EVC\wce420\bin\wcearmv4.bat"
+cd lib
+call configure.bat -c evc4 -p ARM -x</BatchCommand><Comment></Comment></Config><Config name="Microsoft eMbedded Visual C++ .NET x86" id="{8F69817B-7B63-4207-8A6F-125C6853873A}"><BatchCommand>call "C:\Programme\Microsoft eMbedded C++ 4.0\EVC\wce420\bin\wcex86.bat"
+cd lib
+call configure.bat -c evc4 -p x86 -x</BatchCommand><Comment></Comment></Config><Config name="Microsoft eMbedded Visual C++ .NET MIPSII" id="{0C97E488-D8C2-4ABE-947A-C03A5624A3FB}"><BatchCommand>call "C:\Programme\Microsoft eMbedded C++ 4.0\EVC\wce400\bin\WCEMIPSII.BAT"
+cd lib
+call configure.bat -c evc4 -p MIPSII -x</BatchCommand><Comment></Comment></Config><Config name="Microsoft eMbedded Visual C++ .NET MIPSIV" id="{2E22CE53-D124-4BB8-A629-629DEA20D8B6}"><BatchCommand>call "C:\Programme\Microsoft eMbedded C++ 4.0\EVC\wce400\bin\WCEMIPSIV.BAT"
+cd lib
+call configure.bat -c evc4 -p MIPSIV -x</BatchCommand><Comment></Comment></Config></BuildConfigList><BuildTargetsList><Target name="STLport Library" id="{D04C7CB7-E4EA-4105-923A-7083043E5655}" config="{C9B4B7AA-700F-4857-A2A5-7E291D789639}" build="no"><BuildCommand>nmake -f nmake-vc6.mak clean distclean
+nmake -f nmake-vc6.mak all install
+REM clobber</BuildCommand><Path>.\lib</Path><Comment></Comment></Target><Target name="STLport Unit Test" id="{F5609718-C45F-43F4-9E44-3CDF1F45348C}" config="{C9B4B7AA-700F-4857-A2A5-7E291D789639}" build="no"><BuildCommand>nmake -f nmake-vc6.mak clean distclean
+nmake -f nmake-vc6.mak all install
+REM clobber</BuildCommand><Path>.\test\unit</Path><Comment></Comment></Target><Target name="STLport Run Unit Test" id="{835C25AB-1ABC-4390-BC57-AFD007F099D9}" config="{C9B4B7AA-700F-4857-A2A5-7E291D789639}" build="no"><BuildCommand>stl_unit_test_d50.exe &gt; ..\..\build\msvc6_debug-shared.txt
+type ..\..\build\msvc6_debug-shared.txt
+stl_unit_test_r50.exe &gt; ..\..\build\msvc6_release-shared.txt
+type ..\..\build\msvc6_release-shared.txt
+stl_unit_test_stld50.exe &gt; ..\..\build\msvc6_stldebug-shared.txt
+type ..\..\build\msvc6_stldebug-shared.txt
+stl_unit_test_static_d50.exe &gt; ..\..\build\msvc6_debug-static.txt
+type ..\..\build\msvc6_debug-static.txt
+stl_unit_test_static_r50.exe &gt; ..\..\build\msvc6_release-static.txt
+type ..\..\build\msvc6_release-static.txt
+stl_unit_test_static_stld50.exe &gt; ..\..\build\msvc6_stldebug-static.txt
+type ..\..\build\msvc6_stldebug-static.txt</BuildCommand><Path>..\bin\vc6</Path><Comment></Comment></Target><Target name="STLport Library" id="{A96EAD9A-061C-456A-9D3B-0CBAC4673A23}" config="{511B0C0C-BD42-4EF0-83FE-1F621AFFD3EF}" build="no"><BuildCommand>nmake -f nmake-vc71.mak clean distclean
+nmake -f nmake-vc71.mak all install clobber</BuildCommand><Path>.\lib</Path><Comment></Comment></Target><Target name="STLport Unit Test" id="{258E74AC-BC23-4D17-B68F-264793CE4015}" config="{511B0C0C-BD42-4EF0-83FE-1F621AFFD3EF}" build="no"><BuildCommand>nmake -f nmake-vc71.mak clean distclean
+nmake -f nmake-vc71.mak all install clobber</BuildCommand><Path>.\test\unit</Path><Comment></Comment></Target><Target name="STLport Run Unit Tests" id="{088BF6EF-BC42-4D08-94DE-BB51C2ECF242}" config="{511B0C0C-BD42-4EF0-83FE-1F621AFFD3EF}" build="no"><BuildCommand>stl_unit_test_d50.exe &gt; ..\..\build\msvc71_debug-shared.txt
+type ..\..\build\msvc71_debug-shared.txt
+stl_unit_test_r50.exe &gt; ..\..\build\msvc71_release-shared.txt
+type ..\..\build\msvc71_release-shared.txt
+stl_unit_test_stld50.exe &gt; ..\..\build\msvc71_stldebug-shared.txt
+type ..\..\build\msvc71_stldebug-shared.txt
+stl_unit_test_static_d50.exe &gt; ..\..\build\msvc71_debug-static.txt
+type ..\..\build\msvc71_debug-static.txt
+stl_unit_test_static_r50.exe &gt; ..\..\build\msvc71_release-static.txt
+type ..\..\build\msvc71_release-static.txt
+stl_unit_test_static_stld50.exe &gt; ..\..\build\msvc71_stldebug-static.txt
+type ..\..\build\msvc71_stldebug-static.txt</BuildCommand><Path>..\bin\vc71</Path><Comment></Comment></Target><Target name="STLport Library" id="{822ABD82-EED1-4FED-9053-895D8AB83FF5}" config="{CD2DEA17-8C64-43EE-9C0E-29A5FAE9915A}" build="no"><BuildCommand>nmake -f nmake-vc8.mak clean distclean
+nmake -f nmake-vc8.mak all install clobber</BuildCommand><Path>.\lib</Path><Comment></Comment></Target><Target name="STLport Unit Test" id="{EE6919F0-47EF-4564-9644-3F674EE40335}" config="{CD2DEA17-8C64-43EE-9C0E-29A5FAE9915A}" build="no"><BuildCommand>nmake -f nmake-vc8.mak clean distclean
+nmake -f nmake-vc8.mak all install clobber</BuildCommand><Path>.\test\unit</Path><Comment></Comment></Target><Target name="STLport Run Test" id="{825EF340-D74C-45B0-98EC-6F38D40636E1}" config="{CD2DEA17-8C64-43EE-9C0E-29A5FAE9915A}" build="no"><BuildCommand>stl_unit_test_d50.exe &gt; ..\..\build\msvc8_debug-shared.txt
+type ..\..\build\msvc8_debug-shared.txt
+stl_unit_test_r50.exe &gt; ..\..\build\msvc8_release-shared.txt
+type ..\..\build\msvc8_release-shared.txt
+stl_unit_test_stld50.exe &gt; ..\..\build\msvc8_stldebug-shared.txt
+type ..\..\build\msvc8_stldebug-shared.txt
+stl_unit_test_static_d50.exe &gt; ..\..\build\msvc8_debug-static.txt
+type ..\..\build\msvc8_debug-static.txt
+stl_unit_test_static_r50.exe &gt; ..\..\build\msvc8_release-static.txt
+type ..\..\build\msvc8_release-static.txt
+stl_unit_test_static_stld50.exe &gt; ..\..\build\msvc8_stldebug-static.txt
+type ..\..\build\msvc8_stldebug-static.txt</BuildCommand><Path>..\bin\vc8</Path><Comment></Comment></Target><Target name="STLport Library" id="{B59C5A5D-B8D4-45F2-8B71-AA9FD60AD565}" config="{E9024E38-DD00-4E04-867F-CC972AF5FA77}" build="no"><BuildCommand>nmake -f nmake-evc3.mak clean distclean
+nmake -f nmake-evc3.mak all install clobber
+</BuildCommand><Path>.\lib</Path><Comment></Comment></Target><Target name="STLport Unit Test" id="{53B5AEAF-5BD4-4D27-9944-04CE6C1D9EFB}" config="{E9024E38-DD00-4E04-867F-CC972AF5FA77}" build="no"><BuildCommand>nmake -f nmake-evc3.mak clean distclean
+nmake -f nmake-evc3.mak all install clobber</BuildCommand><Path>.\test\unit</Path><Comment></Comment></Target><Target name="STLport Unit Test _STLP_NO_IOSTREAMS" id="{C8F8C744-E130-410B-A3BD-2046362AC308}" config="{E9024E38-DD00-4E04-867F-CC972AF5FA77}" build="no"><BuildCommand>echo DEFS=/D_STLP_NO_IOSTREAMS /D_STLP_DONT_USE_AUTO_LINK /D_STLP_LEAKS_PEDANTIC &gt;&gt; ..\..\Makefiles\config.mak
+REM nmake -f nmake-evc3.mak clean distclean
+REM nmake -f nmake-evc3.mak all install clobber
+nmake -f nmake-evc3.mak release-shared install-release-shared</BuildCommand><Path>.\test\unit</Path><Comment></Comment></Target><Target name="STLport Run Unit Test" id="{F519F59C-430A-4BD8-9A65-E9B1FD39E088}" config="{E9024E38-DD00-4E04-867F-CC972AF5FA77}" build="no"><BuildCommand>cscript test-STLport-evc.vbs evc3-arm release-shared
+type evc3-arm_release-shared.txt
+cscript test-STLport-evc.vbs evc3-arm debug-shared
+type evc3-arm_debug-shared.txt
+
+cscript test-STLport-evc.vbs evc3-arm release-static
+type evc3-arm_release-static.txt
+cscript test-STLport-evc.vbs evc3-arm debug-static
+type evc3-arm_debug-static.txt</BuildCommand><Path>..\build</Path><Comment></Comment></Target><Target name="STLport Library" id="{699C1B3C-2D6C-4DBF-96CD-34A3E489B765}" config="{D6145B97-3BB0-42DE-A26E-6DBC8355BE36}" build="no"><BuildCommand>nmake -f nmake-evc3.mak clean distclean
+nmake -f nmake-evc3.mak all install clobber</BuildCommand><Path>.\lib</Path><Comment></Comment></Target><Target name="STLport Unit Test" id="{42549745-5757-4EDB-BED3-BB91C92B820B}" config="{D6145B97-3BB0-42DE-A26E-6DBC8355BE36}" build="no"><BuildCommand>nmake -f nmake-evc3.mak clean distclean
+nmake -f nmake-evc3.mak all install clobber</BuildCommand><Path>.\test\unit</Path><Comment></Comment></Target><Target name="STLport Run Unit Test" id="{8255EEBE-BF22-4A37-BA04-B4FAB11C7C90}" config="{D6145B97-3BB0-42DE-A26E-6DBC8355BE36}" build="no"><BuildCommand>cscript test-STLport-evc.vbs evc3-x86 release-shared
+type evc3-x86_release-shared.txt
+cscript test-STLport-evc.vbs evc3-x86 debug-shared
+type evc3-x86_debug-shared.txt
+cscript test-STLport-evc.vbs evc3-x86 stldebug-shared
+type evc3-x86_stldebug-shared.txt
+
+cscript test-STLport-evc.vbs evc3-x86 release-static
+type evc3-x86_release-static.txt
+cscript test-STLport-evc.vbs evc3-x86 debug-static
+type evc3-x86_debug-static.txt
+cscript test-STLport-evc.vbs evc3-x86 stldebug-static
+type evc3-x86_stldebug-static.txt
+</BuildCommand><Path>..\build</Path><Comment></Comment></Target><Target name="STLport Library" id="{5CED869F-BE6D-4496-9CAB-EBEE3CE3AE56}" config="{D22676DF-5C0E-4219-AFCE-136447819CF4}" build="no"><BuildCommand>nmake -f nmake-evc3.mak clean distclean
+nmake -f nmake-evc3.mak all install clobber</BuildCommand><Path>.\lib</Path><Comment></Comment></Target><Target name="STLport Library" id="{F1A416DC-2715-4D08-BDA7-97D56515D363}" config="{465E1890-0D2F-4D95-8798-B475B1A85A89}" build="no"><BuildCommand>nmake -f nmake-evc4.mak clean distclean
+nmake -f nmake-evc4.mak all install clobber</BuildCommand><Path>.\lib</Path><Comment></Comment></Target><Target name="STLport Unit Test" id="{9AA56840-A963-4FEB-9BA5-1EF3DBA2B231}" config="{465E1890-0D2F-4D95-8798-B475B1A85A89}" build="no"><BuildCommand>nmake -f nmake-evc4.mak clean distclean
+nmake -f nmake-evc4.mak all install clobber</BuildCommand><Path>.\test\unit</Path><Comment></Comment></Target><Target name="STLport Run Unit Test" id="{F4A76829-9E79-4394-AE2A-8472C5C1B279}" config="{465E1890-0D2F-4D95-8798-B475B1A85A89}" build="no"><BuildCommand>cscript test-STLport-evc.vbs evc4-arm release-shared
+type evc4-arm_release-shared.txt
+cscript test-STLport-evc.vbs evc4-arm debug-shared
+type evc4-arm_debug-shared.txt
+
+cscript test-STLport-evc.vbs evc4-arm release-static
+type evc4-arm_release-static.txt
+cscript test-STLport-evc.vbs evc4-arm debug-static
+type evc4-arm_debug-static.txt</BuildCommand><Path>..\build</Path><Comment></Comment></Target><Target name="STLport Library" id="{C768BC7F-3BEC-49DB-BF24-0E06ECF64609}" config="{8F69817B-7B63-4207-8A6F-125C6853873A}" build="no"><BuildCommand>nmake -f nmake-evc4.mak clean distclean
+nmake -f nmake-evc4.mak all install clobber</BuildCommand><Path>.\lib</Path><Comment></Comment></Target><Target name="STLport Unit Test" id="{20192C1C-909B-4830-88FB-3614E44108C5}" config="{8F69817B-7B63-4207-8A6F-125C6853873A}" build="no"><BuildCommand>nmake -f nmake-evc4.mak clean distclean
+nmake -f nmake-evc4.mak all install clobber</BuildCommand><Path>.\test\unit</Path><Comment></Comment></Target><Target name="STLport Run Unit Test" id="{0D8FF2E0-EF67-40B2-9258-02393319E195}" config="{8F69817B-7B63-4207-8A6F-125C6853873A}" build="no"><BuildCommand>cscript test-STLport-evc.vbs evc4-x86 release-shared
+type evc4-x86_release-shared.txt
+cscript test-STLport-evc.vbs evc4-x86 debug-shared
+type evc4-x86_debug-shared.txt
+cscript test-STLport-evc.vbs evc4-x86 stldebug-shared
+type evc4-x86_stldebug-shared.txt
+
+cscript test-STLport-evc.vbs evc4-x86 release-static
+type evc4-x86_release-static.txt
+cscript test-STLport-evc.vbs evc4-x86 debug-static
+type evc4-x86_debug-static.txt
+cscript test-STLport-evc.vbs evc4-x86 stldebug-static
+type evc4-x86_stldebug-static.txt
+</BuildCommand><Path>.\</Path><Comment></Comment></Target></BuildTargetsList></BuildManagerProject>

@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="Windows-1252"?>
+<VisualStudioPropertySheet
+	ProjectType="Visual C++"
+	Version="8.00"
+	Name="GB_XSI70"
+	>
+
+    <Tool
+	Name="VCCLCompilerTool"
+	PreprocessorDefinitions="EE_EFD_IMPORT;XSI70"
+    />
+
+    <Tool
+	Name="VCLinkerTool"
+	AdditionalDependencies="$(EMERGENT_PATH)\SDK\Win32\Lib\VC90\$(EE_EFD_Configuration_Name)$(EE_EFD_Target_Suffix)\efd$(EE_EFD_DLL_Suffix).lib"
+    />
+
+    <UserMacro
+	Name="EE_EFD_Target_Suffix"
+	Value="DLL"
+    />
+
+    <UserMacro
+	Name="XSIINSTALLPATH"
+	Value="$(XSIINSTALLPATH70)"
+    />
+    
+    <UserMacro
+        Name="XSIVERSION"
+        Value="XSI70"
+    />
+
+    <UserMacro
+        Name="XSISDK_ROOT"
+        Value="$(XSISDK70)"
+    />
+    
+    <UserMacro
+        Name="CROSSWALKSDK_ROOT"
+        Value="$(CROSSWALKSDK30)"
+    />
+    
+    <UserMacro
+        Name="GLH"
+        Value="$(GLH70)"
+    />
+    
+    <UserMacro
+        Name="XSIWORKGROUPPATH"
+        Value="$(XSIWORKGROUPPATH70)"
+    />
+</VisualStudioPropertySheet>
