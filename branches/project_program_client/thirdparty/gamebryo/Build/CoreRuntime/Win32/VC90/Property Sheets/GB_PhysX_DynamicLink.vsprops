@@ -1,0 +1,13 @@
+<?xml version="1.0"?>
+<VisualStudioPropertySheet
+	ProjectType="Visual C++"
+	Version="8.00"
+    Name="GB_PhysX_DynamicLink"
+    InheritedPropertySheets="GB_PhysX_Compile.vsprops"
+	>
+	<Tool
+        Name="VCLinkerTool"
+        AdditionalLibraryDirectories="&quot;$(PHYSXINSTALLPATH)\SDKs\lib\win32\&quot;;$(EMERGENT_PATH)\SDK\Win32\Lib\VC90\$(EE_EFD_Configuration_Name)DLL\"
+        AdditionalDependencies="PhysXLoader.lib efdPhysX$(EE_EFD_DLL_Suffix).lib"
+	/>
+</VisualStudioPropertySheet>

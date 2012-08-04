@@ -1,0 +1,48 @@
+Microsoft Visual Studio Solution File, Format Version 10.00
+# Visual Studio 2008
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "NiApplication", "..\..\..\..\Source\CoreRuntime\AppFrameworks\NiApplication\Win32\VC90\NiApplication.vcproj", "{3ED9ED6D-E8D4-4D2B-BE17-6AF31C947650}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "NiSample", "..\..\..\..\Source\CoreRuntime\AppFrameworks\NiSample\Win32\VC90\NiSample.vcproj", "{47813F4F-2EEB-4BB2-AA7B-D3C3CE3CCAAE}"
+	ProjectSection(ProjectDependencies) = postProject
+		{3ED9ED6D-E8D4-4D2B-BE17-6AF31C947650} = {3ED9ED6D-E8D4-4D2B-BE17-6AF31C947650}
+	EndProjectSection
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		DebugDLL|Win32 = DebugDLL|Win32
+		Debug|Win32 = Debug|Win32
+		ReleaseDLL|Win32 = ReleaseDLL|Win32
+		Release|Win32 = Release|Win32
+		ShippingDLL|Win32 = ShippingDLL|Win32
+		Shipping|Win32 = Shipping|Win32
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{3ED9ED6D-E8D4-4D2B-BE17-6AF31C947650}.DebugDLL|Win32.ActiveCfg = DebugDLL|Win32
+		{3ED9ED6D-E8D4-4D2B-BE17-6AF31C947650}.DebugDLL|Win32.Build.0 = DebugDLL|Win32
+		{3ED9ED6D-E8D4-4D2B-BE17-6AF31C947650}.Debug|Win32.ActiveCfg = Debug|Win32
+		{3ED9ED6D-E8D4-4D2B-BE17-6AF31C947650}.Debug|Win32.Build.0 = Debug|Win32
+		{3ED9ED6D-E8D4-4D2B-BE17-6AF31C947650}.ReleaseDLL|Win32.ActiveCfg = ReleaseDLL|Win32
+		{3ED9ED6D-E8D4-4D2B-BE17-6AF31C947650}.ReleaseDLL|Win32.Build.0 = ReleaseDLL|Win32
+		{3ED9ED6D-E8D4-4D2B-BE17-6AF31C947650}.Release|Win32.ActiveCfg = Release|Win32
+		{3ED9ED6D-E8D4-4D2B-BE17-6AF31C947650}.Release|Win32.Build.0 = Release|Win32
+		{3ED9ED6D-E8D4-4D2B-BE17-6AF31C947650}.ShippingDLL|Win32.ActiveCfg = ShippingDLL|Win32
+		{3ED9ED6D-E8D4-4D2B-BE17-6AF31C947650}.ShippingDLL|Win32.Build.0 = ShippingDLL|Win32
+		{3ED9ED6D-E8D4-4D2B-BE17-6AF31C947650}.Shipping|Win32.ActiveCfg = Shipping|Win32
+		{3ED9ED6D-E8D4-4D2B-BE17-6AF31C947650}.Shipping|Win32.Build.0 = Shipping|Win32
+		{47813F4F-2EEB-4BB2-AA7B-D3C3CE3CCAAE}.DebugDLL|Win32.ActiveCfg = DebugDLL|Win32
+		{47813F4F-2EEB-4BB2-AA7B-D3C3CE3CCAAE}.DebugDLL|Win32.Build.0 = DebugDLL|Win32
+		{47813F4F-2EEB-4BB2-AA7B-D3C3CE3CCAAE}.Debug|Win32.ActiveCfg = Debug|Win32
+		{47813F4F-2EEB-4BB2-AA7B-D3C3CE3CCAAE}.Debug|Win32.Build.0 = Debug|Win32
+		{47813F4F-2EEB-4BB2-AA7B-D3C3CE3CCAAE}.ReleaseDLL|Win32.ActiveCfg = ReleaseDLL|Win32
+		{47813F4F-2EEB-4BB2-AA7B-D3C3CE3CCAAE}.ReleaseDLL|Win32.Build.0 = ReleaseDLL|Win32
+		{47813F4F-2EEB-4BB2-AA7B-D3C3CE3CCAAE}.Release|Win32.ActiveCfg = Release|Win32
+		{47813F4F-2EEB-4BB2-AA7B-D3C3CE3CCAAE}.Release|Win32.Build.0 = Release|Win32
+		{47813F4F-2EEB-4BB2-AA7B-D3C3CE3CCAAE}.ShippingDLL|Win32.ActiveCfg = ShippingDLL|Win32
+		{47813F4F-2EEB-4BB2-AA7B-D3C3CE3CCAAE}.ShippingDLL|Win32.Build.0 = ShippingDLL|Win32
+		{47813F4F-2EEB-4BB2-AA7B-D3C3CE3CCAAE}.Shipping|Win32.ActiveCfg = Shipping|Win32
+		{47813F4F-2EEB-4BB2-AA7B-D3C3CE3CCAAE}.Shipping|Win32.Build.0 = Shipping|Win32
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+EndGlobal

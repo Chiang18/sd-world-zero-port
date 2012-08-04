@@ -1,0 +1,33 @@
+Microsoft Visual Studio Solution File, Format Version 10.00
+# Visual Studio 2008
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "efdPhysX", "efdPhysX/efdPhysX.vcproj", "{63293FD4-F089-411C-9FA9-8B053D3D7E48}"
+	ProjectSection(ProjectDependencies) = postProject
+	EndProjectSection
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		DebugDLL|Win32 = DebugDLL|Win32
+		ReleaseDLL|Win32 = ReleaseDLL|Win32
+		ShippingDLL|Win32 = ShippingDLL|Win32
+		Debug|Win32 = Debug|Win32
+		Release|Win32 = Release|Win32
+		Shipping|Win32 = Shipping|Win32
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{63293FD4-F089-411C-9FA9-8B053D3D7E48}.DebugDLL|Win32.ActiveCfg = DebugDLL|Win32
+		{63293FD4-F089-411C-9FA9-8B053D3D7E48}.DebugDLL|Win32.Build.0 = DebugDLL|Win32
+		{63293FD4-F089-411C-9FA9-8B053D3D7E48}.ReleaseDLL|Win32.ActiveCfg = ReleaseDLL|Win32
+		{63293FD4-F089-411C-9FA9-8B053D3D7E48}.ReleaseDLL|Win32.Build.0 = ReleaseDLL|Win32
+		{63293FD4-F089-411C-9FA9-8B053D3D7E48}.ShippingDLL|Win32.ActiveCfg = ShippingDLL|Win32
+		{63293FD4-F089-411C-9FA9-8B053D3D7E48}.ShippingDLL|Win32.Build.0 = ShippingDLL|Win32
+		{63293FD4-F089-411C-9FA9-8B053D3D7E48}.Debug|Win32.ActiveCfg = Debug|Win32
+		{63293FD4-F089-411C-9FA9-8B053D3D7E48}.Debug|Win32.Build.0 = Debug|Win32
+		{63293FD4-F089-411C-9FA9-8B053D3D7E48}.Release|Win32.ActiveCfg = Release|Win32
+		{63293FD4-F089-411C-9FA9-8B053D3D7E48}.Release|Win32.Build.0 = Release|Win32
+		{63293FD4-F089-411C-9FA9-8B053D3D7E48}.Shipping|Win32.ActiveCfg = Shipping|Win32
+		{63293FD4-F089-411C-9FA9-8B053D3D7E48}.Shipping|Win32.Build.0 = Shipping|Win32
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+EndGlobal
