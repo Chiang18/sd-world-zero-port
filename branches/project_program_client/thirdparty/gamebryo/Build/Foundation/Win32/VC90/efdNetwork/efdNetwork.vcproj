@@ -6,6 +6,7 @@
 	ProjectGUID="{DF4BB1B9-862D-4E39-9A70-F8244DB37412}"
 	RootNamespace="efdNetwork"
 	Keyword="Win32Proj"
+	TargetFrameworkVersion="0"
 	>
 	<Platforms>
 		<Platform
@@ -18,7 +19,7 @@
 		<Configuration
 			Name="DebugDLL|Win32"
 			OutputDirectory="DebugDLL/../../../../../../SDK/Win32/Dll"
-			IntermediateDirectory="DebugDLL"
+			IntermediateDirectory="$(EMERGENT_PATH)\Obj\$(ConfigurationName)\$(ProjectName)"
 			ConfigurationType="2"
 			CharacterSet="0"
 			>
@@ -28,8 +29,8 @@
 			<Tool
 				Name="VCCustomBuildTool"
 				CommandLine=""
-				Outputs=""
 				AdditionalDependencies=""
+				Outputs=""
 			/>
 			<Tool
 				Name="VCXMLDataGeneratorTool"
@@ -99,22 +100,14 @@
 				Name="VCAppVerifierTool"
 			/>
 			<Tool
-				Name="VCWebDeploymentTool"
-			/>
-			<Tool
-				Name="VCX360DeploymentTool"
-				RemoteRoot="xe:\$(ProjectName)"
-				DeploymentType="0"
-			/>
-			<Tool
 				Name="VCPostBuildEventTool"
-				CommandLine=":: FIND/CREATE THE SDK DIRECTORY&#x0D;&#x0A;if not exist &quot;..\..\..\..\..\SDK&quot; mkdir &quot;..\..\..\..\..\SDK&quot;&#x0D;&#x0A;if not exist &quot;..\..\..\..\..\SDK\Win32&quot; mkdir &quot;..\..\..\..\..\SDK\Win32&quot;&#x0D;&#x0A;if not exist &quot;..\..\..\..\..\SDK\Win32\Include\efdNetwork&quot; mkdir &quot;..\..\..\..\..\SDK\Win32\Include\efdNetwork&quot;&#x0D;&#x0A;if exist &quot;..\..\..\..\..\Source\Foundation\efdNetwork\Win32&quot; if not exist &quot;..\..\..\..\..\SDK\Win32\Include\efdNetwork\Win32&quot; mkdir &quot;..\..\..\..\..\SDK\Win32\Include\efdNetwork\Win32&quot;&#x0D;&#x0A;if not exist &quot;..\..\..\..\..\SDK\Win32\Dll&quot; mkdir &quot;..\..\..\..\..\SDK\Win32\Dll&quot;&#x0D;&#x0A;if not exist &quot;..\..\..\..\..\SDK\Win32\Python&quot; mkdir &quot;..\..\..\..\..\SDK\Win32\Python&quot;&#x0D;&#x0A;if not exist &quot;..\..\..\..\..\SDK\Win32\Lua&quot; mkdir &quot;..\..\..\..\..\SDK\Win32\Lua&quot;&#x0D;&#x0A;:: COPY STANDARD FILES&#x0D;&#x0A;if exist &quot;..\..\..\..\..\Source\Foundation\efdNetwork&quot; xcopy &quot;..\..\..\..\..\Source\Foundation\efdNetwork\*.h&quot; &quot;..\..\..\..\..\SDK\Win32\Include\efdNetwork\.&quot; /Y /I /F /R /D&#x0D;&#x0A;if exist &quot;..\..\..\..\..\Source\Foundation\efdNetwork&quot; xcopy &quot;..\..\..\..\..\Source\Foundation\efdNetwork\*.i&quot; &quot;..\..\..\..\..\SDK\Win32\Include\efdNetwork\.&quot; /Y /I /F /R /D&#x0D;&#x0A;if exist &quot;..\..\..\..\..\Source\Foundation\efdNetwork&quot; xcopy &quot;..\..\..\..\..\Source\Foundation\efdNetwork\*.inl&quot; &quot;..\..\..\..\..\SDK\Win32\Include\efdNetwork\.&quot; /Y /I /F /R /D&#x0D;&#x0A;if exist &quot;..\..\..\..\..\Source\Foundation\efdNetwork\Win32&quot; xcopy &quot;..\..\..\..\..\Source\Foundation\efdNetwork\Win32\*.h&quot; &quot;..\..\..\..\..\SDK\Win32\Include\efdNetwork\Win32\.&quot; /Y /I /F /R /D&#x0D;&#x0A;if exist &quot;..\..\..\..\..\Source\Foundation\efdNetwork\Win32&quot; xcopy &quot;..\..\..\..\..\Source\Foundation\efdNetwork\Win32\*.i&quot; &quot;..\..\..\..\..\SDK\Win32\Include\efdNetwork\Win32\.&quot; /Y /I /F /R /D&#x0D;&#x0A;if exist &quot;..\..\..\..\..\Source\Foundation\efdNetwork\Win32&quot; xcopy &quot;..\..\..\..\..\Source\Foundation\efdNetwork\Win32\*.inl&quot; &quot;..\..\..\..\..\SDK\Win32\Include\efdNetwork\Win32\.&quot; /Y /I /F /R /D&#x0D;&#x0A;:: COPY SCRIPTS&#x0D;&#x0A;if exist &quot;..\..\..\..\..\Source\Foundation\efdNetwork\Scripts\*.py&quot; xcopy /D /F /I /R /Y &quot;..\..\..\..\..\Source\Foundation\efdNetwork\Scripts\*.py&quot; ..\..\..\..\..\SDK\Win32\Python&#x0D;&#x0A;if exist &quot;..\..\..\..\..\Source\Foundation\efdNetwork\Scripts\*.lua&quot; xcopy /D /F /I /R /Y &quot;..\..\..\..\..\Source\Foundation\efdNetwork\Scripts\*.lua&quot; ..\..\..\..\..\SDK\Win32\Lua"
+				CommandLine=":: FIND/CREATE THE SDK DIRECTORY&#x0D;&#x0A;if not exist &quot;..\..\..\..\..\SDK&quot; mkdir &quot;..\..\..\..\..\SDK&quot;&#x0D;&#x0A;if not exist &quot;..\..\..\..\..\SDK\Win32&quot; mkdir &quot;..\..\..\..\..\SDK\Win32&quot;&#x0D;&#x0A;if not exist &quot;..\..\..\..\..\SDK\Win32\Include\efdNetwork&quot; mkdir &quot;..\..\..\..\..\SDK\Win32\Include\efdNetwork&quot;&#x0D;&#x0A;if exist &quot;..\..\..\..\..\Source\Foundation\efdNetwork\Win32&quot; if not exist &quot;..\..\..\..\..\SDK\Win32\Include\efdNetwork\Win32&quot; mkdir &quot;..\..\..\..\..\SDK\Win32\Include\efdNetwork\Win32&quot;&#x0D;&#x0A;if not exist &quot;..\..\..\..\..\SDK\Win32\Dll&quot; mkdir &quot;..\..\..\..\..\SDK\Win32\Dll&quot;&#x0D;&#x0A;if not exist &quot;..\..\..\..\..\SDK\Win32\Python&quot; mkdir &quot;..\..\..\..\..\SDK\Win32\Python&quot;&#x0D;&#x0A;if not exist &quot;..\..\..\..\..\SDK\Win32\Lua&quot; mkdir &quot;..\..\..\..\..\SDK\Win32\Lua&quot;&#x0D;&#x0A;:: COPY STANDARD FILES&#x0D;&#x0A;if exist &quot;..\..\..\..\..\Source\Foundation\efdNetwork&quot; xcopy &quot;..\..\..\..\..\Source\Foundation\efdNetwork\*.h&quot; &quot;..\..\..\..\..\SDK\Win32\Include\efdNetwork\.&quot; /Y /I /F /R /D&#x0D;&#x0A;if exist &quot;..\..\..\..\..\Source\Foundation\efdNetwork&quot; xcopy &quot;..\..\..\..\..\Source\Foundation\efdNetwork\*.i&quot; &quot;..\..\..\..\..\SDK\Win32\Include\efdNetwork\.&quot; /Y /I /F /R /D&#x0D;&#x0A;if exist &quot;..\..\..\..\..\Source\Foundation\efdNetwork&quot; xcopy &quot;..\..\..\..\..\Source\Foundation\efdNetwork\*.inl&quot; &quot;..\..\..\..\..\SDK\Win32\Include\efdNetwork\.&quot; /Y /I /F /R /D&#x0D;&#x0A;if exist &quot;..\..\..\..\..\Source\Foundation\efdNetwork\Win32&quot; xcopy &quot;..\..\..\..\..\Source\Foundation\efdNetwork\Win32\*.h&quot; &quot;..\..\..\..\..\SDK\Win32\Include\efdNetwork\Win32\.&quot; /Y /I /F /R /D&#x0D;&#x0A;if exist &quot;..\..\..\..\..\Source\Foundation\efdNetwork\Win32&quot; xcopy &quot;..\..\..\..\..\Source\Foundation\efdNetwork\Win32\*.i&quot; &quot;..\..\..\..\..\SDK\Win32\Include\efdNetwork\Win32\.&quot; /Y /I /F /R /D&#x0D;&#x0A;if exist &quot;..\..\..\..\..\Source\Foundation\efdNetwork\Win32&quot; xcopy &quot;..\..\..\..\..\Source\Foundation\efdNetwork\Win32\*.inl&quot; &quot;..\..\..\..\..\SDK\Win32\Include\efdNetwork\Win32\.&quot; /Y /I /F /R /D&#x0D;&#x0A;:: COPY SCRIPTS&#x0D;&#x0A;if exist &quot;..\..\..\..\..\Source\Foundation\efdNetwork\Scripts\*.py&quot; xcopy /D /F /I /R /Y &quot;..\..\..\..\..\Source\Foundation\efdNetwork\Scripts\*.py&quot; ..\..\..\..\..\SDK\Win32\Python&#x0D;&#x0A;if exist &quot;..\..\..\..\..\Source\Foundation\efdNetwork\Scripts\*.lua&quot; xcopy /D /F /I /R /Y &quot;..\..\..\..\..\Source\Foundation\efdNetwork\Scripts\*.lua&quot; ..\..\..\..\..\SDK\Win32\Lua&#x0D;&#x0A;"
 			/>
 		</Configuration>
 		<Configuration
 			Name="ReleaseDLL|Win32"
 			OutputDirectory="ReleaseDLL/../../../../../../SDK/Win32/Dll"
-			IntermediateDirectory="ReleaseDLL"
+			IntermediateDirectory="$(EMERGENT_PATH)\Obj\$(ConfigurationName)\$(ProjectName)"
 			ConfigurationType="2"
 			CharacterSet="0"
 			>
@@ -124,8 +117,8 @@
 			<Tool
 				Name="VCCustomBuildTool"
 				CommandLine=""
-				Outputs=""
 				AdditionalDependencies=""
+				Outputs=""
 			/>
 			<Tool
 				Name="VCXMLDataGeneratorTool"
@@ -195,22 +188,14 @@
 				Name="VCAppVerifierTool"
 			/>
 			<Tool
-				Name="VCWebDeploymentTool"
-			/>
-			<Tool
-				Name="VCX360DeploymentTool"
-				RemoteRoot="xe:\$(ProjectName)"
-				DeploymentType="0"
-			/>
-			<Tool
 				Name="VCPostBuildEventTool"
-				CommandLine=":: FIND/CREATE THE SDK DIRECTORY&#x0D;&#x0A;if not exist &quot;..\..\..\..\..\SDK&quot; mkdir &quot;..\..\..\..\..\SDK&quot;&#x0D;&#x0A;if not exist &quot;..\..\..\..\..\SDK\Win32&quot; mkdir &quot;..\..\..\..\..\SDK\Win32&quot;&#x0D;&#x0A;if not exist &quot;..\..\..\..\..\SDK\Win32\Include\efdNetwork&quot; mkdir &quot;..\..\..\..\..\SDK\Win32\Include\efdNetwork&quot;&#x0D;&#x0A;if exist &quot;..\..\..\..\..\Source\Foundation\efdNetwork\Win32&quot; if not exist &quot;..\..\..\..\..\SDK\Win32\Include\efdNetwork\Win32&quot; mkdir &quot;..\..\..\..\..\SDK\Win32\Include\efdNetwork\Win32&quot;&#x0D;&#x0A;if not exist &quot;..\..\..\..\..\SDK\Win32\Dll&quot; mkdir &quot;..\..\..\..\..\SDK\Win32\Dll&quot;&#x0D;&#x0A;if not exist &quot;..\..\..\..\..\SDK\Win32\Python&quot; mkdir &quot;..\..\..\..\..\SDK\Win32\Python&quot;&#x0D;&#x0A;if not exist &quot;..\..\..\..\..\SDK\Win32\Lua&quot; mkdir &quot;..\..\..\..\..\SDK\Win32\Lua&quot;&#x0D;&#x0A;:: COPY STANDARD FILES&#x0D;&#x0A;if exist &quot;..\..\..\..\..\Source\Foundation\efdNetwork&quot; xcopy &quot;..\..\..\..\..\Source\Foundation\efdNetwork\*.h&quot; &quot;..\..\..\..\..\SDK\Win32\Include\efdNetwork\.&quot; /Y /I /F /R /D&#x0D;&#x0A;if exist &quot;..\..\..\..\..\Source\Foundation\efdNetwork&quot; xcopy &quot;..\..\..\..\..\Source\Foundation\efdNetwork\*.i&quot; &quot;..\..\..\..\..\SDK\Win32\Include\efdNetwork\.&quot; /Y /I /F /R /D&#x0D;&#x0A;if exist &quot;..\..\..\..\..\Source\Foundation\efdNetwork&quot; xcopy &quot;..\..\..\..\..\Source\Foundation\efdNetwork\*.inl&quot; &quot;..\..\..\..\..\SDK\Win32\Include\efdNetwork\.&quot; /Y /I /F /R /D&#x0D;&#x0A;if exist &quot;..\..\..\..\..\Source\Foundation\efdNetwork\Win32&quot; xcopy &quot;..\..\..\..\..\Source\Foundation\efdNetwork\Win32\*.h&quot; &quot;..\..\..\..\..\SDK\Win32\Include\efdNetwork\Win32\.&quot; /Y /I /F /R /D&#x0D;&#x0A;if exist &quot;..\..\..\..\..\Source\Foundation\efdNetwork\Win32&quot; xcopy &quot;..\..\..\..\..\Source\Foundation\efdNetwork\Win32\*.i&quot; &quot;..\..\..\..\..\SDK\Win32\Include\efdNetwork\Win32\.&quot; /Y /I /F /R /D&#x0D;&#x0A;if exist &quot;..\..\..\..\..\Source\Foundation\efdNetwork\Win32&quot; xcopy &quot;..\..\..\..\..\Source\Foundation\efdNetwork\Win32\*.inl&quot; &quot;..\..\..\..\..\SDK\Win32\Include\efdNetwork\Win32\.&quot; /Y /I /F /R /D&#x0D;&#x0A;:: COPY SCRIPTS&#x0D;&#x0A;if exist &quot;..\..\..\..\..\Source\Foundation\efdNetwork\Scripts\*.py&quot; xcopy /D /F /I /R /Y &quot;..\..\..\..\..\Source\Foundation\efdNetwork\Scripts\*.py&quot; ..\..\..\..\..\SDK\Win32\Python&#x0D;&#x0A;if exist &quot;..\..\..\..\..\Source\Foundation\efdNetwork\Scripts\*.lua&quot; xcopy /D /F /I /R /Y &quot;..\..\..\..\..\Source\Foundation\efdNetwork\Scripts\*.lua&quot; ..\..\..\..\..\SDK\Win32\Lua"
+				CommandLine=":: FIND/CREATE THE SDK DIRECTORY&#x0D;&#x0A;if not exist &quot;..\..\..\..\..\SDK&quot; mkdir &quot;..\..\..\..\..\SDK&quot;&#x0D;&#x0A;if not exist &quot;..\..\..\..\..\SDK\Win32&quot; mkdir &quot;..\..\..\..\..\SDK\Win32&quot;&#x0D;&#x0A;if not exist &quot;..\..\..\..\..\SDK\Win32\Include\efdNetwork&quot; mkdir &quot;..\..\..\..\..\SDK\Win32\Include\efdNetwork&quot;&#x0D;&#x0A;if exist &quot;..\..\..\..\..\Source\Foundation\efdNetwork\Win32&quot; if not exist &quot;..\..\..\..\..\SDK\Win32\Include\efdNetwork\Win32&quot; mkdir &quot;..\..\..\..\..\SDK\Win32\Include\efdNetwork\Win32&quot;&#x0D;&#x0A;if not exist &quot;..\..\..\..\..\SDK\Win32\Dll&quot; mkdir &quot;..\..\..\..\..\SDK\Win32\Dll&quot;&#x0D;&#x0A;if not exist &quot;..\..\..\..\..\SDK\Win32\Python&quot; mkdir &quot;..\..\..\..\..\SDK\Win32\Python&quot;&#x0D;&#x0A;if not exist &quot;..\..\..\..\..\SDK\Win32\Lua&quot; mkdir &quot;..\..\..\..\..\SDK\Win32\Lua&quot;&#x0D;&#x0A;:: COPY STANDARD FILES&#x0D;&#x0A;if exist &quot;..\..\..\..\..\Source\Foundation\efdNetwork&quot; xcopy &quot;..\..\..\..\..\Source\Foundation\efdNetwork\*.h&quot; &quot;..\..\..\..\..\SDK\Win32\Include\efdNetwork\.&quot; /Y /I /F /R /D&#x0D;&#x0A;if exist &quot;..\..\..\..\..\Source\Foundation\efdNetwork&quot; xcopy &quot;..\..\..\..\..\Source\Foundation\efdNetwork\*.i&quot; &quot;..\..\..\..\..\SDK\Win32\Include\efdNetwork\.&quot; /Y /I /F /R /D&#x0D;&#x0A;if exist &quot;..\..\..\..\..\Source\Foundation\efdNetwork&quot; xcopy &quot;..\..\..\..\..\Source\Foundation\efdNetwork\*.inl&quot; &quot;..\..\..\..\..\SDK\Win32\Include\efdNetwork\.&quot; /Y /I /F /R /D&#x0D;&#x0A;if exist &quot;..\..\..\..\..\Source\Foundation\efdNetwork\Win32&quot; xcopy &quot;..\..\..\..\..\Source\Foundation\efdNetwork\Win32\*.h&quot; &quot;..\..\..\..\..\SDK\Win32\Include\efdNetwork\Win32\.&quot; /Y /I /F /R /D&#x0D;&#x0A;if exist &quot;..\..\..\..\..\Source\Foundation\efdNetwork\Win32&quot; xcopy &quot;..\..\..\..\..\Source\Foundation\efdNetwork\Win32\*.i&quot; &quot;..\..\..\..\..\SDK\Win32\Include\efdNetwork\Win32\.&quot; /Y /I /F /R /D&#x0D;&#x0A;if exist &quot;..\..\..\..\..\Source\Foundation\efdNetwork\Win32&quot; xcopy &quot;..\..\..\..\..\Source\Foundation\efdNetwork\Win32\*.inl&quot; &quot;..\..\..\..\..\SDK\Win32\Include\efdNetwork\Win32\.&quot; /Y /I /F /R /D&#x0D;&#x0A;:: COPY SCRIPTS&#x0D;&#x0A;if exist &quot;..\..\..\..\..\Source\Foundation\efdNetwork\Scripts\*.py&quot; xcopy /D /F /I /R /Y &quot;..\..\..\..\..\Source\Foundation\efdNetwork\Scripts\*.py&quot; ..\..\..\..\..\SDK\Win32\Python&#x0D;&#x0A;if exist &quot;..\..\..\..\..\Source\Foundation\efdNetwork\Scripts\*.lua&quot; xcopy /D /F /I /R /Y &quot;..\..\..\..\..\Source\Foundation\efdNetwork\Scripts\*.lua&quot; ..\..\..\..\..\SDK\Win32\Lua&#x0D;&#x0A;"
 			/>
 		</Configuration>
 		<Configuration
 			Name="ShippingDLL|Win32"
 			OutputDirectory="ShippingDLL/../../../../../../SDK/Win32/Dll"
-			IntermediateDirectory="ShippingDLL"
+			IntermediateDirectory="$(EMERGENT_PATH)\Obj\$(ConfigurationName)\$(ProjectName)"
 			ConfigurationType="2"
 			CharacterSet="0"
 			>
@@ -220,8 +205,8 @@
 			<Tool
 				Name="VCCustomBuildTool"
 				CommandLine=""
-				Outputs=""
 				AdditionalDependencies=""
+				Outputs=""
 			/>
 			<Tool
 				Name="VCXMLDataGeneratorTool"
@@ -291,22 +276,14 @@
 				Name="VCAppVerifierTool"
 			/>
 			<Tool
-				Name="VCWebDeploymentTool"
-			/>
-			<Tool
-				Name="VCX360DeploymentTool"
-				RemoteRoot="xe:\$(ProjectName)"
-				DeploymentType="0"
-			/>
-			<Tool
 				Name="VCPostBuildEventTool"
-				CommandLine=":: FIND/CREATE THE SDK DIRECTORY&#x0D;&#x0A;if not exist &quot;..\..\..\..\..\SDK&quot; mkdir &quot;..\..\..\..\..\SDK&quot;&#x0D;&#x0A;if not exist &quot;..\..\..\..\..\SDK\Win32&quot; mkdir &quot;..\..\..\..\..\SDK\Win32&quot;&#x0D;&#x0A;if not exist &quot;..\..\..\..\..\SDK\Win32\Include\efdNetwork&quot; mkdir &quot;..\..\..\..\..\SDK\Win32\Include\efdNetwork&quot;&#x0D;&#x0A;if exist &quot;..\..\..\..\..\Source\Foundation\efdNetwork\Win32&quot; if not exist &quot;..\..\..\..\..\SDK\Win32\Include\efdNetwork\Win32&quot; mkdir &quot;..\..\..\..\..\SDK\Win32\Include\efdNetwork\Win32&quot;&#x0D;&#x0A;if not exist &quot;..\..\..\..\..\SDK\Win32\Dll&quot; mkdir &quot;..\..\..\..\..\SDK\Win32\Dll&quot;&#x0D;&#x0A;if not exist &quot;..\..\..\..\..\SDK\Win32\Python&quot; mkdir &quot;..\..\..\..\..\SDK\Win32\Python&quot;&#x0D;&#x0A;if not exist &quot;..\..\..\..\..\SDK\Win32\Lua&quot; mkdir &quot;..\..\..\..\..\SDK\Win32\Lua&quot;&#x0D;&#x0A;:: COPY STANDARD FILES&#x0D;&#x0A;if exist &quot;..\..\..\..\..\Source\Foundation\efdNetwork&quot; xcopy &quot;..\..\..\..\..\Source\Foundation\efdNetwork\*.h&quot; &quot;..\..\..\..\..\SDK\Win32\Include\efdNetwork\.&quot; /Y /I /F /R /D&#x0D;&#x0A;if exist &quot;..\..\..\..\..\Source\Foundation\efdNetwork&quot; xcopy &quot;..\..\..\..\..\Source\Foundation\efdNetwork\*.i&quot; &quot;..\..\..\..\..\SDK\Win32\Include\efdNetwork\.&quot; /Y /I /F /R /D&#x0D;&#x0A;if exist &quot;..\..\..\..\..\Source\Foundation\efdNetwork&quot; xcopy &quot;..\..\..\..\..\Source\Foundation\efdNetwork\*.inl&quot; &quot;..\..\..\..\..\SDK\Win32\Include\efdNetwork\.&quot; /Y /I /F /R /D&#x0D;&#x0A;if exist &quot;..\..\..\..\..\Source\Foundation\efdNetwork\Win32&quot; xcopy &quot;..\..\..\..\..\Source\Foundation\efdNetwork\Win32\*.h&quot; &quot;..\..\..\..\..\SDK\Win32\Include\efdNetwork\Win32\.&quot; /Y /I /F /R /D&#x0D;&#x0A;if exist &quot;..\..\..\..\..\Source\Foundation\efdNetwork\Win32&quot; xcopy &quot;..\..\..\..\..\Source\Foundation\efdNetwork\Win32\*.i&quot; &quot;..\..\..\..\..\SDK\Win32\Include\efdNetwork\Win32\.&quot; /Y /I /F /R /D&#x0D;&#x0A;if exist &quot;..\..\..\..\..\Source\Foundation\efdNetwork\Win32&quot; xcopy &quot;..\..\..\..\..\Source\Foundation\efdNetwork\Win32\*.inl&quot; &quot;..\..\..\..\..\SDK\Win32\Include\efdNetwork\Win32\.&quot; /Y /I /F /R /D&#x0D;&#x0A;:: COPY SCRIPTS&#x0D;&#x0A;if exist &quot;..\..\..\..\..\Source\Foundation\efdNetwork\Scripts\*.py&quot; xcopy /D /F /I /R /Y &quot;..\..\..\..\..\Source\Foundation\efdNetwork\Scripts\*.py&quot; ..\..\..\..\..\SDK\Win32\Python&#x0D;&#x0A;if exist &quot;..\..\..\..\..\Source\Foundation\efdNetwork\Scripts\*.lua&quot; xcopy /D /F /I /R /Y &quot;..\..\..\..\..\Source\Foundation\efdNetwork\Scripts\*.lua&quot; ..\..\..\..\..\SDK\Win32\Lua"
+				CommandLine=":: FIND/CREATE THE SDK DIRECTORY&#x0D;&#x0A;if not exist &quot;..\..\..\..\..\SDK&quot; mkdir &quot;..\..\..\..\..\SDK&quot;&#x0D;&#x0A;if not exist &quot;..\..\..\..\..\SDK\Win32&quot; mkdir &quot;..\..\..\..\..\SDK\Win32&quot;&#x0D;&#x0A;if not exist &quot;..\..\..\..\..\SDK\Win32\Include\efdNetwork&quot; mkdir &quot;..\..\..\..\..\SDK\Win32\Include\efdNetwork&quot;&#x0D;&#x0A;if exist &quot;..\..\..\..\..\Source\Foundation\efdNetwork\Win32&quot; if not exist &quot;..\..\..\..\..\SDK\Win32\Include\efdNetwork\Win32&quot; mkdir &quot;..\..\..\..\..\SDK\Win32\Include\efdNetwork\Win32&quot;&#x0D;&#x0A;if not exist &quot;..\..\..\..\..\SDK\Win32\Dll&quot; mkdir &quot;..\..\..\..\..\SDK\Win32\Dll&quot;&#x0D;&#x0A;if not exist &quot;..\..\..\..\..\SDK\Win32\Python&quot; mkdir &quot;..\..\..\..\..\SDK\Win32\Python&quot;&#x0D;&#x0A;if not exist &quot;..\..\..\..\..\SDK\Win32\Lua&quot; mkdir &quot;..\..\..\..\..\SDK\Win32\Lua&quot;&#x0D;&#x0A;:: COPY STANDARD FILES&#x0D;&#x0A;if exist &quot;..\..\..\..\..\Source\Foundation\efdNetwork&quot; xcopy &quot;..\..\..\..\..\Source\Foundation\efdNetwork\*.h&quot; &quot;..\..\..\..\..\SDK\Win32\Include\efdNetwork\.&quot; /Y /I /F /R /D&#x0D;&#x0A;if exist &quot;..\..\..\..\..\Source\Foundation\efdNetwork&quot; xcopy &quot;..\..\..\..\..\Source\Foundation\efdNetwork\*.i&quot; &quot;..\..\..\..\..\SDK\Win32\Include\efdNetwork\.&quot; /Y /I /F /R /D&#x0D;&#x0A;if exist &quot;..\..\..\..\..\Source\Foundation\efdNetwork&quot; xcopy &quot;..\..\..\..\..\Source\Foundation\efdNetwork\*.inl&quot; &quot;..\..\..\..\..\SDK\Win32\Include\efdNetwork\.&quot; /Y /I /F /R /D&#x0D;&#x0A;if exist &quot;..\..\..\..\..\Source\Foundation\efdNetwork\Win32&quot; xcopy &quot;..\..\..\..\..\Source\Foundation\efdNetwork\Win32\*.h&quot; &quot;..\..\..\..\..\SDK\Win32\Include\efdNetwork\Win32\.&quot; /Y /I /F /R /D&#x0D;&#x0A;if exist &quot;..\..\..\..\..\Source\Foundation\efdNetwork\Win32&quot; xcopy &quot;..\..\..\..\..\Source\Foundation\efdNetwork\Win32\*.i&quot; &quot;..\..\..\..\..\SDK\Win32\Include\efdNetwork\Win32\.&quot; /Y /I /F /R /D&#x0D;&#x0A;if exist &quot;..\..\..\..\..\Source\Foundation\efdNetwork\Win32&quot; xcopy &quot;..\..\..\..\..\Source\Foundation\efdNetwork\Win32\*.inl&quot; &quot;..\..\..\..\..\SDK\Win32\Include\efdNetwork\Win32\.&quot; /Y /I /F /R /D&#x0D;&#x0A;:: COPY SCRIPTS&#x0D;&#x0A;if exist &quot;..\..\..\..\..\Source\Foundation\efdNetwork\Scripts\*.py&quot; xcopy /D /F /I /R /Y &quot;..\..\..\..\..\Source\Foundation\efdNetwork\Scripts\*.py&quot; ..\..\..\..\..\SDK\Win32\Python&#x0D;&#x0A;if exist &quot;..\..\..\..\..\Source\Foundation\efdNetwork\Scripts\*.lua&quot; xcopy /D /F /I /R /Y &quot;..\..\..\..\..\Source\Foundation\efdNetwork\Scripts\*.lua&quot; ..\..\..\..\..\SDK\Win32\Lua&#x0D;&#x0A;"
 			/>
 		</Configuration>
 		<Configuration
 			Name="Debug|Win32"
 			OutputDirectory="Debug/../../../../../../SDK/Win32/Lib/VC90/Debug"
-			IntermediateDirectory="Debug"
+			IntermediateDirectory="$(EMERGENT_PATH)\Obj\$(ConfigurationName)\$(ProjectName)"
 			ConfigurationType="4"
 			CharacterSet="0"
 			>
@@ -316,8 +293,8 @@
 			<Tool
 				Name="VCCustomBuildTool"
 				CommandLine=""
-				Outputs=""
 				AdditionalDependencies=""
+				Outputs=""
 			/>
 			<Tool
 				Name="VCXMLDataGeneratorTool"
@@ -363,9 +340,6 @@
 				Name="VCALinkTool"
 			/>
 			<Tool
-				Name="VCManifestTool"
-			/>
-			<Tool
 				Name="VCXDCMakeTool"
 			/>
 			<Tool
@@ -375,25 +349,14 @@
 				Name="VCFxCopTool"
 			/>
 			<Tool
-				Name="VCAppVerifierTool"
-			/>
-			<Tool
-				Name="VCWebDeploymentTool"
-			/>
-			<Tool
-				Name="VCX360DeploymentTool"
-				RemoteRoot="xe:\$(ProjectName)"
-				DeploymentType="0"
-			/>
-			<Tool
 				Name="VCPostBuildEventTool"
-				CommandLine=":: FIND/CREATE THE SDK DIRECTORY&#x0D;&#x0A;if not exist &quot;..\..\..\..\..\SDK&quot; mkdir &quot;..\..\..\..\..\SDK&quot;&#x0D;&#x0A;if not exist &quot;..\..\..\..\..\SDK\Win32&quot; mkdir &quot;..\..\..\..\..\SDK\Win32&quot;&#x0D;&#x0A;if not exist &quot;..\..\..\..\..\SDK\Win32\Include\efdNetwork&quot; mkdir &quot;..\..\..\..\..\SDK\Win32\Include\efdNetwork&quot;&#x0D;&#x0A;if exist &quot;..\..\..\..\..\Source\Foundation\efdNetwork\Win32&quot; if not exist &quot;..\..\..\..\..\SDK\Win32\Include\efdNetwork\Win32&quot; mkdir &quot;..\..\..\..\..\SDK\Win32\Include\efdNetwork\Win32&quot;&#x0D;&#x0A;if not exist &quot;..\..\..\..\..\SDK\Win32\Dll&quot; mkdir &quot;..\..\..\..\..\SDK\Win32\Dll&quot;&#x0D;&#x0A;if not exist &quot;..\..\..\..\..\SDK\Win32\Python&quot; mkdir &quot;..\..\..\..\..\SDK\Win32\Python&quot;&#x0D;&#x0A;if not exist &quot;..\..\..\..\..\SDK\Win32\Lua&quot; mkdir &quot;..\..\..\..\..\SDK\Win32\Lua&quot;&#x0D;&#x0A;:: COPY STANDARD FILES&#x0D;&#x0A;if exist &quot;..\..\..\..\..\Source\Foundation\efdNetwork&quot; xcopy &quot;..\..\..\..\..\Source\Foundation\efdNetwork\*.h&quot; &quot;..\..\..\..\..\SDK\Win32\Include\efdNetwork\.&quot; /Y /I /F /R /D&#x0D;&#x0A;if exist &quot;..\..\..\..\..\Source\Foundation\efdNetwork&quot; xcopy &quot;..\..\..\..\..\Source\Foundation\efdNetwork\*.i&quot; &quot;..\..\..\..\..\SDK\Win32\Include\efdNetwork\.&quot; /Y /I /F /R /D&#x0D;&#x0A;if exist &quot;..\..\..\..\..\Source\Foundation\efdNetwork&quot; xcopy &quot;..\..\..\..\..\Source\Foundation\efdNetwork\*.inl&quot; &quot;..\..\..\..\..\SDK\Win32\Include\efdNetwork\.&quot; /Y /I /F /R /D&#x0D;&#x0A;if exist &quot;..\..\..\..\..\Source\Foundation\efdNetwork\Win32&quot; xcopy &quot;..\..\..\..\..\Source\Foundation\efdNetwork\Win32\*.h&quot; &quot;..\..\..\..\..\SDK\Win32\Include\efdNetwork\Win32\.&quot; /Y /I /F /R /D&#x0D;&#x0A;if exist &quot;..\..\..\..\..\Source\Foundation\efdNetwork\Win32&quot; xcopy &quot;..\..\..\..\..\Source\Foundation\efdNetwork\Win32\*.i&quot; &quot;..\..\..\..\..\SDK\Win32\Include\efdNetwork\Win32\.&quot; /Y /I /F /R /D&#x0D;&#x0A;if exist &quot;..\..\..\..\..\Source\Foundation\efdNetwork\Win32&quot; xcopy &quot;..\..\..\..\..\Source\Foundation\efdNetwork\Win32\*.inl&quot; &quot;..\..\..\..\..\SDK\Win32\Include\efdNetwork\Win32\.&quot; /Y /I /F /R /D&#x0D;&#x0A;:: COPY SCRIPTS&#x0D;&#x0A;if exist &quot;..\..\..\..\..\Source\Foundation\efdNetwork\Scripts\*.py&quot; xcopy /D /F /I /R /Y &quot;..\..\..\..\..\Source\Foundation\efdNetwork\Scripts\*.py&quot; ..\..\..\..\..\SDK\Win32\Python&#x0D;&#x0A;if exist &quot;..\..\..\..\..\Source\Foundation\efdNetwork\Scripts\*.lua&quot; xcopy /D /F /I /R /Y &quot;..\..\..\..\..\Source\Foundation\efdNetwork\Scripts\*.lua&quot; ..\..\..\..\..\SDK\Win32\Lua"
+				CommandLine=":: FIND/CREATE THE SDK DIRECTORY&#x0D;&#x0A;if not exist &quot;..\..\..\..\..\SDK&quot; mkdir &quot;..\..\..\..\..\SDK&quot;&#x0D;&#x0A;if not exist &quot;..\..\..\..\..\SDK\Win32&quot; mkdir &quot;..\..\..\..\..\SDK\Win32&quot;&#x0D;&#x0A;if not exist &quot;..\..\..\..\..\SDK\Win32\Include\efdNetwork&quot; mkdir &quot;..\..\..\..\..\SDK\Win32\Include\efdNetwork&quot;&#x0D;&#x0A;if exist &quot;..\..\..\..\..\Source\Foundation\efdNetwork\Win32&quot; if not exist &quot;..\..\..\..\..\SDK\Win32\Include\efdNetwork\Win32&quot; mkdir &quot;..\..\..\..\..\SDK\Win32\Include\efdNetwork\Win32&quot;&#x0D;&#x0A;if not exist &quot;..\..\..\..\..\SDK\Win32\Dll&quot; mkdir &quot;..\..\..\..\..\SDK\Win32\Dll&quot;&#x0D;&#x0A;if not exist &quot;..\..\..\..\..\SDK\Win32\Python&quot; mkdir &quot;..\..\..\..\..\SDK\Win32\Python&quot;&#x0D;&#x0A;if not exist &quot;..\..\..\..\..\SDK\Win32\Lua&quot; mkdir &quot;..\..\..\..\..\SDK\Win32\Lua&quot;&#x0D;&#x0A;:: COPY STANDARD FILES&#x0D;&#x0A;if exist &quot;..\..\..\..\..\Source\Foundation\efdNetwork&quot; xcopy &quot;..\..\..\..\..\Source\Foundation\efdNetwork\*.h&quot; &quot;..\..\..\..\..\SDK\Win32\Include\efdNetwork\.&quot; /Y /I /F /R /D&#x0D;&#x0A;if exist &quot;..\..\..\..\..\Source\Foundation\efdNetwork&quot; xcopy &quot;..\..\..\..\..\Source\Foundation\efdNetwork\*.i&quot; &quot;..\..\..\..\..\SDK\Win32\Include\efdNetwork\.&quot; /Y /I /F /R /D&#x0D;&#x0A;if exist &quot;..\..\..\..\..\Source\Foundation\efdNetwork&quot; xcopy &quot;..\..\..\..\..\Source\Foundation\efdNetwork\*.inl&quot; &quot;..\..\..\..\..\SDK\Win32\Include\efdNetwork\.&quot; /Y /I /F /R /D&#x0D;&#x0A;if exist &quot;..\..\..\..\..\Source\Foundation\efdNetwork\Win32&quot; xcopy &quot;..\..\..\..\..\Source\Foundation\efdNetwork\Win32\*.h&quot; &quot;..\..\..\..\..\SDK\Win32\Include\efdNetwork\Win32\.&quot; /Y /I /F /R /D&#x0D;&#x0A;if exist &quot;..\..\..\..\..\Source\Foundation\efdNetwork\Win32&quot; xcopy &quot;..\..\..\..\..\Source\Foundation\efdNetwork\Win32\*.i&quot; &quot;..\..\..\..\..\SDK\Win32\Include\efdNetwork\Win32\.&quot; /Y /I /F /R /D&#x0D;&#x0A;if exist &quot;..\..\..\..\..\Source\Foundation\efdNetwork\Win32&quot; xcopy &quot;..\..\..\..\..\Source\Foundation\efdNetwork\Win32\*.inl&quot; &quot;..\..\..\..\..\SDK\Win32\Include\efdNetwork\Win32\.&quot; /Y /I /F /R /D&#x0D;&#x0A;:: COPY SCRIPTS&#x0D;&#x0A;if exist &quot;..\..\..\..\..\Source\Foundation\efdNetwork\Scripts\*.py&quot; xcopy /D /F /I /R /Y &quot;..\..\..\..\..\Source\Foundation\efdNetwork\Scripts\*.py&quot; ..\..\..\..\..\SDK\Win32\Python&#x0D;&#x0A;if exist &quot;..\..\..\..\..\Source\Foundation\efdNetwork\Scripts\*.lua&quot; xcopy /D /F /I /R /Y &quot;..\..\..\..\..\Source\Foundation\efdNetwork\Scripts\*.lua&quot; ..\..\..\..\..\SDK\Win32\Lua&#x0D;&#x0A;"
 			/>
 		</Configuration>
 		<Configuration
 			Name="Release|Win32"
 			OutputDirectory="Release/../../../../../../SDK/Win32/Lib/VC90/Release"
-			IntermediateDirectory="Release"
+			IntermediateDirectory="$(EMERGENT_PATH)\Obj\$(ConfigurationName)\$(ProjectName)"
 			ConfigurationType="4"
 			CharacterSet="0"
 			>
@@ -403,8 +366,8 @@
 			<Tool
 				Name="VCCustomBuildTool"
 				CommandLine=""
-				Outputs=""
 				AdditionalDependencies=""
+				Outputs=""
 			/>
 			<Tool
 				Name="VCXMLDataGeneratorTool"
@@ -448,9 +411,6 @@
 				Name="VCALinkTool"
 			/>
 			<Tool
-				Name="VCManifestTool"
-			/>
-			<Tool
 				Name="VCXDCMakeTool"
 			/>
 			<Tool
@@ -460,25 +420,14 @@
 				Name="VCFxCopTool"
 			/>
 			<Tool
-				Name="VCAppVerifierTool"
-			/>
-			<Tool
-				Name="VCWebDeploymentTool"
-			/>
-			<Tool
-				Name="VCX360DeploymentTool"
-				RemoteRoot="xe:\$(ProjectName)"
-				DeploymentType="0"
-			/>
-			<Tool
 				Name="VCPostBuildEventTool"
-				CommandLine=":: FIND/CREATE THE SDK DIRECTORY&#x0D;&#x0A;if not exist &quot;..\..\..\..\..\SDK&quot; mkdir &quot;..\..\..\..\..\SDK&quot;&#x0D;&#x0A;if not exist &quot;..\..\..\..\..\SDK\Win32&quot; mkdir &quot;..\..\..\..\..\SDK\Win32&quot;&#x0D;&#x0A;if not exist &quot;..\..\..\..\..\SDK\Win32\Include\efdNetwork&quot; mkdir &quot;..\..\..\..\..\SDK\Win32\Include\efdNetwork&quot;&#x0D;&#x0A;if exist &quot;..\..\..\..\..\Source\Foundation\efdNetwork\Win32&quot; if not exist &quot;..\..\..\..\..\SDK\Win32\Include\efdNetwork\Win32&quot; mkdir &quot;..\..\..\..\..\SDK\Win32\Include\efdNetwork\Win32&quot;&#x0D;&#x0A;if not exist &quot;..\..\..\..\..\SDK\Win32\Dll&quot; mkdir &quot;..\..\..\..\..\SDK\Win32\Dll&quot;&#x0D;&#x0A;if not exist &quot;..\..\..\..\..\SDK\Win32\Python&quot; mkdir &quot;..\..\..\..\..\SDK\Win32\Python&quot;&#x0D;&#x0A;if not exist &quot;..\..\..\..\..\SDK\Win32\Lua&quot; mkdir &quot;..\..\..\..\..\SDK\Win32\Lua&quot;&#x0D;&#x0A;:: COPY STANDARD FILES&#x0D;&#x0A;if exist &quot;..\..\..\..\..\Source\Foundation\efdNetwork&quot; xcopy &quot;..\..\..\..\..\Source\Foundation\efdNetwork\*.h&quot; &quot;..\..\..\..\..\SDK\Win32\Include\efdNetwork\.&quot; /Y /I /F /R /D&#x0D;&#x0A;if exist &quot;..\..\..\..\..\Source\Foundation\efdNetwork&quot; xcopy &quot;..\..\..\..\..\Source\Foundation\efdNetwork\*.i&quot; &quot;..\..\..\..\..\SDK\Win32\Include\efdNetwork\.&quot; /Y /I /F /R /D&#x0D;&#x0A;if exist &quot;..\..\..\..\..\Source\Foundation\efdNetwork&quot; xcopy &quot;..\..\..\..\..\Source\Foundation\efdNetwork\*.inl&quot; &quot;..\..\..\..\..\SDK\Win32\Include\efdNetwork\.&quot; /Y /I /F /R /D&#x0D;&#x0A;if exist &quot;..\..\..\..\..\Source\Foundation\efdNetwork\Win32&quot; xcopy &quot;..\..\..\..\..\Source\Foundation\efdNetwork\Win32\*.h&quot; &quot;..\..\..\..\..\SDK\Win32\Include\efdNetwork\Win32\.&quot; /Y /I /F /R /D&#x0D;&#x0A;if exist &quot;..\..\..\..\..\Source\Foundation\efdNetwork\Win32&quot; xcopy &quot;..\..\..\..\..\Source\Foundation\efdNetwork\Win32\*.i&quot; &quot;..\..\..\..\..\SDK\Win32\Include\efdNetwork\Win32\.&quot; /Y /I /F /R /D&#x0D;&#x0A;if exist &quot;..\..\..\..\..\Source\Foundation\efdNetwork\Win32&quot; xcopy &quot;..\..\..\..\..\Source\Foundation\efdNetwork\Win32\*.inl&quot; &quot;..\..\..\..\..\SDK\Win32\Include\efdNetwork\Win32\.&quot; /Y /I /F /R /D&#x0D;&#x0A;:: COPY SCRIPTS&#x0D;&#x0A;if exist &quot;..\..\..\..\..\Source\Foundation\efdNetwork\Scripts\*.py&quot; xcopy /D /F /I /R /Y &quot;..\..\..\..\..\Source\Foundation\efdNetwork\Scripts\*.py&quot; ..\..\..\..\..\SDK\Win32\Python&#x0D;&#x0A;if exist &quot;..\..\..\..\..\Source\Foundation\efdNetwork\Scripts\*.lua&quot; xcopy /D /F /I /R /Y &quot;..\..\..\..\..\Source\Foundation\efdNetwork\Scripts\*.lua&quot; ..\..\..\..\..\SDK\Win32\Lua"
+				CommandLine=":: FIND/CREATE THE SDK DIRECTORY&#x0D;&#x0A;if not exist &quot;..\..\..\..\..\SDK&quot; mkdir &quot;..\..\..\..\..\SDK&quot;&#x0D;&#x0A;if not exist &quot;..\..\..\..\..\SDK\Win32&quot; mkdir &quot;..\..\..\..\..\SDK\Win32&quot;&#x0D;&#x0A;if not exist &quot;..\..\..\..\..\SDK\Win32\Include\efdNetwork&quot; mkdir &quot;..\..\..\..\..\SDK\Win32\Include\efdNetwork&quot;&#x0D;&#x0A;if exist &quot;..\..\..\..\..\Source\Foundation\efdNetwork\Win32&quot; if not exist &quot;..\..\..\..\..\SDK\Win32\Include\efdNetwork\Win32&quot; mkdir &quot;..\..\..\..\..\SDK\Win32\Include\efdNetwork\Win32&quot;&#x0D;&#x0A;if not exist &quot;..\..\..\..\..\SDK\Win32\Dll&quot; mkdir &quot;..\..\..\..\..\SDK\Win32\Dll&quot;&#x0D;&#x0A;if not exist &quot;..\..\..\..\..\SDK\Win32\Python&quot; mkdir &quot;..\..\..\..\..\SDK\Win32\Python&quot;&#x0D;&#x0A;if not exist &quot;..\..\..\..\..\SDK\Win32\Lua&quot; mkdir &quot;..\..\..\..\..\SDK\Win32\Lua&quot;&#x0D;&#x0A;:: COPY STANDARD FILES&#x0D;&#x0A;if exist &quot;..\..\..\..\..\Source\Foundation\efdNetwork&quot; xcopy &quot;..\..\..\..\..\Source\Foundation\efdNetwork\*.h&quot; &quot;..\..\..\..\..\SDK\Win32\Include\efdNetwork\.&quot; /Y /I /F /R /D&#x0D;&#x0A;if exist &quot;..\..\..\..\..\Source\Foundation\efdNetwork&quot; xcopy &quot;..\..\..\..\..\Source\Foundation\efdNetwork\*.i&quot; &quot;..\..\..\..\..\SDK\Win32\Include\efdNetwork\.&quot; /Y /I /F /R /D&#x0D;&#x0A;if exist &quot;..\..\..\..\..\Source\Foundation\efdNetwork&quot; xcopy &quot;..\..\..\..\..\Source\Foundation\efdNetwork\*.inl&quot; &quot;..\..\..\..\..\SDK\Win32\Include\efdNetwork\.&quot; /Y /I /F /R /D&#x0D;&#x0A;if exist &quot;..\..\..\..\..\Source\Foundation\efdNetwork\Win32&quot; xcopy &quot;..\..\..\..\..\Source\Foundation\efdNetwork\Win32\*.h&quot; &quot;..\..\..\..\..\SDK\Win32\Include\efdNetwork\Win32\.&quot; /Y /I /F /R /D&#x0D;&#x0A;if exist &quot;..\..\..\..\..\Source\Foundation\efdNetwork\Win32&quot; xcopy &quot;..\..\..\..\..\Source\Foundation\efdNetwork\Win32\*.i&quot; &quot;..\..\..\..\..\SDK\Win32\Include\efdNetwork\Win32\.&quot; /Y /I /F /R /D&#x0D;&#x0A;if exist &quot;..\..\..\..\..\Source\Foundation\efdNetwork\Win32&quot; xcopy &quot;..\..\..\..\..\Source\Foundation\efdNetwork\Win32\*.inl&quot; &quot;..\..\..\..\..\SDK\Win32\Include\efdNetwork\Win32\.&quot; /Y /I /F /R /D&#x0D;&#x0A;:: COPY SCRIPTS&#x0D;&#x0A;if exist &quot;..\..\..\..\..\Source\Foundation\efdNetwork\Scripts\*.py&quot; xcopy /D /F /I /R /Y &quot;..\..\..\..\..\Source\Foundation\efdNetwork\Scripts\*.py&quot; ..\..\..\..\..\SDK\Win32\Python&#x0D;&#x0A;if exist &quot;..\..\..\..\..\Source\Foundation\efdNetwork\Scripts\*.lua&quot; xcopy /D /F /I /R /Y &quot;..\..\..\..\..\Source\Foundation\efdNetwork\Scripts\*.lua&quot; ..\..\..\..\..\SDK\Win32\Lua&#x0D;&#x0A;"
 			/>
 		</Configuration>
 		<Configuration
 			Name="Shipping|Win32"
 			OutputDirectory="Shipping/../../../../../../SDK/Win32/Lib/VC90/Shipping"
-			IntermediateDirectory="Shipping"
+			IntermediateDirectory="$(EMERGENT_PATH)\Obj\$(ConfigurationName)\$(ProjectName)"
 			ConfigurationType="4"
 			CharacterSet="0"
 			>
@@ -488,8 +437,8 @@
 			<Tool
 				Name="VCCustomBuildTool"
 				CommandLine=""
-				Outputs=""
 				AdditionalDependencies=""
+				Outputs=""
 			/>
 			<Tool
 				Name="VCXMLDataGeneratorTool"
@@ -533,9 +482,6 @@
 				Name="VCALinkTool"
 			/>
 			<Tool
-				Name="VCManifestTool"
-			/>
-			<Tool
 				Name="VCXDCMakeTool"
 			/>
 			<Tool
@@ -545,19 +491,8 @@
 				Name="VCFxCopTool"
 			/>
 			<Tool
-				Name="VCAppVerifierTool"
-			/>
-			<Tool
-				Name="VCWebDeploymentTool"
-			/>
-			<Tool
-				Name="VCX360DeploymentTool"
-				RemoteRoot="xe:\$(ProjectName)"
-				DeploymentType="0"
-			/>
-			<Tool
 				Name="VCPostBuildEventTool"
-				CommandLine=":: FIND/CREATE THE SDK DIRECTORY&#x0D;&#x0A;if not exist &quot;..\..\..\..\..\SDK&quot; mkdir &quot;..\..\..\..\..\SDK&quot;&#x0D;&#x0A;if not exist &quot;..\..\..\..\..\SDK\Win32&quot; mkdir &quot;..\..\..\..\..\SDK\Win32&quot;&#x0D;&#x0A;if not exist &quot;..\..\..\..\..\SDK\Win32\Include\efdNetwork&quot; mkdir &quot;..\..\..\..\..\SDK\Win32\Include\efdNetwork&quot;&#x0D;&#x0A;if exist &quot;..\..\..\..\..\Source\Foundation\efdNetwork\Win32&quot; if not exist &quot;..\..\..\..\..\SDK\Win32\Include\efdNetwork\Win32&quot; mkdir &quot;..\..\..\..\..\SDK\Win32\Include\efdNetwork\Win32&quot;&#x0D;&#x0A;if not exist &quot;..\..\..\..\..\SDK\Win32\Dll&quot; mkdir &quot;..\..\..\..\..\SDK\Win32\Dll&quot;&#x0D;&#x0A;if not exist &quot;..\..\..\..\..\SDK\Win32\Python&quot; mkdir &quot;..\..\..\..\..\SDK\Win32\Python&quot;&#x0D;&#x0A;if not exist &quot;..\..\..\..\..\SDK\Win32\Lua&quot; mkdir &quot;..\..\..\..\..\SDK\Win32\Lua&quot;&#x0D;&#x0A;:: COPY STANDARD FILES&#x0D;&#x0A;if exist &quot;..\..\..\..\..\Source\Foundation\efdNetwork&quot; xcopy &quot;..\..\..\..\..\Source\Foundation\efdNetwork\*.h&quot; &quot;..\..\..\..\..\SDK\Win32\Include\efdNetwork\.&quot; /Y /I /F /R /D&#x0D;&#x0A;if exist &quot;..\..\..\..\..\Source\Foundation\efdNetwork&quot; xcopy &quot;..\..\..\..\..\Source\Foundation\efdNetwork\*.i&quot; &quot;..\..\..\..\..\SDK\Win32\Include\efdNetwork\.&quot; /Y /I /F /R /D&#x0D;&#x0A;if exist &quot;..\..\..\..\..\Source\Foundation\efdNetwork&quot; xcopy &quot;..\..\..\..\..\Source\Foundation\efdNetwork\*.inl&quot; &quot;..\..\..\..\..\SDK\Win32\Include\efdNetwork\.&quot; /Y /I /F /R /D&#x0D;&#x0A;if exist &quot;..\..\..\..\..\Source\Foundation\efdNetwork\Win32&quot; xcopy &quot;..\..\..\..\..\Source\Foundation\efdNetwork\Win32\*.h&quot; &quot;..\..\..\..\..\SDK\Win32\Include\efdNetwork\Win32\.&quot; /Y /I /F /R /D&#x0D;&#x0A;if exist &quot;..\..\..\..\..\Source\Foundation\efdNetwork\Win32&quot; xcopy &quot;..\..\..\..\..\Source\Foundation\efdNetwork\Win32\*.i&quot; &quot;..\..\..\..\..\SDK\Win32\Include\efdNetwork\Win32\.&quot; /Y /I /F /R /D&#x0D;&#x0A;if exist &quot;..\..\..\..\..\Source\Foundation\efdNetwork\Win32&quot; xcopy &quot;..\..\..\..\..\Source\Foundation\efdNetwork\Win32\*.inl&quot; &quot;..\..\..\..\..\SDK\Win32\Include\efdNetwork\Win32\.&quot; /Y /I /F /R /D&#x0D;&#x0A;:: COPY SCRIPTS&#x0D;&#x0A;if exist &quot;..\..\..\..\..\Source\Foundation\efdNetwork\Scripts\*.py&quot; xcopy /D /F /I /R /Y &quot;..\..\..\..\..\Source\Foundation\efdNetwork\Scripts\*.py&quot; ..\..\..\..\..\SDK\Win32\Python&#x0D;&#x0A;if exist &quot;..\..\..\..\..\Source\Foundation\efdNetwork\Scripts\*.lua&quot; xcopy /D /F /I /R /Y &quot;..\..\..\..\..\Source\Foundation\efdNetwork\Scripts\*.lua&quot; ..\..\..\..\..\SDK\Win32\Lua"
+				CommandLine=":: FIND/CREATE THE SDK DIRECTORY&#x0D;&#x0A;if not exist &quot;..\..\..\..\..\SDK&quot; mkdir &quot;..\..\..\..\..\SDK&quot;&#x0D;&#x0A;if not exist &quot;..\..\..\..\..\SDK\Win32&quot; mkdir &quot;..\..\..\..\..\SDK\Win32&quot;&#x0D;&#x0A;if not exist &quot;..\..\..\..\..\SDK\Win32\Include\efdNetwork&quot; mkdir &quot;..\..\..\..\..\SDK\Win32\Include\efdNetwork&quot;&#x0D;&#x0A;if exist &quot;..\..\..\..\..\Source\Foundation\efdNetwork\Win32&quot; if not exist &quot;..\..\..\..\..\SDK\Win32\Include\efdNetwork\Win32&quot; mkdir &quot;..\..\..\..\..\SDK\Win32\Include\efdNetwork\Win32&quot;&#x0D;&#x0A;if not exist &quot;..\..\..\..\..\SDK\Win32\Dll&quot; mkdir &quot;..\..\..\..\..\SDK\Win32\Dll&quot;&#x0D;&#x0A;if not exist &quot;..\..\..\..\..\SDK\Win32\Python&quot; mkdir &quot;..\..\..\..\..\SDK\Win32\Python&quot;&#x0D;&#x0A;if not exist &quot;..\..\..\..\..\SDK\Win32\Lua&quot; mkdir &quot;..\..\..\..\..\SDK\Win32\Lua&quot;&#x0D;&#x0A;:: COPY STANDARD FILES&#x0D;&#x0A;if exist &quot;..\..\..\..\..\Source\Foundation\efdNetwork&quot; xcopy &quot;..\..\..\..\..\Source\Foundation\efdNetwork\*.h&quot; &quot;..\..\..\..\..\SDK\Win32\Include\efdNetwork\.&quot; /Y /I /F /R /D&#x0D;&#x0A;if exist &quot;..\..\..\..\..\Source\Foundation\efdNetwork&quot; xcopy &quot;..\..\..\..\..\Source\Foundation\efdNetwork\*.i&quot; &quot;..\..\..\..\..\SDK\Win32\Include\efdNetwork\.&quot; /Y /I /F /R /D&#x0D;&#x0A;if exist &quot;..\..\..\..\..\Source\Foundation\efdNetwork&quot; xcopy &quot;..\..\..\..\..\Source\Foundation\efdNetwork\*.inl&quot; &quot;..\..\..\..\..\SDK\Win32\Include\efdNetwork\.&quot; /Y /I /F /R /D&#x0D;&#x0A;if exist &quot;..\..\..\..\..\Source\Foundation\efdNetwork\Win32&quot; xcopy &quot;..\..\..\..\..\Source\Foundation\efdNetwork\Win32\*.h&quot; &quot;..\..\..\..\..\SDK\Win32\Include\efdNetwork\Win32\.&quot; /Y /I /F /R /D&#x0D;&#x0A;if exist &quot;..\..\..\..\..\Source\Foundation\efdNetwork\Win32&quot; xcopy &quot;..\..\..\..\..\Source\Foundation\efdNetwork\Win32\*.i&quot; &quot;..\..\..\..\..\SDK\Win32\Include\efdNetwork\Win32\.&quot; /Y /I /F /R /D&#x0D;&#x0A;if exist &quot;..\..\..\..\..\Source\Foundation\efdNetwork\Win32&quot; xcopy &quot;..\..\..\..\..\Source\Foundation\efdNetwork\Win32\*.inl&quot; &quot;..\..\..\..\..\SDK\Win32\Include\efdNetwork\Win32\.&quot; /Y /I /F /R /D&#x0D;&#x0A;:: COPY SCRIPTS&#x0D;&#x0A;if exist &quot;..\..\..\..\..\Source\Foundation\efdNetwork\Scripts\*.py&quot; xcopy /D /F /I /R /Y &quot;..\..\..\..\..\Source\Foundation\efdNetwork\Scripts\*.py&quot; ..\..\..\..\..\SDK\Win32\Python&#x0D;&#x0A;if exist &quot;..\..\..\..\..\Source\Foundation\efdNetwork\Scripts\*.lua&quot; xcopy /D /F /I /R /Y &quot;..\..\..\..\..\Source\Foundation\efdNetwork\Scripts\*.lua&quot; ..\..\..\..\..\SDK\Win32\Lua&#x0D;&#x0A;"
 			/>
 		</Configuration>
 	</Configurations>
@@ -566,7 +501,6 @@
 	<Files>
 		<Filter
 			Name="Inline"
-			Filter=""
 			>
 			<File
 				RelativePath="..\..\..\..\..\Source\Foundation\efdNetwork\ConnectionTCP.inl"
@@ -595,7 +529,6 @@
 		</Filter>
 		<Filter
 			Name="Source"
-			Filter=""
 			>
 			<File
 				RelativePath="..\..\..\..\..\Source\Foundation\efdNetwork\BridgeService.cpp"
@@ -662,11 +595,19 @@
 				</FileConfiguration>
 			</File>
 			<File
+				RelativePath="..\..\..\..\..\Source\Foundation\efdNetwork\Win32\HostInfo_Win32.cpp"
+				>
+			</File>
+			<File
 				RelativePath="..\..\..\..\..\Source\Foundation\efdNetwork\NameResolutionService.cpp"
 				>
 			</File>
 			<File
 				RelativePath="..\..\..\..\..\Source\Foundation\efdNetwork\NetLibTCP.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\..\..\..\..\Source\Foundation\efdNetwork\Win32\NetLibTCP_Win32.cpp"
 				>
 			</File>
 			<File
@@ -686,21 +627,12 @@
 				>
 			</File>
 			<File
-				RelativePath="..\..\..\..\..\Source\Foundation\efdNetwork\Win32\HostInfo_Win32.cpp"
-				>
-			</File>
-			<File
-				RelativePath="..\..\..\..\..\Source\Foundation\efdNetwork\Win32\NetLibTCP_Win32.cpp"
-				>
-			</File>
-			<File
 				RelativePath="..\..\..\..\..\Source\Foundation\efdNetwork\Win32\TCPSocket_Win32.cpp"
 				>
 			</File>
 		</Filter>
 		<Filter
 			Name="Interface"
-			Filter=""
 			>
 			<File
 				RelativePath="..\..\..\..\..\Source\Foundation\efdNetwork\BridgeService.h"
@@ -755,6 +687,10 @@
 				>
 			</File>
 			<File
+				RelativePath="..\..\..\..\..\Source\Foundation\efdNetwork\Win32\Net_Win32.h"
+				>
+			</File>
+			<File
 				RelativePath="..\..\..\..\..\Source\Foundation\efdNetwork\NetCategory.h"
 				>
 			</File>
@@ -788,10 +724,6 @@
 			</File>
 			<File
 				RelativePath="..\..\..\..\..\Source\Foundation\efdNetwork\TCPSocket.h"
-				>
-			</File>
-			<File
-				RelativePath="..\..\..\..\..\Source\Foundation\efdNetwork\Win32\Net_Win32.h"
 				>
 			</File>
 		</Filter>
