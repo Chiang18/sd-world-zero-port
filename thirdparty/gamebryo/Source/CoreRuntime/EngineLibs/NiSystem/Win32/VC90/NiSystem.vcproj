@@ -326,6 +326,8 @@
 		</Configuration>
 		<Configuration
 			Name="DebugDLL|Win32"
+			OutputDirectory="$(SolutionDir)$(ConfigurationName)"
+			IntermediateDirectory="$(ConfigurationName)"
 			ConfigurationType="2"
 			InheritedPropertySheets="..\..\..\..\..\..\Build\CoreRuntime\Win32\VC90\Property Sheets\GB_Precompiled_Headers.vsprops;..\..\..\..\..\..\Build\CoreRuntime\Win32\VC90\Property Sheets\GB_Language.vsprops;..\..\..\..\..\..\Build\CoreRuntime\Win32\VC90\Property Sheets\GB_Config_Debug.vsprops;..\..\..\..\..\..\Build\CoreRuntime\Win32\VC90\Property Sheets\GB_Target_DynamicLib.vsprops"
 			CharacterSet="0"
