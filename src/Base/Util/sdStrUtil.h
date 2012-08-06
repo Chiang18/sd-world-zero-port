@@ -6,8 +6,9 @@
 // ×îºóÐÞ¸Ä:
 //*************************************************************************************************
 #pragma once
-#ifndef _STR_UTIL_H__
-#define _STR_UTIL_H__
+#ifndef _SD_BASE_STR_UTIL_H__
+#define _SD_BASE_STR_UTIL_H__
+#include "sdBase.h"
 
 namespace Base
 {

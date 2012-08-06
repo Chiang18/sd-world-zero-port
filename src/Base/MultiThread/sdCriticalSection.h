@@ -6,8 +6,9 @@
 // ×îºóÐÞ¸Ä:
 //*************************************************************************************************
 #pragma once
-#ifndef _CRITICAL_SECTION_H__
-#define _CRITICAL_SECTION_H__
+#ifndef _SD_BASE_CRITICAL_SECTION_H__
+#define _SD_BASE_CRITICAL_SECTION_H__
+#include "sdBase.h"
 
 namespace Base
 {

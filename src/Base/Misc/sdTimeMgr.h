@@ -6,8 +6,9 @@
 // ×îºóÐÞ¸Ä:
 //*************************************************************************************************
 #pragma once
-#ifndef _TIME_MGR_H__
-#define _TIME_MGR_H__
+#ifndef _SD_BASE_TIME_MGR_H__
+#define _SD_BASE_TIME_MGR_H__
+#include "sdBase.h"
 #include "sdSingleton.h"
 
 namespace Base

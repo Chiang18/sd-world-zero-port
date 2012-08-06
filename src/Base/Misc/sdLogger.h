@@ -6,8 +6,9 @@
 // ×îºóÐÞ¸Ä:
 //*************************************************************************************************
 #pragma once
-#ifndef _LOGGER_H__
-#define _LOGGER_H__
+#ifndef _SD_BASE_LOGGER_H__
+#define _SD_BASE_LOGGER_H__
+#include "sdBase.h"
 #include "sdSingleton.h"
 #include "sdCriticalSection.h"
 

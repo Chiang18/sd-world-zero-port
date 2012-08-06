@@ -6,8 +6,9 @@
 // ×îºóÐÞ¸Ä:
 //*************************************************************************************************
 #pragma once
-#ifndef _MATH_VECTOR2_H__
-#define _MATH_VECTOR2_H__
+#ifndef _SD_BASE_MATH_VECTOR2_H__
+#define _SD_BASE_MATH_VECTOR2_H__
+#include "sdBase.h"
 
 namespace Base
 {
