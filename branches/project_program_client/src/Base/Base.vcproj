@@ -40,8 +40,8 @@
 			<Tool
 				Name="VCCLCompilerTool"
 				Optimization="0"
-				AdditionalIncludeDirectories="../base;../base/math"
-				PreprocessorDefinitions="WIN32;_DEBUG;_LIB;_CRT_SECURE_NO_WARNINGS"
+				AdditionalIncludeDirectories="../base;../base/math;../base/multithread;../base/misc;../base/util"
+				PreprocessorDefinitions="WIN32;_DEBUG;_LIB;_CRT_SECURE_NO_WARNINGS;SD_STATIC_LIB"
 				MinimalRebuild="true"
 				BasicRuntimeChecks="3"
 				RuntimeLibrary="3"
@@ -154,7 +154,7 @@
 			Name="MultiThread"
 			>
 			<File
-				RelativePath=".\sdCriticalSection.h"
+				RelativePath=".\MultiThread\sdCriticalSection.h"
 				>
 			</File>
 		</Filter>
@@ -195,34 +195,30 @@
 			</File>
 		</Filter>
 		<Filter
-			Name="FileSystem"
+			Name="File"
 			>
 		</Filter>
 		<Filter
 			Name="Misc"
 			>
 			<File
-				RelativePath=".\sdFSM.cpp"
+				RelativePath=".\Misc\sdFSM.cpp"
 				>
 			</File>
 			<File
-				RelativePath=".\sdFSM.h"
+				RelativePath=".\Misc\sdFSM.h"
 				>
 			</File>
 			<File
-				RelativePath=".\sdSingleton.h"
+				RelativePath=".\Misc\sdSingleton.h"
 				>
 			</File>
 			<File
-				RelativePath=".\sdStaticAssert.h"
+				RelativePath=".\Misc\sdTimeMgr.cpp"
 				>
 			</File>
 			<File
-				RelativePath=".\sdTimeMgr.cpp"
-				>
-			</File>
-			<File
-				RelativePath=".\sdTimeMgr.h"
+				RelativePath=".\Misc\sdTimeMgr.h"
 				>
 			</File>
 			<Filter
@@ -233,11 +229,11 @@
 				Name="Log"
 				>
 				<File
-					RelativePath=".\sdLogger.cpp"
+					RelativePath=".\Misc\sdLogger.cpp"
 					>
 				</File>
 				<File
-					RelativePath=".\sdLogger.h"
+					RelativePath=".\Misc\sdLogger.h"
 					>
 				</File>
 			</Filter>
@@ -245,11 +241,23 @@
 				Name="Profile"
 				>
 				<File
-					RelativePath=".\sdProfile.cpp"
+					RelativePath=".\Misc\sdProfile.cpp"
 					>
 				</File>
 				<File
-					RelativePath=".\sdProfile.h"
+					RelativePath=".\Misc\sdProfile.h"
+					>
+				</File>
+			</Filter>
+			<Filter
+				Name="Assert"
+				>
+				<File
+					RelativePath=".\Misc\sdException.h"
+					>
+				</File>
+				<File
+					RelativePath=".\Misc\sdStaticAssert.h"
 					>
 				</File>
 			</Filter>
@@ -258,20 +266,28 @@
 			Name="Util"
 			>
 			<File
-				RelativePath=".\sdFileUtil.h"
+				RelativePath=".\Util\sdFileUtil.h"
 				>
 			</File>
 			<File
-				RelativePath=".\sdGDIUtil.h"
+				RelativePath=".\Util\sdGDIUtil.h"
 				>
 			</File>
 			<File
-				RelativePath=".\sdStrUtil.h"
+				RelativePath=".\Util\sdStrUtil.h"
 				>
 			</File>
 		</Filter>
 		<File
 			RelativePath=".\sdBase.h"
+			>
+		</File>
+		<File
+			RelativePath=".\sdConfig.h"
+			>
+		</File>
+		<File
+			RelativePath=".\sdPlatform.h"
 			>
 		</File>
 		<File

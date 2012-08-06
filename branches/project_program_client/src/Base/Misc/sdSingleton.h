@@ -6,8 +6,9 @@
 // ×îºóÐÞ¸Ä:
 //*************************************************************************************************
 #pragma once
-#ifndef _SINGLETON_H__
-#define _SINGLETON_H__
+#ifndef _SD_BASE_SINGLETON_H__
+#define _SD_BASE_SINGLETON_H__
+#include "sdBase.h"
 
 namespace Base
 {

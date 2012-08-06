@@ -6,8 +6,9 @@
 // ×îºóÐÞ¸Ä:
 //*************************************************************************************************
 #pragma once
-#ifndef _STATIC_ASSERT_H__
-#define _STATIC_ASSERT_H__
+#ifndef _SD_BASE_STATIC_ASSERT_H__
+#define _SD_BASE_STATIC_ASSERT_H__
+#include "sdBase.h"
 
 #pragma warning(push)
 #pragma warning(error:4200)

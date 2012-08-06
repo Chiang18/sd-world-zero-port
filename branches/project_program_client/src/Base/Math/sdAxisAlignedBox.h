@@ -6,8 +6,9 @@
 // ×îºóÐÞ¸Ä:
 //*************************************************************************************************
 #pragma once
-#ifndef _MATH_AxisAlignedBox_H__
-#define _MATH_AxisAlignedBox_H__
+#ifndef _SD_BASE_MATH_AXISALIGNEDBOX_H__
+#define _SD_BASE_MATH_AXISALIGNEDBOX_H__
+#include "sdBase.h"
 #include "sdMath.h"
 #include "sdVector3.h"
 
