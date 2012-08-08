@@ -104,14 +104,14 @@ sdRenderObject::ShaderParamItem* sdRenderPass::CloneShaderParams(sdRenderObject:
 	char* pkCurDstData = pkDstData;
 	for (uint i = 0; i < uiNum; ++i)
 	{
-		pkDstParams->szName = pkCurSrcParam->szName;
-		pkDstParams->uiByteSize = pkCurSrcParam->uiByteSize;
+		pkCurDstParam->szName = pkCurSrcParam->szName;
+		pkCurDstParam->uiByteSize = pkCurSrcParam->uiByteSize;
 		memcpy(pkCurDstData, pkCurSrcParam->pData, pkCurSrcParam->uiByteSize);
 		pkCurDstParam->pData = (void*)pkCurDstData;
 
 		++pkCurSrcParam;
 		++pkCurDstParam;
-		pkDstData += pkCurSrcParam->uiByteSize;
+		pkCurDstData += pkCurSrcParam->uiByteSize;
 	}
 
 	pkDstParams[uiNum].szName = NULL;

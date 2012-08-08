@@ -3,6 +3,9 @@
 #include <sdFileUtil.h>
 #include <NiDX9SystemDesc.h>
 
+using namespace Base;
+using namespace RenderSystem;
+using namespace GameCore;
 //-------------------------------------------------------------------------------------------------
 LRESULT CALLBACK sdGameClient::WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
@@ -10,44 +13,70 @@ LRESULT CALLBACK sdGameClient::WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPAR
 	sdGameClient* pkGameClient = sdGameClient::InstancePtr();
 	if (!pkGameClient || !pkGameClient->IsInitialized())
 	{
-		return DefWindowProc(hWnd, uMsg, wParam, lParam);
+		return ::DefWindowProc(hWnd, uMsg, wParam, lParam);
 	}
 
 	// 自定义的特殊消息处理
 	LRESULT lRresult = 0;
 	switch (uMsg)
 	{
-	//case WM_INPUTLANGCHANGEREQUEST: 
-	//	break;
+		//case WM_INPUTLANGCHANGEREQUEST: 
+		//	break;
 
-	//case WM_SETCURSOR:
-	//	break;
+		//case WM_SETCURSOR:
+		//	break;
 
-	// 窗口关闭时,三个消息顺序是WM_CLOSE,WM_DESTROY,WM_QUIT
-	//case WM_CLOSE:
-	//	break;
+		// 窗口关闭时,三个消息顺序是WM_CLOSE,WM_DESTROY,WM_QUIT
+		//case WM_CLOSE:
+		//	break;
 
-	// 发送WM_QUIT消息
-	case WM_DESTROY:
-		::PostQuitMessage(0);
-		break;
+		// 窗口销毁,发送WM_QUIT消息
+		case WM_DESTROY:
+			::PostQuitMessage(0);
+			break;
 
-	//case WM_ACTIVATE:
-	//case WM_ACTIVATEAPP:
+		// 窗口激活
+		case WM_ACTIVATE:
+		{
+			// (这段不解)
+			DWORD dwLastProcessId = 0;
+			HWND hWndDeactivated = (HWND)lParam;
+			::GetWindowThreadProcessId(hWndDeactivated, &dwLastProcessId);
+			if (dwLastProcessId != ::GetCurrentProcessId())
+			{
+				//WA_ACTIVE
+				//WA_CLICKACTIVE
+				//WA_INACTIVE
+				pkGameClient->SetActive(wParam == WA_ACTIVE || wParam == WA_CLICKACTIVE);
+			}
+		}
 
-	// 最大化与最小化消息
-	//case WM_SYSCOMMAND:
 
-	// 系统按键消息
-	//case WM_SYSKEYDOWN:
-	//	if (wParam == VK_MENU)
-	//		return 0;
-	//	else if (wParam == VK_F10)
-	//		return 0;
-	//	break;
+		//case WM_ACTIVATEAPP:
+
+		// 最大化与最小化消息
+		case WM_SYSCOMMAND:
+		{
+			if (wParam == SC_MINIMIZE)
+			{
+				// 最小化
+			}
+			else if (wParam == SC_MAXIMIZE)
+			{
+				// 最大化
+			}
+		}
+
+		// 系统按键消息
+		//case WM_SYSKEYDOWN:
+		//	if (wParam == VK_MENU)
+		//		return 0;
+		//	else if (wParam == VK_F10)
+		//		return 0;
+		//	break;
 	}
 
-	return DefWindowProc(hWnd, uMsg, wParam, lParam);
+	return ::DefWindowProc(hWnd, uMsg, wParam, lParam);
 }
 //-------------------------------------------------------------------------------------------------
 bool sdGameClient::OnLostDevice(void* pData)
@@ -61,6 +90,9 @@ bool sdGameClient::OnResetDevice(bool bBefore, void* pData)
 }
 //-------------------------------------------------------------------------------------------------
 sdGameClient::sdGameClient()
+: m_hInstance(0)
+, m_hWnd(0)
+, m_bActive(true)
 {
 	m_bInitialize = false;
 	m_bRunning = false;
@@ -71,8 +103,11 @@ sdGameClient::~sdGameClient()
 
 }
 //-------------------------------------------------------------------------------------------------
-bool sdGameClient::Initialize()
+bool sdGameClient::Initialize(HINSTANCE hInstance)
 {
+	// 模块句柄
+	m_hInstance = hInstance;
+
 	// 创建窗口
 	if (!CreateGameWindow())
 	{
@@ -88,27 +123,31 @@ bool sdGameClient::Initialize()
 	// 创建Gamebryo渲染器
 	if (!CreateGameRenderer())
 	{
-		::MessageBox(NULL, "创建窗口失败", "错误", MB_OK);
+		::MessageBox(NULL, "创建渲染器失败", "错误", MB_OK);
 		return false;
 	}
 
 	// 初始化WZ渲染器
-	RenderSystem::sdRenderSystem_DX9::Instance().Initialize();
+	m_kRenderSystem.Initialize();
+
 
 	//*************************************************
 	// 临时代码
-	NiStream kStream;
-	kStream.Load("E:\\project_game\\dependence\\engine\\TheClockAndTheOcularis.nif");
-	NiAVObjectPtr pAVObject = (NiAVObject*)kStream.GetObjectAt(0);
-	pAVObject->Update(0.0f);
-	pAVObject->UpdateProperties();
-	pAVObject->UpdateEffects();
-
 	m_pkMap = NiNew sdMap;
-	m_pkMap->m_pkRoot = pAVObject;
+	NIASSERT(m_pkMap);
+	m_pkMap->CreateScene();
 
-	RenderSystem::sdRenderSystem_DX9::Instance().SetMap((sdMap*)m_pkMap);
+	m_kRenderSystem.SetMap((sdMap*)m_pkMap);
 	//*************************************************
+
+
+	// 初始化输入设备
+	m_kInputSystem.Initialize(m_hInstance, m_hWnd);
+
+	// 初始化相机系统
+	m_kCameraFSM.Initialize();
+	m_kCameraFSM.SetState(sdCameraFSM::E_CAMERA_FREE);
+	m_kRenderSystem.SetCamera(m_kCameraFSM.GetCamera());
 
 	return (m_bInitialize = true), (m_bRunning = true);
 }
@@ -116,6 +155,17 @@ bool sdGameClient::Initialize()
 void sdGameClient::Destroy()
 {
 	using namespace RenderSystem;
+
+	// 销毁相机系统
+	m_kCameraFSM.Destroy();
+
+	// 销毁输入设备
+	m_kInputSystem.Destroy();
+
+	//*************************************************
+	m_pkMap->m_pkRoot = NULL;
+	m_pkMap = NULL;
+	//*************************************************
 
 	// 销毁WZ渲染器
 	sdRenderSystem_DX9::Instance().Destroy();
@@ -308,7 +358,17 @@ bool sdGameClient::CreateGameRenderer()
 //-------------------------------------------------------------------------------------------------
 void sdGameClient::UpdateFrame()
 {
+	// sdPF-Func_Auto;
 
+	// 更新时间
+	m_kTimeMgr.Update();
+
+	// 更新输入
+	m_kInputSystem.SetActive(m_bActive);
+	m_kInputSystem.Update();
+
+	// 更新相机
+	m_kCameraFSM.UpdateState();
 }
 //-------------------------------------------------------------------------------------------------
 void sdGameClient::RenderFrame()
@@ -321,5 +381,12 @@ void sdGameClient::RenderFrame()
 		m_kRenderSystem.RenderFrame();
 		m_kRenderSystem.DisplayFrame();
 	}
+}
+//-------------------------------------------------------------------------------------------------
+void sdGameClient::SetActive(bool bActive)
+{
+	m_bActive = bActive;
+
+	// 失去与获得焦点的处理(例如音频)
 }
 //-------------------------------------------------------------------------------------------------

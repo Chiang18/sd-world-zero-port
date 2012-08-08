@@ -222,10 +222,6 @@
 				>
 			</File>
 			<Filter
-				Name="Memory"
-				>
-			</Filter>
-			<Filter
 				Name="Log"
 				>
 				<File
@@ -277,6 +273,10 @@
 				RelativePath=".\Util\sdStrUtil.h"
 				>
 			</File>
+		</Filter>
+		<Filter
+			Name="Memory"
+			>
 		</Filter>
 		<File
 			RelativePath=".\sdBase.h"

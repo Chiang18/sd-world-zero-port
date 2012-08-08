@@ -1,7 +1,7 @@
 //*************************************************************************************************
 // 内容:	渲染路径接口
 //---------------------------------------------------------
-// 作者:		喻强
+// 作者:		
 // 创建:		2012-07-04
 // 最后修改:
 //*************************************************************************************************
@@ -21,6 +21,7 @@ namespace RenderSystem
 	class sdRenderParams;
 	class sdEnvironmentParams;
 	class sdPostProcessParams;
+	class sdTerrainParams;
 
 	// 渲染路径接口
 	// 渲染路径是渲染策略的一种封装,它定义了如何渲染一个指定的Map到指定的RenderTarget
@@ -56,14 +57,15 @@ namespace RenderSystem
 		virtual void UpdateRenderParams(const sdRenderParams& kRenderParams) = 0;
 		virtual void UpdateEnvironmentParams(const sdEnvironmentParams& kEnvParams) = 0;
 		virtual void UpdatePostProcessParams(const sdPostProcessParams& kPostProcessParams) = 0;
+		virtual void UpdateTerrainParams(const sdTerrainParams& kTerrainParams) = 0;
 
 		//@{
 		// 裁剪与渲染对象填充接口
 		// (这里的主要目的是将RenderPass的功能接口封装之后暴露出来)
-		//virtual void RenderTerrainMesh(NiMesh* spMesh) = 0;
-		//virtual void RenderTerrainHole(NiMesh* spMesh) = 0;
 		virtual void RenderStaticMesh(NiMesh* spMesh) = 0;
 		//virtual void RenderSkinnedMesh(NiMesh* spMesh) = 0;
+		virtual void RenderTerrainMesh(NiMesh* spMesh) = 0;
+		//virtual void RenderTerrainHole(NiMesh* spMesh) = 0;
 		//virtual void RenderLight(NiLight* spLight) = 0;
 		//virtual void RenderDecal()
 		//virtual void RenderRoad()

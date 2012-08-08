@@ -4,6 +4,10 @@
 #include "sdRenderPath_DX9.h"
 #include <sdFileUtil.h>
 
+// 场景
+#include "sdMap.h"
+#include "sdTerrain.h"
+
 namespace RenderSystem
 {
 //-------------------------------------------------------------------------------------------------
@@ -27,6 +31,7 @@ sdRenderSystem_DX9::~sdRenderSystem_DX9()
 bool sdRenderSystem_DX9::Initialize()
 {
 	using namespace std;
+	using namespace Base;
 
 	// 已经初始化则直接返回
 	if (m_bInitialized) 
@@ -72,27 +77,24 @@ bool sdRenderSystem_DX9::Initialize()
 	NIASSERT(m_spRenderTargetGroup);
 
 	// 创建默认相机
-	m_spCamera = NiNew NiCamera;
-	NIASSERT(m_spCamera);
 
-	Ni2DBuffer* spBackBuffer = spRender->GetDefaultBackBuffer();
-	NIASSERT(spBackBuffer);
 
-	float fAspectRadio = spBackBuffer->GetWidth() / (float)spBackBuffer->GetHeight();
-	float fVerticalFieldOfViewDegree = 20.0f;
-	float fVerticalFieldOfViewRad = NI_PI / 180.0f * fVerticalFieldOfViewDegree;
-	float fViewPlaneHalfHeight = tanf(fVerticalFieldOfViewRad * 0.5f);
-	float fViewPlaneHalfWidth = fViewPlaneHalfHeight * fAspectRadio;
+	// 创建默认资源 
+	// @{
+	// 创建默认几何体
+	m_spScreenQuadMesh = CreateScreenQuadMesh();
 
-	NiFrustum kFrustum(-fViewPlaneHalfWidth, fViewPlaneHalfWidth,
-		fViewPlaneHalfHeight, -fViewPlaneHalfHeight, 
-		1.0f, 1000.0f);
+	// 创建默认材质
+	char* szMaterialNames[NUM_DEFAULT_MATERIALS] = { 
+		"StaticMesh_FlatShading", 
+		"SkinnedMesh_FlatShading"};
+	for (int i = 0; i < NUM_DEFAULT_MATERIALS; ++i)
+	{
+		m_spDefaultMaterials[i] = m_pkRenderDevice->CreateMaterial(szMaterialNames[i]);
+	}
 
-	NiRect<float> kViewport(0.0f, 1.0f, 1.0f, 0.0f);
-
-	m_spCamera->SetViewFrustum(kFrustum);
-	m_spCamera->SetViewPort(kViewport);
-
+	// 创建默认纹理
+	// }@
 
 
 	return (m_bInitialized = true);
@@ -195,8 +197,23 @@ void sdRenderSystem_DX9::DrawScene()
 	if (!m_pkRenderPath || !m_pkRenderPath->IsInitialized())		return;
 
 	// 从场景获取渲染参数,并更新到渲染器
-	//sdRenderParams kRenderParams = m_pkMap->
-	//m_pkRenderPath->UpdateRenderParams();
+	// @{
+	const sdRenderParams& kRenderParams = m_pkMap->GetRenderParams();
+	m_pkRenderPath->UpdateRenderParams(kRenderParams);
+
+	const sdEnvironmentParams& kEnvironmentParams = m_pkMap->GetEnvironmentParams();
+	m_pkRenderPath->UpdateEnvironmentParams(kEnvironmentParams);
+
+	const sdPostProcessParams& kPostProcessParams = m_pkMap->GetPostProcessParams();
+	m_pkRenderPath->UpdatePostProcessParams(kPostProcessParams);
+
+	sdTerrain* pkTerrain = m_pkMap->GetTerrain();
+	if (pkTerrain && pkTerrain->IsVisible())
+	{
+		const sdTerrainParams& kTerrainParams = pkTerrain->GetTerrainParams();
+		m_pkRenderPath->UpdateTerrainParams(kTerrainParams);
+	}
+	// @}
 
 	// 渲染
 	m_pkRenderPath->RenderScene(m_pkMap, m_spCamera, m_spRenderTargetGroup);

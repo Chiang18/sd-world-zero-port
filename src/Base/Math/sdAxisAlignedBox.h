@@ -171,6 +171,13 @@ namespace Base
 				kVector.m_fZ = (m_kMinimum.m_fZ + m_kMaximum.m_fZ) * 0.5f;
 			}
 
+			sdVector3 GetCenter() const
+			{
+				return sdVector3((m_kMinimum.m_fX + m_kMaximum.m_fX) * 0.5f,
+								 (m_kMinimum.m_fY + m_kMaximum.m_fY) * 0.5f,
+								 (m_kMinimum.m_fZ + m_kMaximum.m_fZ) * 0.5f);
+			}
+
 			void GetSize(sdVector3& kVector) const
 			{
 				switch (m_eExtent)
@@ -210,6 +217,11 @@ namespace Base
 					break;
 				}
 			}
+			// @}
+
+			// @{
+
+
 			// @}
 
 

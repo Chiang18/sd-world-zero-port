@@ -42,7 +42,7 @@
 				Name="VCCLCompilerTool"
 				AdditionalOptions="/EHsc"
 				Optimization="0"
-				AdditionalIncludeDirectories="../gamecore;../gamecore/config;../gamecore/input;../base;../engine;../engine/utility;../engine/rendersystem;../../thirdparty/gamebryo/sdk/win32/include"
+				AdditionalIncludeDirectories="../gamecore;../gamecore/config;../gamecore/input;../base;../base/math;../base/misc;../base/multithread;../base/util;../engine;../engine/utility;../engine/rendersystem;../../thirdparty/gamebryo/sdk/win32/include"
 				PreprocessorDefinitions="WIN32;_DEBUG;_LIB;_USRDLL;NIDEBUG;EE_EFD_IMPORT;NIANIMATION_IMPORT;NIMAIN_IMPORT;NIMESH_IMPORT;NISYSTEM_IMPORT;NIFLOODGATE_IMPORT;NIDX9RENDERER_IMPORT"
 				MinimalRebuild="true"
 				BasicRuntimeChecks="3"
@@ -157,6 +157,34 @@
 		<Filter
 			Name="Input"
 			>
+			<File
+				RelativePath=".\Input\sdInputKey.h"
+				>
+			</File>
+			<File
+				RelativePath=".\Input\sdInputSystem.cpp"
+				>
+			</File>
+			<File
+				RelativePath=".\Input\sdInputSystem.h"
+				>
+			</File>
+			<File
+				RelativePath=".\Input\sdKeyboard.cpp"
+				>
+			</File>
+			<File
+				RelativePath=".\Input\sdKeyboard.h"
+				>
+			</File>
+			<File
+				RelativePath=".\Input\sdMouse.cpp"
+				>
+			</File>
+			<File
+				RelativePath=".\Input\sdMouse.h"
+				>
+			</File>
 		</Filter>
 		<Filter
 			Name="Config"
@@ -177,6 +205,54 @@
 				RelativePath=".\Config\sdVideoConfig.h"
 				>
 			</File>
+		</Filter>
+		<Filter
+			Name="Camera"
+			>
+			<File
+				RelativePath=".\Camera\sdCameraFSM.cpp"
+				>
+			</File>
+			<File
+				RelativePath=".\Camera\sdCameraFSM.h"
+				>
+			</File>
+			<File
+				RelativePath=".\Camera\sdCameraState.cpp"
+				>
+			</File>
+			<File
+				RelativePath=".\Camera\sdCameraState.h"
+				>
+			</File>
+		</Filter>
+		<Filter
+			Name="State"
+			>
+		</Filter>
+		<Filter
+			Name="Event"
+			>
+		</Filter>
+		<Filter
+			Name="UI"
+			>
+			<Filter
+				Name="HUD"
+				>
+			</Filter>
+			<Filter
+				Name="Font"
+				>
+			</Filter>
+			<Filter
+				Name="IME"
+				>
+			</Filter>
+			<Filter
+				Name="Cursor"
+				>
+			</Filter>
 		</Filter>
 		<File
 			RelativePath=".\sdGameCore.h"

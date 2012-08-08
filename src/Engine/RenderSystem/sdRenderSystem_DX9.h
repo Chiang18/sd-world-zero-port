@@ -1,7 +1,7 @@
 //*************************************************************************************************
 // 内容:	渲染系统的GB-D3D9实现
 //---------------------------------------------------------
-// 作者:		喻强
+// 作者:		
 // 创建:		2012-06-30
 // 最后修改:
 //*************************************************************************************************
@@ -38,6 +38,9 @@ namespace RenderSystem
 		virtual void RenderFrame();
 		virtual void DisplayFrame();
 
+		virtual NiMesh*	GetDefaultMesh(eDefaultMesh eMesh);
+		virtual NiMaterial*	GetDefaultMaterial(eDefaultMaterial eMaterial);
+
 	protected:
 		//@{
 		// 绘制
@@ -48,8 +51,7 @@ namespace RenderSystem
 
 		//@{
 		// 构建缺省Mesh
-		
-
+		NiMesh*	CreateScreenQuadMesh();
 		//@}
 
 	protected:
@@ -69,16 +71,18 @@ namespace RenderSystem
 		sdRenderPath*	m_pkRenderPath;
 
 
+		// 一些渲染器缺省的数据
 		//@{
 		// 常用缺省渲染Mesh
-		//m_spScreenQuadMesh
-		//m_spUnitCubeMesh
-		//m_spUnitSphereMesh
-		//m_spUnitConeMesh
-		//m_spUnitPyramidMesh
+		NiMeshPtr	m_spScreenQuadMesh;
+		NiMeshPtr	m_spUnitCubeMesh;
+		NiMeshPtr	m_spUnitSphereMesh;
+		NiMeshPtr	m_spUnitConeMesh;
+		NiMeshPtr	m_spUnitPyramidMesh;
+		NiMeshPtr	m_spErrorMesh;
 
 		// 常用缺省材质
-		NiMaterialPtr		m_kDefaultMaterials[NUM_DEFAULT_MATERIALS];
+		NiMaterialPtr		m_spDefaultMaterials[NUM_DEFAULT_MATERIALS];
 
 		// 常用缺省纹理
 		NiSourceTexturePtr	m_kDefaultTextures[NUM_DEFAULT_TEXTURES];

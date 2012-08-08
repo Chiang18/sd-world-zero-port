@@ -12,7 +12,4 @@
 #include <sdEngine.h>
 #include <sdGameCore.h>
 
-// °üº¬Á´½Ó¿â
-#include "sdGameClientLib.h"
-
 #endif

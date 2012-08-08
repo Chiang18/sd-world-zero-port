@@ -42,8 +42,8 @@
 				Name="VCCLCompilerTool"
 				AdditionalOptions=" /EHsc"
 				Optimization="0"
-				AdditionalIncludeDirectories="../engine;../engine/world;../engine/entity;../engine/utility;../engine/rendersystem;../base;../../thirdparty/gamebryo/sdk/win32/include"
-				PreprocessorDefinitions="WIN32;_DEBUG;_LIB;_USRDLL;NIDEBUG;EE_EFD_IMPORT;NIANIMATION_IMPORT;NIMAIN_IMPORT;NIMESH_IMPORT;NISYSTEM_IMPORT;NIFLOODGATE_IMPORT;NIDX9RENDERER_IMPORT"
+				AdditionalIncludeDirectories="../engine;../engine/utility;../engine/world;../engine/entity;../engine/terrain;../engine/graphic;../engine/rendersystem;../base;../base/math;../base/multithread;../base/misc;../base/util;../../thirdparty/gamebryo/sdk/win32/include"
+				PreprocessorDefinitions="WIN32;_DEBUG;_LIB;_USRDLL;NIDEBUG;EE_EFD_IMPORT;NIANIMATION_IMPORT;NIMAIN_IMPORT;NIMESH_IMPORT;NISYSTEM_IMPORT;NIFLOODGATE_IMPORT;NIDX9RENDERER_IMPORT;NIVIEWMATH_IMPORT"
 				MinimalRebuild="true"
 				BasicRuntimeChecks="3"
 				RuntimeLibrary="3"
@@ -189,11 +189,19 @@
 				Name="RenderPass"
 				>
 				<File
-					RelativePath=".\sdEarlyZPass.cpp"
+					RelativePath=".\RenderSystem\sdEarlyZPass.cpp"
 					>
 				</File>
 				<File
-					RelativePath=".\sdEarlyZPass.h"
+					RelativePath=".\RenderSystem\sdEarlyZPass.h"
+					>
+				</File>
+				<File
+					RelativePath=".\RenderSystem\sdMRTShadingPass.cpp"
+					>
+				</File>
+				<File
+					RelativePath=".\RenderSystem\sdMRTShadingPass.h"
 					>
 				</File>
 				<File
@@ -202,6 +210,14 @@
 				</File>
 				<File
 					RelativePath=".\RenderSystem\sdMRTZGeometryPass.h"
+					>
+				</File>
+				<File
+					RelativePath=".\RenderSystem\sdPreLightPass.cpp"
+					>
+				</File>
+				<File
+					RelativePath=".\RenderSystem\sdPreLightPass.h"
 					>
 				</File>
 				<File
@@ -215,6 +231,26 @@
 				<Filter
 					Name="PostProcessEffect"
 					>
+				</Filter>
+				<Filter
+					Name="Terrain"
+					>
+					<File
+						RelativePath=".\RenderSystem\sdTerrainAtlasGeometryPass.cpp"
+						>
+					</File>
+					<File
+						RelativePath=".\RenderSystem\sdTerrainAtlasGeometryPass.h"
+						>
+					</File>
+					<File
+						RelativePath=".\RenderSystem\sdTerrainDepthPass.cpp"
+						>
+					</File>
+					<File
+						RelativePath=".\RenderSystem\sdTerrainDepthPass.h"
+						>
+					</File>
 				</Filter>
 			</Filter>
 			<Filter
@@ -284,6 +320,10 @@
 					RelativePath=".\RenderSystem\sdRenderSystem_DX9.inl"
 					>
 				</File>
+				<File
+					RelativePath=".\RenderSystem\sdRenderSystem_DX9_Default.cpp"
+					>
+				</File>
 			</Filter>
 			<Filter
 				Name="Util"
@@ -297,33 +337,49 @@
 					>
 				</File>
 			</Filter>
+			<Filter
+				Name="Cull"
+				>
+			</Filter>
+			<Filter
+				Name="Graphic"
+				>
+				<Filter
+					Name="Texture"
+					>
+					<File
+						RelativePath=".\Graphic\sdDynamicTexture.cpp"
+						>
+					</File>
+					<File
+						RelativePath=".\Graphic\sdDynamicTexture.h"
+						>
+					</File>
+				</Filter>
+				<Filter
+					Name="Occlusion"
+					>
+				</Filter>
+			</Filter>
 		</Filter>
 		<Filter
-			Name="World"
+			Name="Scene"
 			>
-			<File
-				RelativePath=".\Entity\sdGameObject.cpp"
-				>
-			</File>
-			<File
-				RelativePath=".\Entity\sdGameObject.h"
-				>
-			</File>
-			<File
-				RelativePath=".\World\sdMap.cpp"
-				>
-			</File>
-			<File
-				RelativePath=".\World\sdMap.h"
-				>
-			</File>
-			<File
-				RelativePath=".\Entity\sdStreamMacros.h"
-				>
-			</File>
 			<Filter
 				Name="Entity"
 				>
+				<File
+					RelativePath=".\Entity\sdEntity.cpp"
+					>
+				</File>
+				<File
+					RelativePath=".\Entity\sdEntity.h"
+					>
+				</File>
+				<File
+					RelativePath=".\Entity\sdEntity.inl"
+					>
+				</File>
 			</Filter>
 			<Filter
 				Name="Doodads"
@@ -340,6 +396,46 @@
 			<Filter
 				Name="Terrain"
 				>
+				<File
+					RelativePath=".\Terrain\sdHeightMap.cpp"
+					>
+				</File>
+				<File
+					RelativePath=".\Terrain\sdHeightMap.h"
+					>
+				</File>
+				<File
+					RelativePath=".\Terrain\sdNormalMap.cpp"
+					>
+				</File>
+				<File
+					RelativePath=".\Terrain\sdNormalMap.h"
+					>
+				</File>
+				<File
+					RelativePath=".\Terrain\sdQuadMesh.cpp"
+					>
+				</File>
+				<File
+					RelativePath=".\Terrain\sdQuadMesh.h"
+					>
+				</File>
+				<File
+					RelativePath=".\Terrain\sdQuadNode.cpp"
+					>
+				</File>
+				<File
+					RelativePath=".\Terrain\sdQuadNode.h"
+					>
+				</File>
+				<File
+					RelativePath=".\Terrain\sdTerrain.cpp"
+					>
+				</File>
+				<File
+					RelativePath=".\Terrain\sdTerrain.h"
+					>
+				</File>
 			</Filter>
 			<Filter
 				Name="Effect"
@@ -352,10 +448,42 @@
 			<Filter
 				Name="Map"
 				>
+				<File
+					RelativePath=".\Entity\sdGameObject.cpp"
+					>
+				</File>
+				<File
+					RelativePath=".\Entity\sdGameObject.h"
+					>
+				</File>
+				<File
+					RelativePath=".\World\sdMap.cpp"
+					>
+				</File>
+				<File
+					RelativePath=".\World\sdMap.h"
+					>
+				</File>
+				<File
+					RelativePath=".\Entity\sdStreamMacros.h"
+					>
+				</File>
+			</Filter>
+			<Filter
+				Name="Area"
+				>
+			</Filter>
+			<Filter
+				Name="Avatar"
+				>
+			</Filter>
+			<Filter
+				Name="Movie"
+				>
 			</Filter>
 		</Filter>
 		<Filter
-			Name="Graphic"
+			Name="UI"
 			>
 		</Filter>
 		<Filter
@@ -376,6 +504,14 @@
 		</Filter>
 		<Filter
 			Name="SoundSystem"
+			>
+		</Filter>
+		<Filter
+			Name="AISystem"
+			>
+		</Filter>
+		<Filter
+			Name="NetworkSystem"
 			>
 		</Filter>
 		<File
