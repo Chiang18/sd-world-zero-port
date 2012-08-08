@@ -9,6 +9,8 @@
 #ifndef _RENDER_SYSTEM_H__
 #define _RENDER_SYSTEM_H__
 #include <sdSingleton.h>
+#include <sdVector2.h>
+#include <sdVector3.h>
 #include <NiMemObject.h>
 #include "sdTypes.h"
 
@@ -121,6 +123,42 @@ namespace RenderSystem
 		float dofSkyDepth;
 		float dofBlurWidth;
 	};
+	NiSmartPointer(sdPostProcessParams);
+
+	// 地形绘制参数
+	class sdTerrainParams : public NiRefObject
+	{
+	public:
+		sdTerrainParams() { Reset();}
+		void Reset();
+
+	public:
+		// 地形总体尺寸
+		Base::Math::sdVector2ui terrainSize;
+
+		// 地形材质信息
+		Base::Math::sdVector3	ambientMaterial;
+		Base::Math::sdVector3	diffuseMaterial;
+		Base::Math::sdVector3	specularMaterial;
+		float					shiness;
+
+		// 地形纹理信息
+		// @{
+		NiTexture*	baseLightMap;			// 整个地表的光照贴图
+		NiTexture*	baseNormalMap;			// 整个地表的法线贴图
+
+		//NiTexture*	spColorMap;
+		//NiTexture*	vspBlendMap[4];
+		//NiTexture*	spTileMap;
+
+		NiTexture*	diffuseAtlasMap;		// 整个地形漫反射贴图集
+		NiTexture*	diffuseAtlasTableMap;	// 整个地形漫反射贴图查找表
+		
+		NiTexture*	normalAtlasMap;			// 整个地形漫反射贴图集
+		NiTexture*	normalAtlasTableMap;	// 整个地形漫反射贴图查找表
+		// @}
+
+	};
 
 	// 渲染系统基础接口
 	// 这里合并了原WZ的IRenderSystem/sdRenderMan/sdRenderSystem三个类
@@ -130,7 +168,7 @@ namespace RenderSystem
 	//	  每个RenderPass根据渲染RenderObject到RenderTarget
 	//
 	// RenderSystem相对独立,对于World部分,只知道sdMap,sdEntity
-	class sdRenderSystem : public NiMemObject, public sdTSingleton<sdRenderSystem>
+	class sdRenderSystem : public NiMemObject, public Base::sdTSingleton<sdRenderSystem>
 	{
 	public:
 		// 缺省Mesh
@@ -147,7 +185,8 @@ namespace RenderSystem
 		// 缺省材质
 		enum eDefaultMaterial
 		{
-			E_FLAT_SHADING,
+			E_STATIC_FLAT_SHADING,
+			E_SKINNED_FLAT_SHAING,
 			NUM_DEFAULT_MATERIALS,
 		};
 
@@ -207,8 +246,8 @@ namespace RenderSystem
 
 		//@{
 		// 缺省渲染资源
-		//virtual NiMaterial*	GetDefaultMaterial(eDefaultMaterial eMaterial) = 0;
-		//virtual NiMesh*		GetDefaultMesh(eDefaultMesh eMesh) = 0;
+		virtual NiMesh*		GetDefaultMesh(eDefaultMesh eMesh) = 0;
+		virtual NiMaterial*	GetDefaultMaterial(eDefaultMaterial eMaterial) = 0;
 		//virtual NiTexture*	GetDefaultTexture(eDefaultTexture eTexture) = 0;
 		//@}
 

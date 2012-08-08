@@ -1,6 +1,7 @@
 #include "Stdafx.h"
 #include "sdRenderPath_DX9.h"
 #include "sdRenderDevice_DX9.h"
+#include "sdRenderSystem.h"
 
 namespace RenderSystem
 {
@@ -19,7 +20,7 @@ void sdRenderPath_DX9::Draw()
 	// 设置初始渲染状态
 	PrepareRenderStates();
 
-	// 设置变换矩阵
+	// 设置变换矩阵(貌似这里最好延迟一下等待RenderTarget被设置完毕)
 	pkRenderDevice->SetCameraData(m_spCurCam);
 
 	// 设置着色器全局变量
@@ -31,16 +32,16 @@ void sdRenderPath_DX9::Draw()
 	DrawEarlyZPass();
 
 	// 绘制地形Depth到特定纹理
-	//DrawTerrainDepthPass();
+	DrawTerrainDepthPass();
 
 	// 绘制物件到GeometryBuffer(包括Building/Tree/Doodads/Terrain)
 	DrawGeometryPasses();
 
 	// 光照
-	//DrawPreLightPass();
+	DrawPreLightPass();
 
 	// 最终着色合成
-	//DrawShadingPasses();
+	DrawShadingPasses();
 
 	// AO?
 
@@ -156,28 +157,110 @@ void sdRenderPath_DX9::PrepareRenderStates()
 //-------------------------------------------------------------------------------------------------
 void sdRenderPath_DX9::PrepareShaderConstants()
 {
+	sdRenderDevice* pkRenderDevice = sdRenderDevice_DX9::InstancePtr();
+	NIASSERT(pkRenderDevice);
 
+	// 相机
+	// @{
+	// 相机姿态
+	NiPoint3 kCamDir = m_spCurCam->GetWorldDirection();
+	NiPoint3 kCamUp	 = m_spCurCam->GetWorldUpVector();
+	NiPoint3 kCamRight = m_spCurCam->GetWorldRightVector();
+	kCamUp.Unitize();
+	kCamRight.Unitize();
+	pkRenderDevice->SetGlobalShaderConstant("g_vCameraUp", sizeof(NiPoint3), &kCamUp);
+	pkRenderDevice->SetGlobalShaderConstant("g_vCameraRight", sizeof(NiPoint3), &kCamRight);
+
+	// 相机视锥体(视锥体左右是对称的)
+	const NiFrustum& kCamFrustum = m_spCurCam->GetViewFrustum();
+	NiPoint4 kFrustumData(kCamFrustum.m_fRight, kCamFrustum.m_fTop, kCamFrustum.m_fNear, kCamFrustum.m_fFar);
+	pkRenderDevice->SetGlobalShaderConstant("g_fCameraFarClip", sizeof(kCamFrustum.m_fFar), &kCamFrustum.m_fFar);
+	pkRenderDevice->SetGlobalShaderConstant("g_vCameraFrustum", sizeof(NiPoint4), &kFrustumData);
+
+	// 变换矩阵
+	
+
+
+	// @}
+
+	
+	// 灯光
+	// @{
+	bool bMainLight		= m_kRenderParams.IsEnableChannel(sdRenderParams::E_BUILDING, sdRenderParams::E_MAINLIGHT);
+	bool bAssistLight	= m_kRenderParams.IsEnableChannel(sdRenderParams::E_BUILDING, sdRenderParams::E_ASSISTLIGHT);
+	bool bAmbientLight	= m_kRenderParams.IsEnableChannel(sdRenderParams::E_BUILDING, sdRenderParams::E_AMBIENTLIGHT);
+	bool bLocalLight	= m_kRenderParams.IsEnableChannel(sdRenderParams::E_BUILDING, sdRenderParams::E_LOCALLIGHT);
+
+	NiColor kTerrainAmbientColor(0.0f, 0.0f, 0.0f);
+	NiColor kSkyAmbientColor(1.0f, 1.0f, 1.0f);
+
+	NiPoint3 kMainLightDir(1.0f, 1.0f, -1.0f);
+	NiColor kMainLightColor(1.0f, 1.0f, 1.0f);
+	NiColor kMainLightAmbient(0.0f, 0.0f, 0.0f);
+
+	NiPoint3 kAssistLightDir(1.0f, -1.0f, -1.0f);
+	NiColor kAssistLightColor(1.0f, 1.0f, 1.0f);
+	NiColor kAssistLightAmbient(0.0f, 0.0f, 0.0f);
+
+	NiPoint4 kLightFactor(1.0f, 1.0f, 1.0f, 1.0f);
+
+	pkRenderDevice->SetGlobalShaderConstant("g_vTerraimAmbientColor", sizeof(kTerrainAmbientColor), &kTerrainAmbientColor);
+	pkRenderDevice->SetGlobalShaderConstant("g_vSkyAmbientColor", sizeof(kSkyAmbientColor), &kSkyAmbientColor);
+
+	pkRenderDevice->SetGlobalShaderConstant("g_vMainLightDir", sizeof(kMainLightDir), &kMainLightDir);
+	pkRenderDevice->SetGlobalShaderConstant("g_vMainLightColor", sizeof(kMainLightColor), &kMainLightColor);
+	pkRenderDevice->SetGlobalShaderConstant("g_vMainLightAmbientColor", sizeof(kMainLightAmbient), &kMainLightAmbient);
+
+	pkRenderDevice->SetGlobalShaderConstant("g_vAssistLightDir", sizeof(kAssistLightDir), &kAssistLightDir);
+	pkRenderDevice->SetGlobalShaderConstant("g_vAssistLightColor", sizeof(kAssistLightColor), &kAssistLightColor);
+	pkRenderDevice->SetGlobalShaderConstant("g_vAssistLightAmbientColor", sizeof(kAssistLightAmbient), &kAssistLightAmbient);
+	
+	pkRenderDevice->SetGlobalShaderConstant("g_vLightFactor", sizeof(kLightFactor), &kLightFactor);
+	// }@
+
+
+	// 全局雾
+	// @{
+
+
+	// @}
+
+	//
+	NiPoint4 kNormalScale(1.0f, 1.0f, 1.0f, 1.0f);
+	pkRenderDevice->SetGlobalShaderConstant("g_vNormalScale", sizeof(kNormalScale), &kNormalScale);
 }
 //-------------------------------------------------------------------------------------------------
 void sdRenderPath_DX9::DrawEarlyZPass()
 {
-	if (m_bUseEarlyZ)
-	{
-		sdRenderDevice* pkRenderDevice = sdRenderDevice_DX9::InstancePtr();
-		NIASSERT(pkRenderDevice);
+	sdRenderDevice* pkRenderDevice = sdRenderDevice_DX9::InstancePtr();
+	NIASSERT(pkRenderDevice);
 
-		// 设置目标缓存
-		pkRenderDevice->SetRenderTargetGroup(m_spCurFinalRenderTarget);
+	// 设置目标缓存
+	pkRenderDevice->SetRenderTargetGroup(m_spCurFinalRenderTarget);
 
-		// 清空缓存(深度缓存和模板缓存)
-		//uint	uiBlackColor	= 0x00000000;
-		float	fFarDepth		= 1.0f;
-		uint	uiBlackStencil	= 0x00;
-		pkRenderDevice->Clear(NULL, &fFarDepth, &uiBlackStencil);
+	// 清空缓存(深度缓存和模板缓存)
+	float	fFarDepth		= 1.0f;
+	uint	uiBlackStencil	= 0x0;
+	pkRenderDevice->Clear(NULL, &fFarDepth, &uiBlackStencil);
 
-		// 绘制
-		m_pkEarlyZPass->Draw();
-	}
+	// 绘制
+	//m_pkEarlyZPass->Draw();
+}
+//-------------------------------------------------------------------------------------------------
+void sdRenderPath_DX9::DrawTerrainDepthPass()
+{
+	sdRenderDevice* pkRenderDevice = sdRenderDevice_DX9::InstancePtr();
+	NIASSERT(pkRenderDevice);
+
+	// 设置目标缓存(地形深度缓存)
+	pkRenderDevice->SetRenderTargetGroup(m_spTerrainDepthTarget);
+
+	// 清空缓存(颜色缓存,即地形深度缓存)
+	uint uiBlackColor = 0x00000000;
+	pkRenderDevice->Clear(&uiBlackColor, NULL, NULL);
+
+	// 绘制TerrainMesh
+	m_pkTerrainDepthPass->Draw();
 }
 //-------------------------------------------------------------------------------------------------
 void sdRenderPath_DX9::DrawGeometryPasses()
@@ -200,6 +283,56 @@ void sdRenderPath_DX9::DrawGeometryPasses()
 	// 绘制Doodads
 
 	// 绘制Terrain
+	m_pkTerrainAtlasGeometryPass->Draw();
+}
+//-------------------------------------------------------------------------------------------------
+void sdRenderPath_DX9::DrawPreLightPass()
+{
+	sdRenderDevice* pkRenderDevice = sdRenderDevice_DX9::InstancePtr();
+	NIASSERT(pkRenderDevice);
+
+	// 设置目标缓存(光照缓存)
+	pkRenderDevice->SetRenderTargetGroup(m_spLightTarget);
+
+	// 清空缓存(颜色缓存)
+	uint uiBlackColor = 0x00000000;
+	pkRenderDevice->Clear(&uiBlackColor, NULL, NULL);
+
+	// 绘制
+	//
+}
+//-------------------------------------------------------------------------------------------------
+void sdRenderPath_DX9::DrawShadingPasses()
+{
+	sdRenderDevice* pkRenderDevice = sdRenderDevice_DX9::InstancePtr();
+	NIASSERT(pkRenderDevice);
+
+	// 设置目标缓存(几何缓存)
+	pkRenderDevice->SetRenderTargetGroup(m_spCurFinalRenderTarget);
+
+	// 清空缓存(颜色缓存)
+	NiColor& kFogColor = m_kEnvironmentParams.fogColor;
+	uint uiFogR = (uint)(kFogColor.r * 255);
+	uint uiFogG = (uint)(kFogColor.g * 255);
+	uint uiFogB = (uint)(kFogColor.b * 255);
+	uint uiD3DFogColor = (uiFogR << 16) | (uiFogG << 8) | uiFogB;
+	pkRenderDevice->Clear(&uiD3DFogColor, NULL, NULL);
+
+	// 着色地形
+
+	// 着色道路
+
+	// 着色StaticMesh
+	m_pkMRTShadingPass->Draw();
+
+	// 着色SkinnedMesh
+
+	// 着色Decal和DecalShadow
+
+	// 着色地表Doodads
+
+	// 着色天空盒
+
 }
 //-------------------------------------------------------------------------------------------------
 }

@@ -87,8 +87,8 @@ void sdRenderObject::ApplyTexturingProp()
 	NiTexturingProperty* spMeshTexturingProp = spPropertyState->GetTexturing();
 	if (!spMeshTexturingProp)	return;
 
-	NiProperty* spProp = FindProperty(m_spProperties, NiProperty::TEXTURING);
-	NiTexturingProperty* spTexturingProp = (NiTexturingProperty*)spProp;
+	NiProperty* spProperty = FindProperty(m_spProperties, NiProperty::TEXTURING);
+	NiTexturingProperty* spTexturingProp = (NiTexturingProperty*)spProperty;
 	if (!spTexturingProp)	return;
 
 	// 拷贝数组里面凉
@@ -96,12 +96,15 @@ void sdRenderObject::ApplyTexturingProp()
 	const NiTexturingProperty::NiMapArray& kMaps = spTexturingProp->GetMaps();
 
 	//************
-
-}
+	// 未完成
+	//************
+}	
 //-------------------------------------------------------------------------------------------------
 void sdRenderObject::RestoreTexturingProp()
 {
-	
+	//************
+	// 未完成
+	//************
 }
 //-------------------------------------------------------------------------------------------------
 void sdRenderObject::ApplyMaterial()
@@ -139,29 +142,33 @@ void sdRenderObject::SetShaderParams()
 //-------------------------------------------------------------------------------------------------
 void sdRenderObject::SetRenderStates()
 {
-	if (m_spMaterial)
-	{
-		sdRenderDevice* pkRenderDevice = sdRenderDevice_DX9::InstancePtr();
-		NiPropertyState* spPropertyState = m_spMesh->GetPropertyState();
-		NiStencilProperty*	spStencilProp = spPropertyState->GetStencil();
-		if (spStencilProp)
-		{
-			// 此处参考GB的NiStencilProperty
-			static D3DCULL d3dCullTable[] = 
-			{
-				D3DCULL_CW,		// 对应GB的DRAW_CCW_OR_BOTH
-				D3DCULL_CW,		// 对应GB的DRAW_CCW
-				D3DCULL_CCW,	// 对应GB的DRAW_CW
-				D3DCULL_NONE,	// 对应GB的DRAW_BOTH
-			};
-			NiStencilProperty::DrawMode eDrawMode = spStencilProp->GetDrawMode();
-			pkRenderDevice->SetRenderState(D3DRS_CULLMODE, d3dCullTable[(uint)eDrawMode]);
-		}
-		else
-		{
-			pkRenderDevice->SetRenderState(D3DRS_CULLMODE, D3DCULL_CW);
-		}
-	}
+	//***********************
+	// 已修改
+	// (个人觉得需要一组开关来控制单个Mesh的RenderState的设置)
+	//if (m_spMaterial)
+	//{
+	//	sdRenderDevice* pkRenderDevice = sdRenderDevice_DX9::InstancePtr();
+	//	NiPropertyState* spPropertyState = m_spMesh->GetPropertyState();
+	//	NiStencilProperty*	spStencilProp = spPropertyState->GetStencil();
+	//	if (spStencilProp)
+	//	{
+	//		// 此处参考GB的NiStencilProperty
+	//		static D3DCULL d3dCullTable[] = 
+	//		{
+	//			D3DCULL_CW,		// 对应GB的DRAW_CCW_OR_BOTH
+	//			D3DCULL_CW,		// 对应GB的DRAW_CCW
+	//			D3DCULL_CCW,	// 对应GB的DRAW_CW
+	//			D3DCULL_NONE,	// 对应GB的DRAW_BOTH
+	//		};
+	//		NiStencilProperty::DrawMode eDrawMode = spStencilProp->GetDrawMode();
+	//		pkRenderDevice->SetRenderState(D3DRS_CULLMODE, d3dCullTable[(uint)eDrawMode]);
+	//	}
+	//	else
+	//	{
+	//		pkRenderDevice->SetRenderState(D3DRS_CULLMODE, D3DCULL_CW);
+	//	}
+	//}
+	//***********************
 }
 //-------------------------------------------------------------------------------------------------
 NiProperty* sdRenderObject::FindProperty(NiPropertyList* spPropList, int iPropType)

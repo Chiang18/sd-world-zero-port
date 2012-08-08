@@ -35,6 +35,9 @@ void sdRenderPath_DX9::RenderMainView()
 		RenderStaticMesh(*itr);
 	}
 	//********************************************************
+
+	// 裁剪地形
+	RenderTerrain();
 }
 //-------------------------------------------------------------------------------------------------
 void sdRenderPath_DX9::OctreeCull()
@@ -74,6 +77,30 @@ void sdRenderPath_DX9::CollectMeshes(NiNode* spNode, std::vector<NiMesh*>& kMesh
 				}
 			}
 		}
+	}
+}
+//-------------------------------------------------------------------------------------------------
+void sdRenderPath_DX9::RenderTerrain()
+{
+	using namespace std;
+
+	// 确信Camera/Map/Terrain有效性
+	if (!m_spCurCam || !m_pkCurMap || !m_pkCurMap->GetTerrain())
+		return;
+
+	sdTerrain* pkTerrain = m_pkCurMap->GetTerrain();
+	NIASSERT(pkTerrain);
+
+	// 裁剪
+	vector<NiMesh*> kMeshVec;
+	pkTerrain->Cull(*m_spCurCam, kMeshVec);
+
+	// 添加到渲染路径
+	vector<NiMesh*>::iterator itr = kMeshVec.begin();
+	vector<NiMesh*>::iterator itr_end = kMeshVec.end();
+	for (; itr != itr_end; ++itr)
+	{
+		RenderTerrainMesh(*itr);
 	}
 }
 //-------------------------------------------------------------------------------------------------

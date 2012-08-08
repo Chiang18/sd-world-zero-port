@@ -23,7 +23,7 @@ namespace RenderSystem
 	// 渲染设备接口,封装所有对渲染设备的操作
 	// (封装了渲染状态管理部分,即NiDX9RenderState)
 	// (封装了部分资源管理部分,即NiDX9Renderer)
-	class sdRenderDevice : public NiMemObject, public sdTSingleton<sdRenderDevice>
+	class sdRenderDevice : public NiMemObject, public Base::sdTSingleton<sdRenderDevice>
 	{
 	public:
 		struct TextureSpec

@@ -40,5 +40,118 @@ float UnpackDepth(float2 enc)
 	depth = depth * depth;
 	return depth;
 }
+
+
+//*****************************************************************************
+// 颜色空间
+//*****************************************************************************
+float4 ToLinear(float4 color)
+{
+	return float4(pow(color.rgb, g_fGammaValue), color.a);
+}
+
+float3 ToLinear(float3 color)
+{
+	return float3(pow(color.rgb, g_fGammaValue));
+}
+
+float4 ToGamma(float4 color)
+{
+	return float4(pow(color.rgb, 1.0f / g_fFinalGammaValue), color.a);
+}
+
+//*****************************************************************************
+// 骨骼变换
+//*****************************************************************************
+void TransformSkinnedPosition(float3 vPosition, 
+							int4 iBlendIndices, 
+							float3 vBlendWeights, 
+							BONEMATRIX_TYPE mBones[MAX_BONES],
+							out float4 vWorldPos,
+							out float4x4 mSkinnedBoneTransform)
+{
+	// 计算变换矩阵
+	float fWeight3 = 1.0f - vBlendWeights[0] - vBlendWeights[1] - vBlendWeights[2];
+	BONEMATRIX_TYPE mShortSkinnedBoneTransform;
+	mShortSkinnedBoneTransform 	= mBones[iBlendIndices[0] * vBlendWeights[0]];
+	mShortSkinnedBoneTransform += mBones[iBlendIndices[1] * vBlendWeights[1]];
+	mShortSkinnedBoneTransform += mBones[iBlendIndices[2] * vBlendWeights[2]];
+	mShortSkinnedBoneTransform += mBones[iBlendIndices[3] * fWeight3];
+	mSkinnedBoneTransform = float4x4(
+		mShortSkinnedBoneTransform[0], 0.0f,
+		mShortSkinnedBoneTransform[1], 0.0f,
+		mShortSkinnedBoneTransform[2], 0.0f,
+		mShortSkinnedBoneTransform[3], 1.0f);
+		
+	// 变换
+	vWorldPos.xyz = mul(float4(vPosition, 1.0f), mShortSkinnedBoneTransform);
+	vWorldPos.w = 1.0f;
+}
+
+
+//*****************************************************************************
+// 光照计算
+//*****************************************************************************
+void AccumLighting(float3 V, float3 N, float fShiness, float fLightMap, float4 vLocalLight, out float3 vDiffuseLight, out float3 vSpecularLight)
+{
+	// 
+	fLightMap = saturate(1.0f + g_fMainLightLightMapFactor * (fLightMap - 1.0f));
+	
+	// 计算并合成全局主光光照(奇怪的计算算法)
+	// @{
+	float3 L = -g_vMainLightDir;
+	float3 R = reflect(g_vMainLightDir, N);
+	
+	float NL = saturate(dot(N, L));
+	float VR = saturate(dot(V, R));
+	
+	vDiffuseLight 	= lerp(g_vMainLightAmbientColor, g_vMainLightColor, NL * fLightMap);
+	vSpecularLight	= vDiffuseLight * pow(VR, fShiness);
+	// @}
+	
+	
+	// 计算并合成全局辅助光光照(奇怪的计算算法)
+	// @{
+	L = -g_vAssistLightDir;
+	R = reflect(g_vAssistLightDir, N);
+	
+	NL = saturate(dot(N, L));
+	VR = saturate(dot(V, R));
+	
+	vDiffuseLight 	+= lerp(g_vAssistLightAmbientColor, g_vAssistLightColor, NL);
+	vSpecularLight	+= vDiffuseLight * pow(VR, fShiness);
+	// @}
+
+	
+	// 合成局部光照(奇怪的合成算法)
+	// @{
+	vLocalLight *= g_fLocalLightRange;
+	
+	vDiffuseLight	+= vLocalLight.rgb;
+	vSpecularLight	+= vLocalLight.rgb / (dot(vLocalLight.rgb, g_vLuminScale) + 0.001f) * vLocalLight.a;
+	// @}
+	
+	
+	// 合成全局环境光照(把法线转换到世界空间,然后插值地面与天空环境光)
+	vDiffuseLight	+= lerp(g_vTerraimAmbientColor, g_vSkyAmbientColor, saturate(dot(N, g_mInvViewT._m20_m21_m22)));
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 //*****************************************************************************
 #endif

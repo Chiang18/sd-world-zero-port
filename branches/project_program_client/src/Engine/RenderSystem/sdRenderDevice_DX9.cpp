@@ -104,7 +104,7 @@ void sdRenderDevice_DX9::Clear(uint* puiColor, float* pfDepth, uint* puiStencil)
 	D3DCOLOR	vClearColor		= 0;
 	float		fClearDepth		= 0.0f;
 	DWORD		uiClearStencil	= 0;
-	if (puiColor)		{ uiFlag |= D3DCLEAR_TARGET;	vClearColor = * puiColor;}
+	if (puiColor)		{ uiFlag |= D3DCLEAR_TARGET;	vClearColor = *puiColor;}
 	if (pfDepth)		{ uiFlag |= D3DCLEAR_ZBUFFER;	fClearDepth = *pfDepth;}
 	if (uiClearStencil)	{ uiFlag |= D3DCLEAR_STENCIL;	uiClearStencil = *puiStencil;}
 	d3ddev->Clear(0, NULL, uiFlag, vClearColor, fClearDepth, uiClearStencil);

@@ -3,7 +3,6 @@
 #include "resource.h"
 
 // 全局变量
-HINSTANCE		g_hModule = NULL;
 sdGameClient*	g_pkGameClient = NULL;
 
 
@@ -18,9 +17,6 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPTSTR lpCmdLin
 	// 注册CRT退出回调函数
 	// atexit(ExitDump)
 
-	// 
-	g_hModule = hInstance;
-
 	// 加载进度条
 	//g_pkLoadingDlg = new sdLoadingDlg;
 	//g_pkLoadingDlg->Initialize();
@@ -28,7 +24,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPTSTR lpCmdLin
 	// 客户端初始化
 	g_pkGameClient = new sdGameClient;
 	assert(g_pkGameClient);
-	g_pkGameClient->Initialize();
+	g_pkGameClient->Initialize(hInstance);
 
 	// 销毁进度条
 	//g_pkLoadingDlg->Destroy();
@@ -48,7 +44,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPTSTR lpCmdLin
 	g_pkGameClient = NULL;
 
 	// 客户端结束后调用浏览器之类的
-	//CreateProcess()
+	//CreateProcess();
 
 	return 0;
 };

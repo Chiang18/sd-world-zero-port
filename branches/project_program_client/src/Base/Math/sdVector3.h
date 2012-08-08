@@ -277,6 +277,19 @@ namespace Base
 			}
 			// @}
 
+			// 常用
+			// @{
+			inline float Length () const
+			{
+				return sqrt(m_fX * m_fX + m_fY * m_fY + m_fZ * m_fZ);
+			}
+
+			inline float SquaredLength () const
+			{
+				return m_fX * m_fX + m_fY * m_fY + m_fZ * m_fZ;
+			}
+
+
 			// 取两个Vector每个分量的较小值
 			inline void MakeMinimum(const sdVector3& kVector)
 			{
@@ -292,6 +305,7 @@ namespace Base
 				if(kVector.m_fY > m_fY) m_fY = kVector.m_fY;
 				if(kVector.m_fZ > m_fZ) m_fZ = kVector.m_fZ;
 			}
+			// @}
 		};
 	}
 }

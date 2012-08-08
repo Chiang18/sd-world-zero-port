@@ -32,7 +32,7 @@ bool sdMRTZGeometryPass::Initialize(uint uiStaticMeshStencilID, uint uiStaticMes
 	}
 
 	// 设置模版参数
-	m_uiStaticMeshStencilID = uiStaticMeshStencilIDMask;
+	m_uiStaticMeshStencilID = uiStaticMeshStencilID;
 	m_uiStaticMeshStencilIDMask = uiStaticMeshStencilIDMask;
 
 	// 初始化材质
@@ -45,14 +45,14 @@ bool sdMRTZGeometryPass::Initialize(uint uiStaticMeshStencilID, uint uiStaticMes
 	m_kSkinnedGeometryMaterials.reserve(uiNum);
 	for (uint i = 0; i < uiNum; ++i)
 	{
-		sprintf(szMaterialName, "MRT3Geometry0x%08X", i);
+		sprintf(szMaterialName, "MRT3Geometry0x%08x", i);
 		m_kStaticGeometryMaterials[i] = pkRenderDevice->CreateMaterial(szMaterialName);
 		
-		//sprintf(szMaterialName, "MRT3SkinnedGeometry0x%08X", i);
+		//sprintf(szMaterialName, "MRT3SkinnedGeometry0x%08x", i);
 		//m_kSkinnedGeometryMaterials[i] = pkRenderDevice->CreateMaterial(szMaterialName);
 	}
 
-	// 
+	// 初始化纹理属性
 	NiTexturingPropertyPtr spTexturingProp  = NiNew NiTexturingProperty;
 	NIASSERT(spTexturingProp);
 	spTexturingProp->SetShaderMap(0, NiNew NiTexturingProperty::ShaderMap(NULL, 0));
@@ -109,7 +109,7 @@ void sdMRTZGeometryPass::InsertStaticMesh(NiMesh* spMesh)
 	// 构建ShaderParamItem数组,传入对象Material参数
 	// @{
 	static const sdFixedString s_szDiffuseName("g_vDiffuseMaterial",		true);
-	static const sdFixedString s_szSpecularName("g_vSpeculatMaterial",		true);
+	static const sdFixedString s_szSpecularName("g_vSpecularMaterial",		true);
 	static const sdFixedString s_szEmissiveName("g_vEmissiveMaterial",		true);
 	static const sdFixedString s_szAlphaTestName("g_fAlphaTestRef",			true);
 	static const sdFixedString s_szEdgeEnhancementName("g_fEdgeEnhancement",	true);
@@ -152,7 +152,7 @@ void sdMRTZGeometryPass::InsertStaticMesh(NiMesh* spMesh)
 
 	if (spTexProp->GetBaseMap())	bEffectType[0] = true;
 	if (spTexProp->GetNormalMap())	bEffectType[1] = true;
-	if (spTexProp->GetGlossMap())	bEffectType[3] = true;
+	if (spTexProp->GetGlossMap())	bEffectType[2] = true;
 
 	if (bSkinned)
 	{
@@ -206,6 +206,9 @@ void sdMRTZGeometryPass::Draw()
 	pkRenderDevice->ClearVertexBinding();
 	//pkRenderDevice->ClearTextureBinding();
 
+	// CullMode
+	pkRenderDevice->SetRenderState(D3DRS_CULLMODE,			D3DCULL_CW);
+
 	// Alpha
 	pkRenderDevice->SetRenderState(D3DRS_ALPHABLENDENABLE,	false);
 	pkRenderDevice->SetRenderState(D3DRS_ALPHATESTENABLE,	false);
@@ -222,6 +225,7 @@ void sdMRTZGeometryPass::Draw()
 	pkRenderDevice->SetRenderState(D3DRS_STENCILZFAIL,		D3DSTENCILOP_KEEP);
 	pkRenderDevice->SetRenderState(D3DRS_STENCILPASS,		D3DSTENCILOP_REPLACE);
 	pkRenderDevice->SetRenderState(D3DRS_STENCILREF,		m_uiStaticMeshStencilID);
+	pkRenderDevice->SetRenderState(D3DRS_STENCILMASK,		0xffffffff);
 	pkRenderDevice->SetRenderState(D3DRS_STENCILWRITEMASK,	m_uiStaticMeshStencilIDMask);
 
 	// 设置Texture Sample状态

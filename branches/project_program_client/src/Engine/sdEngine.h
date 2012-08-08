@@ -6,6 +6,7 @@
 #include <NiMesh.h>
 #include <NiAnimation.h>
 #include <NiDX9Renderer.h>
+#include <NiViewMath.h>
 
 // windows м╥нд╪Ч
 #include <windows.h>

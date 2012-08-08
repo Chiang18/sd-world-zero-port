@@ -1,5 +1,5 @@
 //*************************************************************************************************
-// 内容:	StaticMesh的MRTZPass着色器具体实现
+// 内容:	StaticMesh的MRTZGeometryPass着色器具体实现
 //---------------------------------------------------------
 // 作者:		
 // 创建:		2012-07-14
@@ -265,29 +265,33 @@ void PS_SHADER(VS_OUTPUT kInput, 				\
 	geoData	= float4(PackDepth(fDepth), PackNormal(vViewNormal));
 	// @}
 	
+	
 	//*****************************************************
 	// 计算光照贴图
+	//	1.LightMap信息放置在Alpha通道的高7bit
+	//  2.RimLight信息放置在Alpha通道的最低1bit
 	// @{
 #if LIGHTMAP
 	float fLightTex = dot(tex2D(sdDarkSampler, kInput.vUVSet1), vLightMapChannel);
 #else
-	float fLightTex = g_fMainLightOcclusion;
+	float fLightTex = 1.0f;	//a_fMainLightOcclusion;
 #endif
 
-	int iDarkness = fLightTex * 127.0f + 0.5f;	// LightMap是7bit,RimLight是1bit(不解???)
-	int iDarknessShiftLeft = iDarkness * 2;
+	int iDarkness = fLightTex * 127.0f + 0.5f;	// 变换到7bit内,即[0,127],四舍五入
+	int iDarknessShiftLeft = iDarkness * 2;		// 向左平移1bit
 	int iShouldRimLight = 0;
-	matData0.a		= (iDarknessShiftLeft + iShouldRimLight) / 255.0f;	// (不解???)
+	matData0.a		= (iDarknessShiftLeft + iShouldRimLight) / 255.0f;	// 合并后变换回浮点数
 	matData0.rgb 	= vCompactedDiffuse;	
 	// @}
 	
+	
 	//*****************************************************
-	// 计算高光
+	// 计算高光(不知道为什么不预乘以高光材质颜色,后面也没有用到高光材质颜色)
 	// @{
 #if GLOSSMAP
 	float3 	vSpeculatTex = tex2D(sdGlossSampler, kInput.vUVSet0).rgb;
 #else
-	float3 	vSpeculatTex = 0.0f;	// g_vSpeculatMaterialColor
+	float3 	vSpeculatTex = 0.0f;	// g_vSpecularMaterialColor
 #endif
 
 	matData1.rgb	= vSpeculatTex;

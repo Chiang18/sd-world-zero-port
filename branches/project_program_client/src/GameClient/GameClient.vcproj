@@ -43,7 +43,7 @@
 				Name="VCCLCompilerTool"
 				AdditionalOptions=" /EHsc"
 				Optimization="0"
-				AdditionalIncludeDirectories="../base;../engine;../engine/world;../engine/entity;../engine/utility;../engine/rendersystem;../gamecore;../gamecore/config;../gamecore/input;../../thirdparty/gamebryo/sdk/win32/include"
+				AdditionalIncludeDirectories="../base;../base/math;../base/misc;../base/multithread;../base/util;../engine;../engine/world;../engine/entity;../engine/utility;../engine/terrain;../engine/graphic;../engine/rendersystem;../gamecore;../gamecore/config;../gamecore/input;../gamecore/camera;../../thirdparty/gamebryo/sdk/win32/include"
 				PreprocessorDefinitions="WIN32;_DEBUG;_WINDOWS;EE_EFD_IMPORT;NIANIMATION_IMPORT;NIMAIN_IMPORT;NIMESH_IMPORT;NISYSTEM_IMPORT;NIFLOODGATE_IMPORT;NIDX9RENDERER_IMPORT"
 				MinimalRebuild="true"
 				BasicRuntimeChecks="3"
@@ -189,7 +189,7 @@
 				>
 			</File>
 			<File
-				RelativePath=".\sdGameClientLib.h"
+				RelativePath=".\sdGameClientLib.cpp"
 				>
 			</File>
 			<File

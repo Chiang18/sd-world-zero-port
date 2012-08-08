@@ -127,7 +127,7 @@ sampler sdEnvSampler = sampler_state
 		int 	NTMIndex	= _idx;									\
 	>;																\
 																	\
-	sampler _sampler = sample_state									\
+	sampler _sampler = sampler_state									\
 	{																\
 		Texture		= (_tex);										\
 		ADDRESSU	= _address;										\
@@ -146,7 +146,7 @@ sampler sdEnvSampler = sampler_state
 		int 	NTMIndex	= _idx;									\
 	>;																\
 																	\
-	samplerCUBE _sampler = sample_state								\
+	samplerCUBE _sampler = sampler_state								\
 	{																\
 		Texture		= (_tex);										\
 		ADDRESSU	= _address;										\
@@ -164,7 +164,7 @@ sampler sdEnvSampler = sampler_state
 		int 	NTMIndex	= _idx;									\
 	>;																\
 																	\
-	sampler _sampler = sample_state									\
+	sampler _sampler = sampler_state									\
 	{																\
 		Texture		= (_tex);										\
 		ADDRESSU	= _address;										\

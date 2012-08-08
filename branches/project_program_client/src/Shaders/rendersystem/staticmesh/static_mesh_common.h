@@ -20,6 +20,12 @@ float3	vDetailNormalScale			: ATTRIBUTE	= float3(1.0f, 1.0f, 1.0f);
 float2	vDetailNormalUVTiling		: ATTRIBUTE = float2(5.0f, 5.0f);
 float	fDetailNormalFadeDistance	: ATTRIBUTE = 30.0f;
 
-
+// 延迟着色的纹理采样器
+SD_POINT_CLAMP_SAMPLE(0,	sdLightBufferSampler, 	sdTexLightBuffer, 	false);
+SD_POINT_CLAMP_SAMPLE(1, 	sdGeomBufferSampler, 	sdTexGeomBuffer, 	false);
+SD_POINT_CLAMP_SAMPLE(2, 	sdMatBufferSampler, 	sdTexMatBuffer, 	false);
+SD_POINT_CLAMP_SAMPLE(2, 	sdMatBuffer0Sampler, 	sdTexMatBuffer0, 	false);
+SD_POINT_CLAMP_SAMPLE(3, 	sdMatBuffer1Sampler, 	sdTexMatBuffer1, 	false);
+SD_LINEAR_CLAMP_SAMPLE(3, 	curveFogBufferSampler, 	sdTexFogCurveMap, 	false);
 
 #endif

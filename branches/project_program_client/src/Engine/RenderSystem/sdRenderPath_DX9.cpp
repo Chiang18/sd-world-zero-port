@@ -3,7 +3,6 @@
 #include "sdRenderDevice_DX9.h"
 #include "sdRenderObject.h"
 #include "sdRenderObjectAlloc.h"
-#include "sdRenderSystem.h"
 
 // World部分
 #include "sdMap.h"
@@ -27,12 +26,15 @@ sdRenderPath_DX9::sdRenderPath_DX9()
 	// G-Buffer
 	m_spGeometryAlbedoMRT	= pkRenderDevice->CreateRenderTarget(3);
 	NIASSERT(m_spGeometryAlbedoMRT);
-	// @}
+	
+	// Light-Buffer
+	m_spLightTarget = pkRenderDevice->CreateRenderTarget(1);
+	NIASSERT(m_spLightTarget);
 
-	// 创建渲染参数
-	m_pkRenderParams		= NiNew sdRenderParams;
-	m_pkEnvironmentParams	= NiNew sdEnvironmentParams;
-	m_pkPostProcessParams	= NiNew sdPostProcessParams;
+	// Terrain-Depth-Buffer
+	m_spTerrainDepthTarget = pkRenderDevice->CreateRenderTarget(1);
+	NIASSERT(m_spTerrainDepthTarget);
+	// @}
 
 	// 创建RenderObject分配器缓存
 	m_pkRenderObjectAlloc = NiNew sdRenderObjectAlloc(1024 * 1024 * 5, 1024 * 1024);
@@ -45,7 +47,23 @@ sdRenderPath_DX9::sdRenderPath_DX9()
 
 	m_pkMRTZGeometryPass = NiNew sdMRTZGeometryPass(m_pkRenderObjectAlloc);
 	NIASSERT(m_pkMRTZGeometryPass);
+
+	m_pkMRTShadingPass = NiNew sdMRTShadingPass(m_pkRenderObjectAlloc);
+	NIASSERT(m_pkMRTShadingPass);
+
+	m_pkTerrainDepthPass = NiNew sdTerrainDepthPass(m_pkRenderObjectAlloc);
+	NIASSERT(m_pkTerrainDepthPass);
+
+	m_pkTerrainAtlasGeometryPass = NiNew sdTerrainAtlasGeometryPass(m_pkRenderObjectAlloc);
+	NIASSERT(m_pkTerrainAtlasGeometryPass);
 	//@}
+
+
+	// 初始化渲染参数
+	m_kRenderParams.Reset();
+	m_kEnvironmentParams.Reset();
+	m_kPostProcessParams.Reset();
+	m_kTerrainParams.Reset();
 }
 //-------------------------------------------------------------------------------------------------
 sdRenderPath_DX9::~sdRenderPath_DX9()
@@ -56,15 +74,28 @@ sdRenderPath_DX9::~sdRenderPath_DX9()
 		m_bInitialized = false;
 	}
 
+	// 清除Params
+	// @{
+	m_kRenderParams.Reset();
+	m_kEnvironmentParams.Reset();
+	m_kPostProcessParams.Reset();
+	m_kTerrainParams.Reset();
+	// @}
+
 	// 清除RenderPass
 	// @{
 	m_pkEarlyZPass = 0;
 	m_pkMRTZGeometryPass = 0;
+	m_pkMRTShadingPass = 0;
+	m_pkTerrainDepthPass = 0;
+	m_pkTerrainAtlasGeometryPass = 0;
 	// }@
 
 	// 清除RenderTargetGroup
 	// @{
 	m_spGeometryAlbedoMRT	= 0;
+	m_spLightTarget	= 0;
+	m_spTerrainDepthTarget = 0;
 	// @}
 }
 //-------------------------------------------------------------------------------------------------
@@ -86,16 +117,35 @@ bool sdRenderPath_DX9::Initialize()
 	uint uiWidth = spRenderTarget->GetWidth(0);
 	uint uiHeight = spRenderTarget->GetHeight(0);
 
-	// 初始化Shader变量
+	// 初始化Shader变量(主要是屏幕尺寸相关)
+	// @{
+	// 屏幕尺寸
 	NiPoint2 kWindowSize((float)uiWidth, (float)uiHeight);
-	NiShaderFactory::UpdateGlobalShaderConstant("g_vWindowSize", sizeof(NiPoint2), &kWindowSize);
+	pkRenderDevice->SetGlobalShaderConstant("g_vWindowSize", sizeof(NiPoint2), &kWindowSize);
+
+	// 屏幕半像素偏移
+	NiPoint2 kHalfPixelOffset(0.5f / (float)uiWidth, 0.5f / (float)uiHeight);
+	pkRenderDevice->SetGlobalShaderConstant("g_vHalfPixelOffset", sizeof(NiPoint2), &kHalfPixelOffset);
+
+	// 投影坐标到屏幕纹理坐标的偏移
+	NiPoint2 kPixelToTexelOffset(0.5f + 0.5f / (float)uiWidth, 0.5f + 0.5f / (float)uiHeight);
+	pkRenderDevice->SetGlobalShaderConstant("g_vPixToTexOffset", sizeof(NiPoint2), &kPixelToTexelOffset);
+	// @}
+
 
 	// 创建Texture
 	CreateAllRenderedTexture();
 
 	// 初始化RenderPass
+	// @{
 	m_pkEarlyZPass->Initialize(E_SID_STATIC_MESH, E_SID_MASK);
+
 	m_pkMRTZGeometryPass->Initialize(E_SID_STATIC_MESH, E_SID_MASK);
+	m_pkMRTShadingPass->Initialize(E_SID_STATIC_MESH, E_SID_MASK, m_spDepthOrLightTexture, m_spGeometryTexture, m_spAlbedoTexture, m_spGlossTexture);
+	
+	m_pkTerrainDepthPass->Initialize(E_SID_TERRAIN | (1<<E_PSB_DISTANCE_TERRAIN), E_SID_MASK | (1<<E_PSB_DISTANCE_TERRAIN));
+	m_pkTerrainAtlasGeometryPass->Initialize(E_SID_TERRAIN, E_SID_MASK, E_PSB_DISTANCE_TERRAIN, m_spDepthOrLightTexture);
+	// @}
 
 	return (m_bInitialized = true);
 }
@@ -107,8 +157,11 @@ void sdRenderPath_DX9::Destroy()
 		return;
 
 	// 销毁RenderPass
-	m_pkMRTZGeometryPass->Destroy();
 	m_pkEarlyZPass->Destroy();
+	m_pkMRTZGeometryPass->Destroy();
+	m_pkMRTShadingPass->Destroy();
+	m_pkTerrainDepthPass->Destroy();
+	m_pkTerrainAtlasGeometryPass->Destroy();
 
 	// 销毁Textute
 	ReleaseAllRenderTexture();
@@ -132,7 +185,7 @@ void sdRenderPath_DX9::CreateAllRenderedTexture()
 
 	//
 	NiTexture::FormatPrefs kFormatARGB8;
-	kFormatARGB8.m_ePixelLayout = NiTexture::FormatPrefs::SINGLE_COLOR_32;
+	kFormatARGB8.m_ePixelLayout = NiTexture::FormatPrefs::TRUE_COLOR_32;
 	kFormatARGB8.m_eAlphaFmt	= NiTexture::FormatPrefs::SMOOTH;
 	kFormatARGB8.m_eMipMapped	= NiTexture::FormatPrefs::NO;
 
@@ -152,8 +205,9 @@ void sdRenderPath_DX9::CreateAllRenderedTexture()
 	m_spGlossTexture = pkRenderDevice->CreateRenderTexture(kFullTextureSpec);
 	NIASSERT(m_spGlossTexture);
 
+	m_spDepthOrLightTexture = pkRenderDevice->CreateRenderTexture(kFullTextureSpec);
+	NIASSERT(m_spDepthOrLightTexture);
 	// @}
-
 }
 //-------------------------------------------------------------------------------------------------
 void sdRenderPath_DX9::ReleaseAllRenderTexture()
@@ -161,33 +215,70 @@ void sdRenderPath_DX9::ReleaseAllRenderTexture()
 	m_spGeometryTexture = 0;
 	m_spAlbedoTexture = 0;
 	m_spGeometryTexture = 0;
+	m_spDepthOrLightTexture = 0;
 }
 //-------------------------------------------------------------------------------------------------
 void sdRenderPath_DX9::UpdateRenderParams(const sdRenderParams& kRenderParams)
 {
-	NIASSERT(m_pkRenderParams);
-	*m_pkRenderParams = kRenderParams;
+	m_kRenderParams = kRenderParams;
+
+	// 更新到所有RenderPass(不明白为什么用拷贝)
+	m_pkEarlyZPass->SetRenderParams(&kRenderParams);
+	m_pkMRTZGeometryPass->SetRenderParams(&kRenderParams);
+	m_pkMRTShadingPass->SetRenderParams(&kRenderParams);
+	m_pkTerrainDepthPass->SetRenderParams(&kRenderParams);
+	m_pkTerrainAtlasGeometryPass->SetRenderParams(&kRenderParams);
 }
 //-------------------------------------------------------------------------------------------------
 void sdRenderPath_DX9::UpdateEnvironmentParams(const sdEnvironmentParams& kEnvParams)
 {
-	NIASSERT(m_pkEnvironmentParams);
-	*m_pkEnvironmentParams = kEnvParams;
+	m_kEnvironmentParams = kEnvParams;
 }
 //-------------------------------------------------------------------------------------------------
 void sdRenderPath_DX9::UpdatePostProcessParams(const sdPostProcessParams& kPostProcessParams)
 {
-	NIASSERT(m_pkPostProcessParams);
-	*m_pkPostProcessParams = kPostProcessParams;
+	m_kPostProcessParams = kPostProcessParams;
+}
+//-------------------------------------------------------------------------------------------------
+void sdRenderPath_DX9::UpdateTerrainParams(const sdTerrainParams& kTerrainParams)
+{
+	// 快速检查参数是否发生改变
+	// (由于sdTerrainParams继承自NiMemObject故可以使用memcmp函数)
+	if (0 != memcmp(&m_kTerrainParams, &kTerrainParams, sizeof(sdTerrainParams)))
+	{
+		m_kTerrainParams = kTerrainParams;
+
+		// 更新到地形RenderPass
+		m_pkTerrainAtlasGeometryPass->SetTerrainParams(kTerrainParams);
+	}
 }
 //-------------------------------------------------------------------------------------------------
 void sdRenderPath_DX9::RenderStaticMesh(NiMesh* spMesh)
 {
+	NIASSERT(spMesh);
+
 	// 加入深度预渲染通道
 	//m_pkEarlyZPass->InsertStaticMesh(spMesh);
 
+
+	//***************************************
+	// 屏蔽DarkMap
+	NiPropertyStatePtr spPropState = spMesh->GetPropertyState();
+	NiTexturingPropertyPtr spTexProp = spPropState->GetTexturing();
+	spTexProp->SetDarkMap(NULL);
+	spTexProp->SetParallaxMap(NULL);
+	//***************************************
+
 	// 加入G-Buffer生成通道
 	m_pkMRTZGeometryPass->InsertStaticMesh(spMesh);
+}
+//-------------------------------------------------------------------------------------------------
+void sdRenderPath_DX9::RenderTerrainMesh(NiMesh* spMesh)
+{
+	NIASSERT(spMesh);
+
+	// 加入地形深度渲染通道
+	m_pkTerrainDepthPass->InsertStaticMesh(spMesh);
 }
 //-------------------------------------------------------------------------------------------------
 void sdRenderPath_DX9::RenderScene(sdMap* pkMap, NiCamera* spCamera, NiRenderTargetGroup* spRenderTarget)
@@ -218,13 +309,19 @@ void sdRenderPath_DX9::BeginRenderScene(sdMap* pkMap, NiCamera* spCamera, NiRend
 	// 开始RenderPass处理
 	m_pkEarlyZPass->Begin();
 	m_pkMRTZGeometryPass->Begin();
+	m_pkMRTShadingPass->Begin();
+	m_pkTerrainDepthPass->Begin();
+	m_pkTerrainAtlasGeometryPass->Begin();
 }
 //-------------------------------------------------------------------------------------------------
 void sdRenderPath_DX9::EndRenderScene()
 {
 	// 结束RenderPass处理
-	m_pkMRTZGeometryPass->End();
 	m_pkEarlyZPass->End();
+	m_pkMRTZGeometryPass->End();
+	m_pkMRTShadingPass->End();
+	m_pkTerrainDepthPass->End();
+	m_pkTerrainAtlasGeometryPass->End();
 
 	// 更新
 	Update(NULL, NULL, NULL);
@@ -252,11 +349,19 @@ void sdRenderPath_DX9::UpdateRenderTargets(NiRenderTargetGroup* spRenderTarget)
 		NiDepthStencilBuffer* spDSBuffer = spRenderTarget->GetDepthStencilBuffer();
 		NIASSERT(spDSBuffer);
 
-		// G-Buffer
+		// Geometry-Buffer
 		m_spGeometryAlbedoMRT->AttachBuffer(m_spGeometryTexture->GetBuffer(),	0);
 		m_spGeometryAlbedoMRT->AttachBuffer(m_spAlbedoTexture->GetBuffer(),		1);
 		m_spGeometryAlbedoMRT->AttachBuffer(m_spGlossTexture->GetBuffer(),		2);
 		m_spGeometryAlbedoMRT->AttachDepthStencilBuffer(spDSBuffer);
+
+		// Light-Buffer
+		m_spLightTarget->AttachBuffer(m_spDepthOrLightTexture->GetBuffer(),		0);
+		m_spLightTarget->AttachDepthStencilBuffer(spDSBuffer);
+
+		// Terrain-Depth-Buffer
+		m_spTerrainDepthTarget->AttachBuffer(m_spDepthOrLightTexture->GetBuffer(),	0);
+		m_spTerrainDepthTarget->AttachDepthStencilBuffer(spDSBuffer);
 	}
 	else
 	{

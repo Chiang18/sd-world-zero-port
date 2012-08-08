@@ -89,6 +89,11 @@ void sdPostProcessParams::Reset()
 	dofBlurWidth = 1.0f;
 }
 //-------------------------------------------------------------------------------------------------
+void sdTerrainParams::Reset()
+{
+	
+}
+//-------------------------------------------------------------------------------------------------
 sdRenderSystem::sdRenderSystem()
 	: m_bInitialized(false)
 {
