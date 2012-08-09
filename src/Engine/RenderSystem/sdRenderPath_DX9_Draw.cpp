@@ -29,12 +29,12 @@ void sdRenderPath_DX9::Draw()
 	// 渲染
 	//@{
 	// 预绘制深度到DepthStencilBuffer
-	DrawEarlyZPass();
+	//DrawEarlyZPass();
 
-	// 绘制地形Depth到特定纹理
+	// 绘制地形Depth到特定纹理,并渲染到模板缓存
 	DrawTerrainDepthPass();
 
-	// 绘制物件到GeometryBuffer(包括Building/Tree/Doodads/Terrain)
+	// 绘制物件到GeometryBuffer,并渲染到模板缓存(包括Building/Tree/Doodads/Terrain)
 	DrawGeometryPasses();
 
 	// 光照
@@ -244,7 +244,7 @@ void sdRenderPath_DX9::DrawEarlyZPass()
 	pkRenderDevice->Clear(NULL, &fFarDepth, &uiBlackStencil);
 
 	// 绘制
-	//m_pkEarlyZPass->Draw();
+	m_pkEarlyZPass->Draw();
 }
 //-------------------------------------------------------------------------------------------------
 void sdRenderPath_DX9::DrawTerrainDepthPass()
@@ -256,8 +256,10 @@ void sdRenderPath_DX9::DrawTerrainDepthPass()
 	pkRenderDevice->SetRenderTargetGroup(m_spTerrainDepthTarget);
 
 	// 清空缓存(颜色缓存,即地形深度缓存)
-	uint uiBlackColor = 0x00000000;
-	pkRenderDevice->Clear(&uiBlackColor, NULL, NULL);
+	uint	uiBlackColor = 0x00000000;
+	float	fFarDepth		= 1.0f;
+	uint	uiBlackStencil	= 0x0;
+	pkRenderDevice->Clear(&uiBlackColor, &fFarDepth, &uiBlackStencil);
 
 	// 绘制TerrainMesh
 	m_pkTerrainDepthPass->Draw();
@@ -319,6 +321,7 @@ void sdRenderPath_DX9::DrawShadingPasses()
 	pkRenderDevice->Clear(&uiD3DFogColor, NULL, NULL);
 
 	// 着色地形
+	m_pkTerrainAtlasShadingPass->Draw();
 
 	// 着色道路
 

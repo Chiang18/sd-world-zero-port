@@ -244,6 +244,14 @@
 						>
 					</File>
 					<File
+						RelativePath=".\RenderSystem\sdTerrainAtlasShadingPass.cpp"
+						>
+					</File>
+					<File
+						RelativePath=".\RenderSystem\sdTerrainAtlasShadingPass.h"
+						>
+					</File>
+					<File
 						RelativePath=".\RenderSystem\sdTerrainDepthPass.cpp"
 						>
 					</File>

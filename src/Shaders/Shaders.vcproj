@@ -187,6 +187,10 @@
 						>
 					</File>
 					<File
+						RelativePath=".\rendersystem\terrain\terrain_atlas_shading.fx"
+						>
+					</File>
+					<File
 						RelativePath=".\rendersystem\terrain\terrain_depth.fx"
 						>
 					</File>

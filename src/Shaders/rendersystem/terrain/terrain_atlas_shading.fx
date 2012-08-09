@@ -19,6 +19,14 @@ SD_LINEAR_WRAP_SAMPLE(5, sdBlendSampler,			sdBlendTex,			false);		// µØÐÎ»ìºÏÈ¨Ö
 SD_POINT_CLAMP_SAMPLE(6, sdAtlasTableSampler,		sdAtlasTableTex,	false);		// µØÐÎÂþ·´ÉäÌùÍ¼²éÑ¯±í
 SD_POINT_CLAMP_SAMPLE(7, sdDiffuseAtlasSampler,		sdDiffuseAtlasTex,	false);		// µØÐÎÂþ·´ÉäÌùÍ¼Í¼¼¯
 
+//---------------------------------------------------------------------------------------
+// ¶¥µã×ÅÉ«Æ÷ÊäÈëÊý¾ÝÁ÷
+//---------------------------------------------------------------------------------------
+struct VS_INPUT
+{
+	float3	vPos			: POSITION0;	// ÆÁÄ»¾ØÐÎ¶¥µã
+	float2	vUVSet0			: TEXCOORD0;	// ÆÁÄ»¾ØÐÎÎÆÀí×ø±ê
+};
 
 //---------------------------------------------------------------------------------------
 // ¶¥µã×ÅÉ«Æ÷Êä³öÊý¾ÝÁ÷
@@ -60,11 +68,60 @@ VS_OUTPUT VS_Main(VS_INPUT kInput)
 //---------------------------------------------------------------------------------------
 // ÏñËØ×ÅÉ«Æ÷
 //---------------------------------------------------------------------------------------
+// 
+//---------------------------------------------------------------------------------------
+// Æ½Ì¹µØÇø×ÅÉ«
+float4 PS_Main_Planar(VS_OUTPUT kInput) : COLOR0
+{
+	// »ñÈ¡µØÐÎÉî¶È
+	//float2 vPackedDepthTex = tex2D(sdDepthSampler, kInput.vUVSetScreenTex).xy;
+	//float fDepth = UnpackDepth(vPackedDepthTex.xy);
+	
+	// ·´ËãÊÀ½ç×ø±ê
+	// (¸ù¾ÝÏßÐÔÉî¶È,¶ÔÏà»úÎ»ÖÃºÍÔ¶Æ½Ãæ¶ÔÓ¦µãÎ»ÖÃ½øÐÐ²åÖµ)
+	//float3 vWorldPos = lerp(g_vViewPos, kInput.vUVFarClipWorldPos, fDepth);
+	
+	// ¼ÆËãµ±Ç°µãµÄµØÐÎÏà¶ÔUV
+	//float2 vUVSet = vWorldPos.xy * g_vRecipTerrainSize.xy;
+
+	// ¸ù¾ÝUV²ÉÑùNormalMap,
+	//float4 vNormalTex 	= tex2D(sdBaseNormalSampler, vUVSet);
+	
+	// ½â³öÊÀ½ç¿Õ¼ä·¨Ïß(x,y,z), ×ª»»µ½¹Û²ì×ø±êÏµ
+	//float3 vWorldNormal = vNormalTex.xy 
+	//vWorldNormal.xy	= vWorldNormal.xy * 2.0 - 1.0;
+	//vWorldNormal.z 	= sqrt(dot(float3(1.0, vWorldNormal.xy), float3(1.0, -vWorldNormal.xy)));
+	
+	//
+	
+	
+	
+	return float4(1,0,0,0);
+};
+//---------------------------------------------------------------------------------------
+// ¶¸ÇÍµØÇø×ÅÉ«
+
+
+
+//---------------------------------------------------------------------------------------
+// ×ÅÉ«¼¼Êõ
+//---------------------------------------------------------------------------------------
 //
 //---------------------------------------------------------------------------------------
-// 
-
-
+technique Terrain_AtlasShading_Planar
+<
+	string Description = "Terrain_AtlasShading_Planar";
+	bool UsesNiRenderState = false;
+	bool UsesNiLightState = false;
+>
+{
+	pass P0
+	{
+		VertexShader 	= compile vs_3_0 VS_Main ();
+		PixelShader 	= compile ps_3_0 PS_Main_Planar ();
+	}
+}
+//---------------------------------------------------------------------------------------
 
 
 
