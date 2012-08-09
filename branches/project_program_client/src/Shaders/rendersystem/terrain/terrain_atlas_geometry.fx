@@ -79,7 +79,7 @@ float4 PS_Main_BaseNormal(VS_OUTPUT kInput) : COLOR0
 	// (根据线性深度,对相机位置和远平面对应点位置进行插值)
 	float3 vWorldPos = lerp(g_vViewPos, kInput.vUVFarClipWorldPos, fDepth);
 	
-	//  计算当前点的地形相对UV
+	// 计算当前点的地形相对UV
 	float2 vUVSet = vWorldPos.xy * g_vRecipTerrainSize.xy;
 	
 	// 根据UV采样NormalMap,并解出来(x,y,z)

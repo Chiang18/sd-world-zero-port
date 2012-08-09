@@ -55,6 +55,7 @@ bool sdTerrainAtlasGeometryPass::Initialize(uint uiStencilRef, uint uiStencilMas
 	// 初始化纹理属性
 	m_spTexturingProp  = NiNew NiTexturingProperty;
 	NIASSERT(m_spTexturingProp);
+	m_spTexturingProp->SetShaderMap(0, NiNew NiTexturingProperty::ShaderMap(0, 0));
 	m_spTexturingProp->SetShaderMap(1, NiNew NiTexturingProperty::ShaderMap(spDepthTexture, 0));
 	m_spTexturingProp->SetShaderMap(2, NiNew NiTexturingProperty::ShaderMap(0, 0));
 	m_kPropertyList.AddTail((NiTexturingProperty*)m_spTexturingProp);
@@ -110,11 +111,11 @@ void sdTerrainAtlasGeometryPass::Draw()
 	{
 		// 地形禁用NormalMap通道,从而只能使用基础法线
 		//
+		// 设置渲染状态
+		// @{
 		// CullMode
 		pkRenderDevice->SetRenderState(D3DRS_CULLMODE,			D3DCULL_NONE);
 
-		// 设置渲染状态
-		// @{
 		// Alpha 
 		//
 		// WZ原文如下,不解(已修改)

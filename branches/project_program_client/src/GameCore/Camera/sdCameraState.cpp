@@ -44,7 +44,7 @@ int sdCameraFreeState::Update()
 	NiPoint3 kCamPosition = spCamera->GetWorldTranslate();
 
 	// ¼ÆËãÆ½ÒÆ
-	float fFreeCameraSpeed = 10.0f;
+	float fFreeCameraSpeed = 50.0f;
 	float fFrameTime = pkTimeMgr->GetCurFrameTime();
 	if (bUp)		kCamPosition += spCamera->GetWorldDirection() * fFrameTime * fFreeCameraSpeed;
 	if (bDown)		kCamPosition -= spCamera->GetWorldDirection() * fFrameTime * fFreeCameraSpeed;	

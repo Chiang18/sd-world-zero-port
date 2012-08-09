@@ -15,6 +15,7 @@
 #include "sdMRTShadingPass.h"
 #include "sdTerrainDepthPass.h"
 #include "sdTerrainAtlasGeometryPass.h"
+#include "sdTerrainAtlasShadingPass.h"
 
 namespace RenderSystem
 {
@@ -135,6 +136,7 @@ namespace RenderSystem
 
 		sdTerrainDepthPassPtr			m_pkTerrainDepthPass;
 		sdTerrainAtlasGeometryPassPtr	m_pkTerrainAtlasGeometryPass;
+		sdTerrainAtlasShadingPassPtr	m_pkTerrainAtlasShadingPass;
 		// }@
 
 	
