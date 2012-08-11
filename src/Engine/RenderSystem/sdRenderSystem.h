@@ -147,9 +147,8 @@ namespace RenderSystem
 		NiTexture*	baseLightMap;			// 整个地表的光照贴图
 		NiTexture*	baseNormalMap;			// 整个地表的法线贴图
 
-		//NiTexture*	spColorMap;
-		//NiTexture*	vspBlendMap[4];
-		//NiTexture*	spTileMap;
+		NiTexture*	spBlendMap;				// 整个地表的纹理混合贴图
+		NiTexture*	spTileMap;				// 整个地表的纹理混合贴图查找表
 
 		NiTexture*	diffuseAtlasMap;		// 整个地形漫反射贴图集
 		NiTexture*	diffuseAtlasTableMap;	// 整个地形漫反射贴图查找表
@@ -168,7 +167,7 @@ namespace RenderSystem
 	//	  每个RenderPass根据渲染RenderObject到RenderTarget
 	//
 	// RenderSystem相对独立,对于World部分,只知道sdMap,sdEntity
-	class sdRenderSystem : public NiMemObject, public Base::sdTSingleton<sdRenderSystem>
+	class sdRenderSystem : public Base::sdTSingleton<sdRenderSystem>
 	{
 	public:
 		// 缺省Mesh
@@ -206,7 +205,6 @@ namespace RenderSystem
 		sdRenderSystem();
 		virtual ~sdRenderSystem();
 
-		//*************************************************
 		// 初始化与销毁
 		virtual bool Initialize() = 0;
 		virtual void Destroy() = 0;

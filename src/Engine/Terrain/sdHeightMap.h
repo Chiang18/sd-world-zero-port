@@ -39,7 +39,6 @@ public:
 
 	// 获取LOD次级粗糙网格与LOD精细级网格在指定坐标处误差值(相差一级)
 	// (为了提高效率,这里没有检查输入参数)
-	//
 	//	uiX,uiY		高度图像素坐标
 	//	uiSpacing	精细级网格的网格大小,应该满足power(2,n)
 	float	GetMorphDelta(uint uiX, uint uiY, uint uiSpacing);

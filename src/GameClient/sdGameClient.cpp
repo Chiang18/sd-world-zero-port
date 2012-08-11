@@ -127,7 +127,10 @@ bool sdGameClient::Initialize(HINSTANCE hInstance)
 		return false;
 	}
 
-	// 初始化WZ渲染器
+	// 初始化WZ资源系统
+	m_kResourceSystem.Initialize();
+
+	// 初始化WZ渲染系统
 	m_kRenderSystem.Initialize();
 
 
@@ -167,8 +170,11 @@ void sdGameClient::Destroy()
 	m_pkMap = NULL;
 	//*************************************************
 
-	// 销毁WZ渲染器
-	sdRenderSystem_DX9::Instance().Destroy();
+	// 销毁WZ渲染系统
+	m_kRenderSystem.Destroy();
+
+	// 销毁WZ资源系统
+	m_kResourceSystem.Destroy();
 
 	// 销毁Gamebryo渲染器
 	m_spRenderer = 0;
@@ -335,7 +341,7 @@ bool sdGameClient::CreateGameRenderer()
 	NIASSERT(!m_spRenderer);
 	m_spRenderer = NiDX9Renderer::Create(
 		uiWidth, uiHeight,
-		NiDX9Renderer::USE_NOFLAGS,
+		NiDX9Renderer::USE_MULTITHREADED,
 		m_hWnd, m_hWnd,
 		uiAdapter,
 		eDevType,

@@ -254,6 +254,10 @@
 				>
 			</Filter>
 		</Filter>
+		<Filter
+			Name="Script"
+			>
+		</Filter>
 		<File
 			RelativePath=".\sdGameCore.h"
 			>

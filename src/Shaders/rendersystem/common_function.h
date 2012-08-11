@@ -135,23 +135,5 @@ void AccumLighting(float3 V, float3 N, float fShiness, float fLightMap, float4 v
 	// 合成全局环境光照(把法线转换到世界空间,然后插值地面与天空环境光)
 	vDiffuseLight	+= lerp(g_vTerraimAmbientColor, g_vSkyAmbientColor, saturate(dot(N, g_mInvViewT._m20_m21_m22)));
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 //*****************************************************************************
 #endif

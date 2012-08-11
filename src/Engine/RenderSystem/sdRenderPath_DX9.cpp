@@ -147,7 +147,7 @@ bool sdRenderPath_DX9::Initialize()
 	m_pkMRTZGeometryPass->Initialize(E_SID_STATIC_MESH, E_SID_MASK);
 	m_pkMRTShadingPass->Initialize(E_SID_STATIC_MESH, E_SID_MASK, m_spDepthOrLightTexture, m_spGeometryTexture, m_spAlbedoTexture, m_spGlossTexture);
 	
-	m_pkTerrainDepthPass->Initialize(E_SID_TERRAIN | (1<<E_PSB_DISTANCE_TERRAIN), E_SID_MASK | (1<<E_PSB_DISTANCE_TERRAIN));
+	m_pkTerrainDepthPass->Initialize(E_SID_TERRAIN, E_SID_MASK);
 	m_pkTerrainAtlasGeometryPass->Initialize(E_SID_TERRAIN, E_SID_MASK, E_PSB_DISTANCE_TERRAIN, m_spDepthOrLightTexture);
 	m_pkTerrainAtlasShadingPass->Initialize(E_SID_TERRAIN, E_SID_MASK, m_spDepthOrLightTexture, m_spGeometryTexture);
 	// @}

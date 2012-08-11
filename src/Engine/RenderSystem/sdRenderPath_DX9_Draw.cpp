@@ -38,7 +38,7 @@ void sdRenderPath_DX9::Draw()
 	DrawGeometryPasses();
 
 	// 光照
-	DrawPreLightPass();
+	//DrawPreLightPass();
 
 	// 最终着色合成
 	DrawShadingPasses();
@@ -256,7 +256,7 @@ void sdRenderPath_DX9::DrawTerrainDepthPass()
 	pkRenderDevice->SetRenderTargetGroup(m_spTerrainDepthTarget);
 
 	// 清空缓存(颜色缓存,即地形深度缓存)
-	uint	uiBlackColor = 0x00000000;
+	uint	uiBlackColor	= 0x00000000;
 	float	fFarDepth		= 1.0f;
 	uint	uiBlackStencil	= 0x0;
 	pkRenderDevice->Clear(&uiBlackColor, &fFarDepth, &uiBlackStencil);
