@@ -132,6 +132,7 @@ void sdTerrainAtlasGeometryPass::Draw()
 		pkRenderDevice->SetRenderState(D3DRS_ZWRITEENABLE,		false);
 
 		// Stencil
+		// (这里将所有Terrain像素替换为FraTerrain像素)
 		pkRenderDevice->SetRenderState(D3DRS_STENCILENABLE,		true);
 		pkRenderDevice->SetRenderState(D3DRS_STENCILFUNC,		D3DCMP_EQUAL);
 		pkRenderDevice->SetRenderState(D3DRS_STENCILFAIL,		D3DSTENCILOP_KEEP);

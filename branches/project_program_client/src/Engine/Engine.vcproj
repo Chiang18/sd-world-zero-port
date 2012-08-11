@@ -42,7 +42,7 @@
 				Name="VCCLCompilerTool"
 				AdditionalOptions=" /EHsc"
 				Optimization="0"
-				AdditionalIncludeDirectories="../engine;../engine/utility;../engine/world;../engine/entity;../engine/terrain;../engine/graphic;../engine/rendersystem;../base;../base/math;../base/multithread;../base/misc;../base/util;../../thirdparty/gamebryo/sdk/win32/include"
+				AdditionalIncludeDirectories="../engine;../engine/utility;../engine/world;../engine/entity;../engine/terrain;../engine/graphic;../engine/resourcesystem;../engine/rendersystem;../base;../base/math;../base/multithread;../base/misc;../base/util;../../thirdparty/gamebryo/sdk/win32/include"
 				PreprocessorDefinitions="WIN32;_DEBUG;_LIB;_USRDLL;NIDEBUG;EE_EFD_IMPORT;NIANIMATION_IMPORT;NIMAIN_IMPORT;NIMESH_IMPORT;NISYSTEM_IMPORT;NIFLOODGATE_IMPORT;NIDX9RENDERER_IMPORT;NIVIEWMATH_IMPORT"
 				MinimalRebuild="true"
 				BasicRuntimeChecks="3"
@@ -363,6 +363,30 @@
 						RelativePath=".\Graphic\sdDynamicTexture.h"
 						>
 					</File>
+					<File
+						RelativePath=".\Graphic\sdMemoryTexture.cpp"
+						>
+					</File>
+					<File
+						RelativePath=".\Graphic\sdMemoryTexture.h"
+						>
+					</File>
+					<File
+						RelativePath=".\Graphic\sdTexture.cpp"
+						>
+					</File>
+					<File
+						RelativePath=".\Graphic\sdTexture.h"
+						>
+					</File>
+					<File
+						RelativePath=".\Graphic\sdTextureAtlas.cpp"
+						>
+					</File>
+					<File
+						RelativePath=".\Graphic\sdTextureAtlas.h"
+						>
+					</File>
 				</Filter>
 				<Filter
 					Name="Occlusion"
@@ -410,6 +434,14 @@
 				</File>
 				<File
 					RelativePath=".\Terrain\sdHeightMap.h"
+					>
+				</File>
+				<File
+					RelativePath=".\Terrain\sdLayerMap.cpp"
+					>
+				</File>
+				<File
+					RelativePath=".\Terrain\sdLayerMap.h"
 					>
 				</File>
 				<File
@@ -503,8 +535,44 @@
 			>
 		</Filter>
 		<Filter
-			Name="ResourceManager"
+			Name="ResourceSystem"
 			>
+			<File
+				RelativePath=".\ResourceSystem\sdResourceCallback.cpp"
+				>
+			</File>
+			<File
+				RelativePath=".\ResourceSystem\sdResourceCallback.h"
+				>
+			</File>
+			<File
+				RelativePath=".\ResourceSystem\sdResourceDefine.h"
+				>
+			</File>
+			<File
+				RelativePath=".\ResourceSystem\sdResourceSyste_Syn.cpp"
+				>
+			</File>
+			<File
+				RelativePath=".\ResourceSystem\sdResourceSystem.cpp"
+				>
+			</File>
+			<File
+				RelativePath=".\ResourceSystem\sdResourceSystem.h"
+				>
+			</File>
+			<File
+				RelativePath=".\ResourceSystem\sdResourceSystem_Asyn.cpp"
+				>
+			</File>
+			<Filter
+				Name="Texture"
+				>
+			</Filter>
+			<Filter
+				Name="Mesh"
+				>
+			</Filter>
 		</Filter>
 		<Filter
 			Name="PhysicSystem"
@@ -520,6 +588,10 @@
 		</Filter>
 		<Filter
 			Name="NetworkSystem"
+			>
+		</Filter>
+		<Filter
+			Name="ScriptSystem"
 			>
 		</Filter>
 		<File

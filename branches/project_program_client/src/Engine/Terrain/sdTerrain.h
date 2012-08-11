@@ -16,6 +16,7 @@
 
 // 渲染系统
 #include "sdRenderSystem.h"
+#include "sdDynamicTexture.h"
 
 // 地形系统,所有对外接口均由此类暴露出去
 //
@@ -34,22 +35,23 @@
 //	1.
 class sdTerrain : public Base::sdTSingleton<sdTerrain>, public sdEntity
 {
-
-
+	friend class sdQuadMesh;
+	friend class sdQuadNode;
 public:
 	sdTerrain();
 	virtual ~sdTerrain();
 
 	// 
-	bool	CreateScene(uint uiSize);
+	bool	CreateScene(uint uiTerrainSize, uint uiBlendTextureSize);
 	void	DestroyScene();
 	//bool	LoadScene();
 	//void	SaveScene();
 	bool	HasScene() { return m_bInitialized;};
 
 	// 地形裁剪
-	//(wz封装了一层TerrainTileEntity,貌似没啥必要)
+	//(wz封装了一层TerrainTileEntity,貌似没啥必要,这里直接返回Mesh)
 	void	Cull(const NiCamera& kCamera, std::vector<NiMesh*>& kMeshVec);
+
 
 	//
 	bool	IsVisible() const { return m_bIsVisible;};
@@ -58,9 +60,10 @@ public:
 	uint	GetMeshLevel() const { return m_uiMeshLevel;};
 	bool	GetEnableLOD() const { return m_bEnableLOD;};
 
-	sdHeightMap*	GetHeightMap() { return m_pkHeightMap;};
 	const RenderSystem::sdTerrainParams& GetTerrainParams() const { return m_kRenderParams;};
 
+protected:
+	sdHeightMap*	GetHeightMap() { return m_pkHeightMap;};
 
 protected:
 	bool	m_bInitialized;			// 是否初始化
@@ -74,12 +77,42 @@ protected:
 	// 地表法线图
 	sdNormalMapPtr	m_pkNormalMap;
 
+	// 地表图层集合和图层混合信息集合
+	typedef std::vector<sdLayerMapPtr> LayerMapVec;
+	typedef std::vector<sdLayerMapPtr>::iterator LayerMapVecItr;
+	LayerMapVec		m_kLayerMapVec;								// 仅用于编辑器
+
+	typedef std::vector<uchar*> LayerAlphaVec;
+	typedef std::vector<uchar*>::iterator LayerAlphaVecItr;
+	LayerAlphaVec	m_kLayerAlphaVec;							// 仅用于编辑器
+
+	// 地表混合贴图与查找表
+	RenderSystem::sdDynamicTexturePtr	m_spDynamicBlendMap;	// 仅用于编辑器
+	NiTexturePtr	m_spBlendMap;
+
+	RenderSystem::sdDynamicTexturePtr	m_spDynamicTileMap;		// 仅用于编辑器
+	NiTexturePtr	m_spTileMap;	
+
+
+
+	// 地表漫反射贴图集和查找表
+	NiTexturePtr	m_spDiffuseAtlasMap;
+	NiTexturePtr	m_spDiffuseAtlasTable;
+
+	// 地表法线贴图集和查找表
+	NiTexturePtr	m_spNormalAtlasMap;
+	NiTexturePtr	m_spNormalAtlasTable;
+
 	// 地形四叉树
 	sdQuadNodePtr	m_pkQuadRoot;
 
 	// 地形绘制参数(用于提供给渲染系统使用,内部不应该被分配内存和保存资源)
 	RenderSystem::sdTerrainParams	m_kRenderParams;
 
+	uint	m_uiTerrainSize;	// Terrain的尺寸(256/512/1024/2048,单位Unit)
+	uint	m_uiMeterPerUnit;	// 每单位大小(目前是1m)
+	uint	m_uiBlendTexSize;	// BlendMap尺寸(256/512/1024/2048,单位Pixel)
+	uint	m_uiTexTileSize;	// BlendMap的TexTile尺寸(目前是4像素)
 	uint	m_uiTileSize;		// MeshTile的尺寸
 	uint	m_uiMeshLevel;		// 四叉树中,只有小于一定层级的才会构建Mesh
 	bool	m_bEnableLOD;		// 四叉树是否允许LOD显示

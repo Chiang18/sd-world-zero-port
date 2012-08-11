@@ -19,7 +19,7 @@ bool sdMap::CreateScene()
 	m_pkRoot = pAVObject;
 
 	//
-	m_kTerrain.CreateScene(512);
+	m_kTerrain.CreateScene(512,1024);
 	//*************************************************
 
 

@@ -6,9 +6,10 @@
 // 最后修改:
 //*************************************************************************************************
 #pragma once
-#ifndef _SD_DYNAMIC_TEXTURE_H__
-#define _SD_DYNAMIC_TEXTURE_H__
+#ifndef _SD_ENGINE_DYNAMIC_TEXTURE_H__
+#define _SD_ENGINE_DYNAMIC_TEXTURE_H__
 #include "sdTypes.h"
+#include "sdTexture.h"
 
 namespace RenderSystem
 {
@@ -24,7 +25,7 @@ namespace RenderSystem
 	//		NiPixelDataPtr	m_spPixelData;
 	//		NiSourceTexturePtr	m_spTexture;
 	//
-	class sdDynamicTexture : public NiRefObject
+	class sdDynamicTexture : public sdTexture
 	{
 	public:
 		// 当前仅仅支持以下三种格式
@@ -50,10 +51,6 @@ namespace RenderSystem
 		sdDynamicTexture(uint uiWidth, uint uiHeight, eDynamicFormat eFormat = E_FORMAT_UNKNOWN, bool bMipmap = false);
 		~sdDynamicTexture();
 
-		// 静态初始化
-		static void	StaticInitialize();
-		static void StaticDestroy();
-		
 		// 
 		sdLockedRect LockRegion(uint uiX, uint uiY, uint uiW, uint uiH);
 		void UnlockRegion();
@@ -63,20 +60,13 @@ namespace RenderSystem
 		uint	GetHeight() const { return m_uiHeight;}
 		eDynamicFormat GetFormat() const { return m_eFormat;}
 
-		NiTexture*	GetGBTexture() const { return m_spTexture;};
+		//
+		NiTexture*	GetGBTexture() const { return m_spTexture;}
 
 	protected:
-		// 
-		void AddTextureToList();
-		void RemoveTextureFromList();
-
 		// 设备回调处理
-		bool OnDeviceLost();
-		bool OnDeviceReset(bool bBefore);
-
-		// 设备回调函数(注册给GB)
-		static bool DeviceLostCallBack(void* pvData);
-		static bool DeviceResetCallBack(bool bBeforeReset, void* pvData);
+		virtual bool OnDeviceLost();
+		virtual bool OnDeviceReset(bool bBefore);
 
 	protected:
 		// 
@@ -96,17 +86,6 @@ namespace RenderSystem
 
 		// D3D格式查找表格
 		static D3DFORMAT ms_kD3DFormatTable[NUM_FORMATS];
-
-		// GB设备回调索引
-		static uint	ms_uiLostNotifyIndex;
-		static uint	ms_uiResetNotifyIndex;
-
-		// 所有sdDynamicTexture对象双向链表(参考GB/NiTexture)
-		//	1.设备丢失与重设时处理所有对象
-		sdDynamicTexture*	m_pkPrev;
-		sdDynamicTexture*	m_pkNext;
-		static sdDynamicTexture*	ms_pkHead;
-		static sdDynamicTexture*	ms_pkTail;
 	};
 	NiSmartPointer(sdDynamicTexture);
 }

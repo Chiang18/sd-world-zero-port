@@ -15,6 +15,7 @@
 #include <sdLogger.h>
 
 // Engine
+#include <sdResourceSystem.h>
 #include <sdRenderSystem_DX9.h>
 #include <sdMap.h>
 
@@ -89,8 +90,11 @@ protected:
 	// Gamebryo渲染器
 	NiDX9RendererPtr	m_spRenderer;
 
-	// WZ渲染器
+	// WZ渲染系统
 	RenderSystem::sdRenderSystem_DX9	m_kRenderSystem;
+
+	// WZ资源系统
+	ResourceSystem::sdResourceSystem	m_kResourceSystem;
 
 	//*****************************************************
 	sdMapPtr	m_pkMap;
