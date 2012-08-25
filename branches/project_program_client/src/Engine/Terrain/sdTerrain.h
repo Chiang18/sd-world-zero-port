@@ -12,11 +12,13 @@
 #include "sdEntity.h"
 #include "sdHeightMap.h"
 #include "sdNormalMap.h"
+#include "sdLayerMap.h"
 #include "sdQuadNode.h"
 
 // 渲染系统
 #include "sdRenderSystem.h"
 #include "sdDynamicTexture.h"
+#include "sdTextureAtlas.h"
 
 // 地形系统,所有对外接口均由此类暴露出去
 //
@@ -52,6 +54,35 @@ public:
 	//(wz封装了一层TerrainTileEntity,貌似没啥必要,这里直接返回Mesh)
 	void	Cull(const NiCamera& kCamera, std::vector<NiMesh*>& kMeshVec);
 
+	// 地形编辑
+	// @{
+
+	// @}
+
+
+	// 图层编辑
+	// @{
+	bool	AppendLayer(sdLayerMap* pkLayerMap);
+	//bool	Insert(sdLayerMap* pkLayerMap, uint uiIndex);
+
+	//bool	RemoveLayer();
+	//bool	RemoveLayer(uint uiIndex);
+
+	//bool	SwapLayer(uint uiLIndex, uint uiRIndex);
+
+
+	// 设置Layer指定像素点权值(用于编辑)
+	void	SetBlendMapData(uint uiX, uint uiY, uint uiLayer, float fWeight);
+
+	// 更新指定范围的混合贴图(用于编辑)
+	//	@kRect	m_fX,m_fY为矩形起始位置, m_fZ,m_fW为矩形尺寸(世界坐标系)
+	void	UpdateBlendMap();
+	void	UpdateBlendMap(const Base::Math::sdVector4& kRect);
+
+	// 对贴图进行重新打包
+	void	RepackMaps();
+	// @}
+
 
 	//
 	bool	IsVisible() const { return m_bIsVisible;};
@@ -63,13 +94,23 @@ public:
 	const RenderSystem::sdTerrainParams& GetTerrainParams() const { return m_kRenderParams;};
 
 protected:
+	// 获取高度图
 	sdHeightMap*	GetHeightMap() { return m_pkHeightMap;};
+
+	// @{
+	// 获取指定像素点的权重列表,wz原始版本提取方式
+	uint	GetWeights(uint uiX, uint uiY, uchar* pucWeights);
+	// @}
 
 protected:
 	bool	m_bInitialized;			// 是否初始化
 	bool	m_bIsVisible;			// 是否可见(一般用于编辑器)	
 	bool	m_bEnableEditHeight;	// 是否允许编辑地形高度
 	bool	m_bEnableEditMaterial;	// 是否允许编辑地形材质
+
+	// 地形世界偏移与缩放
+	NiPoint3	m_kOrigin;
+	float		m_fScale;
 
 	// 地表高度图
 	sdHeightMapPtr	m_pkHeightMap;	
@@ -81,25 +122,26 @@ protected:
 	typedef std::vector<sdLayerMapPtr> LayerMapVec;
 	typedef std::vector<sdLayerMapPtr>::iterator LayerMapVecItr;
 	LayerMapVec		m_kLayerMapVec;								// 仅用于编辑器
+	bool			m_bDirtyLayerMapVec;				
 
 	typedef std::vector<uchar*> LayerAlphaVec;
 	typedef std::vector<uchar*>::iterator LayerAlphaVecItr;
 	LayerAlphaVec	m_kLayerAlphaVec;							// 仅用于编辑器
 
 	// 地表混合贴图与查找表
-	RenderSystem::sdDynamicTexturePtr	m_spDynamicBlendMap;	// 仅用于编辑器
+	RenderSystem::sdDynamicTexturePtr	m_pkDynamicBlendMap;	// 仅用于编辑器
 	NiTexturePtr	m_spBlendMap;
 
-	RenderSystem::sdDynamicTexturePtr	m_spDynamicTileMap;		// 仅用于编辑器
+	RenderSystem::sdDynamicTexturePtr	m_pkDynamicTileMap;		// 仅用于编辑器
 	NiTexturePtr	m_spTileMap;	
 
-
-
 	// 地表漫反射贴图集和查找表
+	RenderSystem::sdTextureAtlasPtr m_pkDiffuseAtlas;
 	NiTexturePtr	m_spDiffuseAtlasMap;
 	NiTexturePtr	m_spDiffuseAtlasTable;
 
 	// 地表法线贴图集和查找表
+	RenderSystem::sdTextureAtlasPtr m_pkNormalAtlas;
 	NiTexturePtr	m_spNormalAtlasMap;
 	NiTexturePtr	m_spNormalAtlasTable;
 
@@ -109,11 +151,15 @@ protected:
 	// 地形绘制参数(用于提供给渲染系统使用,内部不应该被分配内存和保存资源)
 	RenderSystem::sdTerrainParams	m_kRenderParams;
 
-	uint	m_uiTerrainSize;	// Terrain的尺寸(256/512/1024/2048,单位Unit)
-	uint	m_uiMeterPerUnit;	// 每单位大小(目前是1m)
+	uint	m_uiTerrainSize;	// Terrain的尺寸(256/512/1024/2048,单位Grid)
+	float	m_fMeterPerGrid;	// 每单位大小(0.125/0.25/0.5/1/2/4/8,目前是1m)
+	uint	m_uiTileSize;		// Terrain的Tile的尺寸(目前是64Unit)
+
 	uint	m_uiBlendTexSize;	// BlendMap尺寸(256/512/1024/2048,单位Pixel)
-	uint	m_uiTexTileSize;	// BlendMap的TexTile尺寸(目前是4像素)
-	uint	m_uiTileSize;		// MeshTile的尺寸
+	float	m_fMeterPerPixel;	// 每像素大小(0.125/0.25/0.5/1/2/4/8,目前是0.5f)
+	uint	m_uiTexTileSize;	// BlendMap的TexTile尺寸(目前是4Pixel)
+	uint	m_uiTileMapSize;	// TileMap的尺寸
+
 	uint	m_uiMeshLevel;		// 四叉树中,只有小于一定层级的才会构建Mesh
 	bool	m_bEnableLOD;		// 四叉树是否允许LOD显示
 	bool	m_bEnableNormal;	// 材质是否允许法线贴图
@@ -121,5 +167,21 @@ protected:
 	// 根据当前视锥体与分辨率计算出来的Error与Distance之间的转换率,用于控制LOD的切换
 	// (多级切换,延迟切换,一般是一个数组,这里有待参考CryEngine)
 	//float	m_fError2Distance;	
+
+protected:
+	// Tile进行权重混合时的过滤器(用于编辑器,材质编辑)
+	// @{
+	struct stFilterMap
+	{
+		uint	uiIdx[4];
+		float	fWeight[4];
+	};
+	typedef std::vector<stFilterMap> FilterMapVec;;
+	typedef std::vector<stFilterMap>::iterator FilterMapVecItr;
+	FilterMapVec m_kTileFilterMapVec;
+	// @}
+
+protected:
+	static uint	ms_uiMaxLayerCount;
 };
 #endif

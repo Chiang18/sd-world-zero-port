@@ -187,13 +187,41 @@
 						>
 					</File>
 					<File
+						RelativePath=".\rendersystem\terrain\terrain_atlas_geometry_ortho.fx"
+						>
+					</File>
+					<File
 						RelativePath=".\rendersystem\terrain\terrain_atlas_shading.fx"
+						>
+					</File>
+					<File
+						RelativePath=".\rendersystem\terrain\terrain_atlas_shading_ortho.fx"
 						>
 					</File>
 					<File
 						RelativePath=".\rendersystem\terrain\terrain_depth.fx"
 						>
 					</File>
+					<Filter
+						Name="discard"
+						>
+						<File
+							RelativePath=".\rendersystem\terrain\terrain_multipass_geometry.fx"
+							>
+						</File>
+						<File
+							RelativePath=".\rendersystem\terrain\terrain_multipass_geometry_ortho.fx"
+							>
+						</File>
+						<File
+							RelativePath=".\rendersystem\terrain\terrain_multipass_shading.fx"
+							>
+						</File>
+						<File
+							RelativePath=".\rendersystem\terrain\terrain_multipass_shading_ortho.fx"
+							>
+						</File>
+					</Filter>
 				</Filter>
 			</Filter>
 		</Filter>

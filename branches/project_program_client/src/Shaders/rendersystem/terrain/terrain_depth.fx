@@ -24,9 +24,11 @@ VS_OUTPUT VS_Main(float2 vPos : POSITION0)
 	VS_OUTPUT kOutput;
 
 	// 提取压缩的XY
+	//	ix * 129 + iy
 	float2 iXY = floor(float2(vPos.x / 129.0, fmod(vPos.x, 129.0) + 0.01));
 	
 	// 变换到世界坐标
+	// 	floor(fH * 20.0f + 0.5f)
 	float4 vWorldPosition = float4(iXY * a_fQuadScale + a_vQuadOrigin, vPos.y * 0.05, 1.0);
 	
 	// 变换到观察坐标

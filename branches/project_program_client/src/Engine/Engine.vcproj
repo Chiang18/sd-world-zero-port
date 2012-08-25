@@ -42,7 +42,7 @@
 				Name="VCCLCompilerTool"
 				AdditionalOptions=" /EHsc"
 				Optimization="0"
-				AdditionalIncludeDirectories="../engine;../engine/utility;../engine/world;../engine/entity;../engine/terrain;../engine/graphic;../engine/resourcesystem;../engine/rendersystem;../base;../base/math;../base/multithread;../base/misc;../base/util;../../thirdparty/gamebryo/sdk/win32/include"
+				AdditionalIncludeDirectories="../engine;../engine/utility;../engine/world;../engine/entity;../engine/terrain;../engine/graphic;../engine/resourcesystem;../engine/rendersystem;../engine/physicssystem;../base;../base/math;../base/multithread;../base/misc;../base/util;../../thirdparty/gamebryo/sdk/win32/include;../../thirdparty/physx/sdk/foundation/include;../../thirdparty/physx/sdk/cooking/include;../../thirdparty/physx/sdk/physics/include;../../thirdparty/physx/sdk/physxloader/include"
 				PreprocessorDefinitions="WIN32;_DEBUG;_LIB;_USRDLL;NIDEBUG;EE_EFD_IMPORT;NIANIMATION_IMPORT;NIMAIN_IMPORT;NIMESH_IMPORT;NISYSTEM_IMPORT;NIFLOODGATE_IMPORT;NIDX9RENDERER_IMPORT;NIVIEWMATH_IMPORT"
 				MinimalRebuild="true"
 				BasicRuntimeChecks="3"
@@ -372,6 +372,14 @@
 						>
 					</File>
 					<File
+						RelativePath=".\Graphic\sdSurfaceAtlas.cpp"
+						>
+					</File>
+					<File
+						RelativePath=".\Graphic\sdSurfaceAtlas.h"
+						>
+					</File>
+					<File
 						RelativePath=".\Graphic\sdTexture.cpp"
 						>
 					</File>
@@ -385,6 +393,14 @@
 					</File>
 					<File
 						RelativePath=".\Graphic\sdTextureAtlas.h"
+						>
+					</File>
+					<File
+						RelativePath=".\Graphic\sdTextureUtility.cpp"
+						>
+					</File>
+					<File
+						RelativePath=".\Graphic\sdTextureUtility.h"
 						>
 					</File>
 				</Filter>
@@ -476,6 +492,10 @@
 					RelativePath=".\Terrain\sdTerrain.h"
 					>
 				</File>
+				<File
+					RelativePath=".\Terrain\sdTerrain_Layer.cpp"
+					>
+				</File>
 			</Filter>
 			<Filter
 				Name="Effect"
@@ -523,12 +543,20 @@
 			</Filter>
 		</Filter>
 		<Filter
-			Name="UI"
+			Name="UISystemm"
 			>
 		</Filter>
 		<Filter
 			Name="Utility"
 			>
+			<Filter
+				Name="VisualTracker"
+				>
+			</Filter>
+			<Filter
+				Name="Stats"
+				>
+			</Filter>
 		</Filter>
 		<Filter
 			Name="Interface"
@@ -575,8 +603,40 @@
 			</Filter>
 		</Filter>
 		<Filter
-			Name="PhysicSystem"
+			Name="PhysicsSystem"
 			>
+			<File
+				RelativePath=".\PhysicSystem\sdPhysicsSystem.cpp"
+				>
+			</File>
+			<File
+				RelativePath=".\PhysicSystem\sdPhysicsSystem.h"
+				>
+			</File>
+			<File
+				RelativePath=".\PhysicSystem\sdPhysXAllocator.cpp"
+				>
+			</File>
+			<File
+				RelativePath=".\PhysicSystem\sdPhysXAllocator.h"
+				>
+			</File>
+			<File
+				RelativePath=".\PhysicSystem\sdPhysXOutputStream.cpp"
+				>
+			</File>
+			<File
+				RelativePath=".\PhysicSystem\sdPhysXOutputStream.h"
+				>
+			</File>
+			<File
+				RelativePath=".\PhysicSystem\sdPhysXStream.cpp"
+				>
+			</File>
+			<File
+				RelativePath=".\PhysicSystem\sdPhysXStream.h"
+				>
+			</File>
 		</Filter>
 		<Filter
 			Name="SoundSystem"
@@ -585,6 +645,10 @@
 		<Filter
 			Name="AISystem"
 			>
+			<Filter
+				Name="Navigation"
+				>
+			</Filter>
 		</Filter>
 		<Filter
 			Name="NetworkSystem"
@@ -596,10 +660,6 @@
 		</Filter>
 		<File
 			RelativePath=".\sdEngine.h"
-			>
-		</File>
-		<File
-			RelativePath=".\sdTypes.h"
 			>
 		</File>
 		<File

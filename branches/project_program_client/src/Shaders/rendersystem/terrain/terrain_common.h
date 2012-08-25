@@ -23,11 +23,20 @@ float2	g_vRecipTerrainSize		: GLOBAL;
 // 地形近与远平面的分界面
 float	g_fTerrainFarStart		: GLOBAL;
 
+// 远处像素大小(用于计算纹理LOD)
+float2 	g_vFarPixelSize			: GLOBAL;
 
 // 地形材质信息
+float3 	g_vTerrainDiffuseMaterial	: GLOBAL;
+float3 	g_vTerrainSpecularMaterial	: GLOBAL;
+float	g_fTerrainShiness			: GLOBAL;
 
-
-// 地形贴图
+// 地形贴图图集信息(Diffuse贴图集和Normal贴图集是对应的)
+float4	g_vAtlasTableParam		: GLOBAL;
+#define g_fAtlasIdScale			g_vAtlasTableParam.x
+#define g_fAtlasIdOffset		g_vAtlasTableParam.y
+#define g_fAtlasLevelScale		g_vAtlasTableParam.z
+#define g_fAtlasLevelOffset		g_vAtlasTableParam.w
 
 //*****************************************************************************
 // 图集采样(用于Diffuse图集和Normal图集)
