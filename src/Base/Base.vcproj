@@ -190,6 +190,10 @@
 				>
 			</File>
 			<File
+				RelativePath=".\Math\sdVector4.cpp"
+				>
+			</File>
+			<File
 				RelativePath=".\Math\sdVector4.h"
 				>
 			</File>
@@ -288,6 +292,10 @@
 		</File>
 		<File
 			RelativePath=".\sdPlatform.h"
+			>
+		</File>
+		<File
+			RelativePath=".\sdTypes.h"
 			>
 		</File>
 		<File

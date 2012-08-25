@@ -31,7 +31,6 @@ sdRenderSystem_DX9::~sdRenderSystem_DX9()
 bool sdRenderSystem_DX9::Initialize()
 {
 	using namespace std;
-	using namespace Base;
 
 	// 已经初始化则直接返回
 	if (m_bInitialized) 

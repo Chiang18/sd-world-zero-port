@@ -8,7 +8,7 @@
 //#include <windows.h>					// Windows Header Files
 
 // 包含Engine头文件
-#include <sdBase.h>
+//#include <sdBase.h>
 #include <sdEngine.h>
 #include <sdGameCore.h>
 

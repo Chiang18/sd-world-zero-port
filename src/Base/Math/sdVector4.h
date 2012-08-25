@@ -1,5 +1,5 @@
 //*************************************************************************************************
-// 内容:	借鉴自CryEngine3
+// 内容:	借鉴自CryEngine3/Ogre
 //---------------------------------------------------------
 // 作者:		
 // 创建:		2012-08-03
@@ -38,6 +38,23 @@ namespace Base
 
 		//typedef sdVector4T<float>				sdVector4f;
 		//typedef sdVector4T<double>			sdVector4d;
+
+		// Vector的float版本特别实现(抽取自Ogre)
+		class sdVector4 
+		{
+		public:
+			float	m_fX, m_fY, m_fZ, m_fW;
+
+		public:
+			// 特殊值
+			static const sdVector4 ZERO;
+			static const sdVector4 UNIT_SCALE;
+
+		public:
+			inline sdVector4() {};
+			inline sdVector4(const float fX, const float fY, const float fZ, const float fW) : m_fX(fX), m_fY(fY), m_fZ(fZ), m_fW(fW){};
+			inline sdVector4(const float fScaler) : m_fX(fScaler), m_fY(fScaler), m_fZ(fScaler), m_fW(fScaler){};
+		};
 	}
 }
 #endif

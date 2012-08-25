@@ -29,6 +29,28 @@ namespace Base
 		{
 		public:
 
+			//  
+			static bool IsPowerOf2(uint uiNum)
+			{
+				return 0 == (uiNum & (uiNum -1));
+			}
+
+			// 
+			static uint Power2_Floor(uint uiNum)
+			{
+				while (!IsPowerOf2(uiNum))	uiNum &= uiNum-1;
+				return uiNum;
+			}
+
+			static uint Power2_Ceil(uint uiNum)
+			{
+				uint uiFloor = Power2_Floor(uiNum);
+				if (uiFloor == uiNum)
+					return uiFloor;
+				else
+					return uiFloor << 1;
+			}
+
 		public:
 			static const float	POS_INFINITY;	// float能表示的最大浮点数
 			static const float	NEG_INFINITY;	// float能表示的最小浮点数

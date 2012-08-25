@@ -52,7 +52,7 @@ float4		g_vCameraFrustum		: GLOBAL;	// 相机视锥体(半宽,半高,近,远)
 float		g_fCameraFarClip		: GLOBAL;	// 相机远裁剪面
 
 float4x4	g_mDepthToWorld			: GLOBAL;
-#define		g_vViewPos				g_mDepthToWorld._m30_m32_m32
+#define		g_vViewPos				g_mDepthToWorld._m30_m31_m32
 
 float4x4	g_mDepthToView			: GLOBAL;
 
