@@ -25,5 +25,5 @@
 // Engine¿â
 #pragma comment(lib, "Base.lib")
 #pragma comment(lib, "Engine.lib")
-#pragma comment(lib, "EngineEx.lib")
 #pragma comment(lib, "GameCore.lib")
+#pragma comment(lib, "GameEditEx.lib")

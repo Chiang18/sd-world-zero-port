@@ -42,7 +42,7 @@
 				Name="VCCLCompilerTool"
 				AdditionalOptions="/EHsc"
 				Optimization="0"
-				AdditionalIncludeDirectories="../gamecore;../gamecore/config;../gamecore/input;../base;../base/math;../base/misc;../base/multithread;../base/util;../engine;../engine/utility;../engine/rendersystem;../engine/physicssystem;../../thirdparty/gamebryo/sdk/win32/include;../../thirdparty/physx/sdk/foundation/include;../../thirdparty/physx/sdk/cooking/include;../../thirdparty/physx/sdk/physics/include;../../thirdparty/physx/sdk/physxloader/include"
+				AdditionalIncludeDirectories="../gamecore;../gamecore/config;../gamecore/event;../gamecore/input;../base;../base/math;../base/misc;../base/multithread;../base/util;../engine;../engine/utility;../engine/rendersystem;../engine/physicssystem;../../thirdparty/gamebryo/sdk/win32/include;../../thirdparty/physx/sdk/foundation/include;../../thirdparty/physx/sdk/cooking/include;../../thirdparty/physx/sdk/physics/include;../../thirdparty/physx/sdk/physxloader/include"
 				PreprocessorDefinitions="WIN32;_DEBUG;_LIB;_USRDLL;NIDEBUG;EE_EFD_IMPORT;NIANIMATION_IMPORT;NIMAIN_IMPORT;NIMESH_IMPORT;NISYSTEM_IMPORT;NIFLOODGATE_IMPORT;NIDX9RENDERER_IMPORT"
 				MinimalRebuild="true"
 				BasicRuntimeChecks="3"
@@ -233,6 +233,34 @@
 		<Filter
 			Name="Event"
 			>
+			<File
+				RelativePath=".\Event\sdEvent.cpp"
+				>
+			</File>
+			<File
+				RelativePath=".\Event\sdEvent.h"
+				>
+			</File>
+			<File
+				RelativePath=".\Event\sdEventArg.h"
+				>
+			</File>
+			<File
+				RelativePath=".\Event\sdEventHandler.h"
+				>
+			</File>
+			<File
+				RelativePath=".\Event\sdEventMgr.cpp"
+				>
+			</File>
+			<File
+				RelativePath=".\Event\sdEventMgr.h"
+				>
+			</File>
+			<File
+				RelativePath=".\Event\sdEventType.h"
+				>
+			</File>
 		</Filter>
 		<Filter
 			Name="UI"
@@ -260,6 +288,10 @@
 		</Filter>
 		<Filter
 			Name="AI"
+			>
+		</Filter>
+		<Filter
+			Name="Data"
 			>
 		</Filter>
 		<File

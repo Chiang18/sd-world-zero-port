@@ -1,9 +1,11 @@
 #pragma once
-#include <sdEngineEx.h>
+#include <sdGameEditEx.h>
 #include <sdGameCore.h>
 #include <sdRenderSystem_DX9.h>
 #include <sdMap.h>
 #include <sdCameraFSM.h>
+#include <sdTimeMgr.h>
+#include <sdEditFSM.h>
 
 class sdWorldEditor : public NiMemObject
 {
@@ -11,28 +13,33 @@ public:
 	sdWorldEditor();
 	~sdWorldEditor();
 
-	// 
+	// 初始化与销毁
 	// @{
 	bool	Initialize(HWND hWnd);
 	void	Destroy();
 	void	Update();
 	// @}
 
-
-	// 输入事件
+	// 相机设置
 	// @{
-	//void	OnKeyDown(WPARAM wParam, LPARAM lParam);
-	//void	OnKeyUp(WPARAM wParam, LPARAM lParam);
-	//void	OnMouseMove(WPARAM wParam, LPARAM lParam, const POINT& ptPos);
-	//void	OnLeftButtonDown(WPARAM wParam, LPARAM lParam, const POINT& ptPos);
-	//void	OnLeftButtonUp(WPARAM wParam, LPARAM lParam, const POINT& ptPos);
-	//void	OnRightButtonDown(WPARAM wParam, LPARAM lParam, const POINT& ptPos);
-	//void	OnRightButtonUp(WPARAM wParam, LPARAM lParam, const POINT& ptPos);
+
 	// @}
+
+	// 编辑模块
+	// @{
+
+
+	// @}
+
+	// 输入消息分发处理器
+	void	WndProc(int iMsg, WPARAM wParam, LPARAM lParam);
 
 protected:
 	// 主窗口
 	HWND	m_hWnd;	
+
+	// 时间
+	Base::sdTimeMgr	m_kTimeMgr;
 
 	// 相机控制
 	GameCore::sdCameraFSM	m_kCameraFSM;
@@ -42,6 +49,9 @@ protected:
 
 	// WZ渲染系统
 	RenderSystem::sdRenderSystem_DX9	m_kRenderSystem;
+
+	// 编辑管理器
+	GameEditEx::sdEditFSM	m_kEditFSM;
 
 	//*****************************************************
 	sdMapPtr	m_pkMap;
