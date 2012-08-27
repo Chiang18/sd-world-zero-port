@@ -56,13 +56,6 @@ bool sdCameraFSM::Initialize()
 	m_spCamera->Update(0.0f);
 	// @}
 
-
-	// 创建相机状态
-	// @{
-	sdCameraFreeState* pkCameraFreeState = new sdCameraFreeState;
-	AddState(pkCameraFreeState);
-	// @}
-
 	return true;
 }
 //-------------------------------------------------------------------------------------------------

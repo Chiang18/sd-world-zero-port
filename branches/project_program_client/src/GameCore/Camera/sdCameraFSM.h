@@ -17,15 +17,6 @@ namespace GameCore
 	class sdCameraFSM : public Base::sdTSingleton<sdCameraFSM>, public Base::sdFSM
 	{
 	public:
-		// 相机操作模式
-		enum eCameraMode
-		{
-			E_CAMERA_FOLLOW = 0,	// 相机跟随模式
-			E_CAMERA_MOVIE,			// 过场动画模式
-			E_CAMERA_FREE,			// 自由视角模式
-		};
-
-	public:
 		sdCameraFSM();
 		~sdCameraFSM();
 

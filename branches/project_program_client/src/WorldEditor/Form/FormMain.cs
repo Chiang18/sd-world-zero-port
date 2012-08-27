@@ -23,12 +23,9 @@ namespace WorldEditor
         {
             InitializeComponent();
 
+            // 新建窗口对象
             mOperateForm = new OperateForm();
             mSceneForm = new SceneForm();
-
-            //// 初始化操作接口
-            //mWorldEditor = new MWorldEditor();
-            //mWorldEditor.Initialize(this.Handle);
         }
 
         // 系统更新回调函数
@@ -43,26 +40,6 @@ namespace WorldEditor
                     mWorldEditor.Update();
             }
         }
-
-        //*****************************************************************************************
-        // C# 中消息的工作流程：
-        //  1.C#中的消息被Application类从应用程序消息队列中取出
-        //  2.Application类的IMessageFilter进行预过滤,然后分发到消息对应的窗体
-        //  2.窗体对象的第一个响应函数是对象中的 
-        //      protected override void WndProc(ref System.Windows.Forms.Message e)
-        //  3.它再根据消息的类型调用默认的消息响应函数,如
-        //      protected override void OnMouseDown(MouseEventArgs e)
-        //  4.默认的响应函数然后根据对象的事件字段(如this.MouseDown )中的函数指针列表，
-        //    调用用户所加入的响应函数(如Form1_MouseDown1和Form1_MouseDown2)，
-        //    而且调用顺序和用户添加顺序一致。 
-        //*****************************************************************************************
-        // 输入设备(键盘鼠标)消息
-        protected override void WndProc(ref System.Windows.Forms.Message e)
-        {
-            if (mWorldEditor != null)
-                mWorldEditor.WndProc(e);
-        }
-
 
         // @{
         //*****************************************************************************************
@@ -86,6 +63,12 @@ namespace WorldEditor
             // 初始化操作接口
             this.mWorldEditor = new MWorldEditor();
             this.mWorldEditor.Initialize(this.mSceneForm.Handle);
+
+            // 向应用程序注册更新回调函数
+            Application.Idle += new EventHandler(this.FormMain_Idle);
+
+            // 向应用程序注册消息过滤器(用于捕捉输入消息)
+            Application.AddMessageFilter(new InputMessageFilter(this.mWorldEditor));
         }
 
         private void FormMain_FormClosing(object sender, FormClosingEventArgs e)

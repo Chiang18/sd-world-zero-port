@@ -35,8 +35,8 @@ namespace WorldEditorFramework
 		m_pkImpl->Update();
 	}
 
-	void MWorldEditor::WndProc(Message& msg)
+	void MWorldEditor::WndProc(System::Windows::Forms::Message% msg)
 	{
-		int cc = 0;
+		m_pkImpl->WndProc(msg.Msg, msg.WParam.ToInt32(), msg.LParam.ToInt32());
 	}
 }

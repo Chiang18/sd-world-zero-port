@@ -9,7 +9,7 @@ namespace GameCore
 //-------------------------------------------------------------------------------------------------
 sdCameraFreeState::sdCameraFreeState()
 {
-	SetStateID(sdCameraFSM::E_CAMERA_FREE);
+	SetStateID(E_CAMERA_FREE);
 }
 //-------------------------------------------------------------------------------------------------
 sdCameraFreeState::~sdCameraFreeState()

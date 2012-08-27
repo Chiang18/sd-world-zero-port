@@ -43,7 +43,7 @@
 			<Tool
 				Name="VCCLCompilerTool"
 				Optimization="0"
-				AdditionalIncludeDirectories="../base;../base/math;../base/misc;../base/multithread;../base/util;../engine;../engine/world;../engine/entity;../engine/utility;../engine/terrain;../engine/graphic;../engine/resourcesystem;../engine/rendersystem;../engine/physicssystem;../engineex;../gamecore;../gamecore/config;../gamecore/input;../gamecore/camera;../../thirdparty/gamebryo/sdk/win32/include;../../thirdparty/physx/sdk/foundation/include;../../thirdparty/physx/sdk/cooking/include;../../thirdparty/physx/sdk/physics/include;../../thirdparty/physx/sdk/physxloader/include"
+				AdditionalIncludeDirectories="../base;../base/math;../base/misc;../base/multithread;../base/util;../engine;../engine/world;../engine/entity;../engine/utility;../engine/terrain;../engine/graphic;../engine/resourcesystem;../engine/rendersystem;../engine/physicssystem;../gamecore;../gamecore/config;../gamecore/input;../gamecore/camera;../gameeditex;../gameeditex/camera;../gameeditex/edit;../gameeditex/fsm;../../thirdparty/gamebryo/sdk/win32/include;../../thirdparty/physx/sdk/foundation/include;../../thirdparty/physx/sdk/cooking/include;../../thirdparty/physx/sdk/physics/include;../../thirdparty/physx/sdk/physxloader/include"
 				PreprocessorDefinitions="WIN32;_DEBUG;_WINDOWS;EE_EFD_IMPORT;NIANIMATION_IMPORT;NIMAIN_IMPORT;NIMESH_IMPORT;NISYSTEM_IMPORT;NIFLOODGATE_IMPORT;NIDX9RENDERER_IMPORT"
 				MinimalRebuild="false"
 				BasicRuntimeChecks="0"
@@ -166,18 +166,8 @@
 	</Configurations>
 	<References>
 		<AssemblyReference
-			RelativePath="System.dll"
-			AssemblyName="System, Version=2.0.0.0, PublicKeyToken=b77a5c561934e089, processorArchitecture=MSIL"
-			MinFrameworkVersion="131072"
-		/>
-		<AssemblyReference
-			RelativePath="System.Data.dll"
-			AssemblyName="System.Data, Version=2.0.0.0, PublicKeyToken=b77a5c561934e089, processorArchitecture=x86"
-			MinFrameworkVersion="131072"
-		/>
-		<AssemblyReference
-			RelativePath="System.XML.dll"
-			AssemblyName="System.Xml, Version=2.0.0.0, PublicKeyToken=b77a5c561934e089, processorArchitecture=MSIL"
+			RelativePath="System.Windows.Forms.dll"
+			AssemblyName="System.Windows.Forms, Version=2.0.0.0, PublicKeyToken=b77a5c561934e089, processorArchitecture=MSIL"
 			MinFrameworkVersion="131072"
 		/>
 	</References>
@@ -252,6 +242,10 @@
 				</File>
 				<File
 					RelativePath=".\sdWorldEditor.h"
+					>
+				</File>
+				<File
+					RelativePath=".\sdWorldEditor_Input.cpp"
 					>
 				</File>
 			</Filter>

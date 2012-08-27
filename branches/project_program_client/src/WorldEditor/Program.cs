@@ -13,16 +13,12 @@ namespace WorldEditor
         [STAThread]
         static void Main()
         {
-            // 新建主窗口
-            FormMain formMain = new FormMain();
-
-            // 注册更新回调函数
-            Application.Idle += new EventHandler(formMain.FormMain_Idle);
-
-            // 运行,进入主循环
+            // 设置
             Application.EnableVisualStyles();
             //Application.SetCompatibleTextRenderingDefault(false);
-            Application.Run(formMain);
+
+            // 新建主窗口,运行
+            Application.Run(new FormMain());
         }
     }
 }

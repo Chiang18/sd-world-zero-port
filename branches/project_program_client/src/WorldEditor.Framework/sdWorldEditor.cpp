@@ -8,9 +8,13 @@
 //
 #include <sdFileUtil.h>
 
+//
+#include <sdCameraEditState.h>
+
 using namespace Base;
 using namespace RenderSystem;
 using namespace GameCore;
+using namespace GameEditEx;
 //-------------------------------------------------------------------------------------------------
 sdWorldEditor::sdWorldEditor()
 {
@@ -87,12 +91,19 @@ bool sdWorldEditor::Initialize(HWND hWnd)
 	m_pkMap->CreateScene();
 
 	m_kRenderSystem.SetMap((sdMap*)m_pkMap);
+	//*************************************************
+
 
 	// 初始化相机系统
+	// @{
 	m_kCameraFSM.Initialize();
-	m_kCameraFSM.SetState(sdCameraFSM::E_CAMERA_FREE);
+
+	sdEditCameraState* pkEditFreeCamState = new sdEditFreeCameraState;
+	m_kCameraFSM.AddState(pkEditFreeCamState);
+
+	m_kCameraFSM.SetState(sdEditCameraState::E_EDIT_CAMERA_FREE);
 	m_kRenderSystem.SetCamera(m_kCameraFSM.GetCamera());
-	//*************************************************
+	// @}
 
 	return true;
 }
@@ -106,9 +117,20 @@ void sdWorldEditor::Update()
 {
 	if (m_hWnd)
 	{
+		// 更新
+		// @{
+		// 更新时间
+		m_kTimeMgr.Update();
+
+		// 更新相机
+		m_kCameraFSM.UpdateState();
+		// @}
+
 		// 渲染
+		// @{
 		m_kRenderSystem.RenderFrame();
 		m_kRenderSystem.DisplayFrame();
+		// @}
 	}
 }
 //-------------------------------------------------------------------------------------------------

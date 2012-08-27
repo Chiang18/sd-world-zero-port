@@ -6,7 +6,6 @@
 // 最后修改:
 //*************************************************************************************************
 #pragma once
-using namespace System::Windows::Forms;
 
 //
 class sdWorldEditor;
@@ -25,7 +24,7 @@ namespace WorldEditorFramework
 		void	Update();
 
 		// 输入消息
-		void	WndProc(Message& msg);
+		void	WndProc(System::Windows::Forms::Message% msg);
 
 	protected:
 		sdWorldEditor*	m_pkImpl;

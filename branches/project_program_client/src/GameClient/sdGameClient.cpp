@@ -2,6 +2,7 @@
 #include "sdGameClient.h"
 #include <sdFileUtil.h>
 #include <NiDX9SystemDesc.h>
+#include <sdCameraState.h>
 
 using namespace Base;
 using namespace RenderSystem;
@@ -148,9 +149,15 @@ bool sdGameClient::Initialize(HINSTANCE hInstance)
 	m_kInputSystem.Initialize(m_hInstance, m_hWnd);
 
 	// 初始化相机系统
+	// @{
 	m_kCameraFSM.Initialize();
-	m_kCameraFSM.SetState(sdCameraFSM::E_CAMERA_FREE);
+
+	sdCameraFreeState* pkCameraFreeState = new sdCameraFreeState;
+	m_kCameraFSM.AddState(pkCameraFreeState);
+
+	m_kCameraFSM.SetState(sdCameraState::E_CAMERA_FREE);
 	m_kRenderSystem.SetCamera(m_kCameraFSM.GetCamera());
+	// @}
 
 	return (m_bInitialize = true), (m_bRunning = true);
 }
