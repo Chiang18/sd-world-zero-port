@@ -14,6 +14,7 @@
 namespace GameEditEx
 {
 	//*************************************************************************
+	// 编辑状态下的相机
 	class sdEditCameraState : public GameCore::sdCameraState
 	{
 	public:

@@ -15,7 +15,7 @@ namespace GameCore
 
 	//*************************************************************************
 	// 事件参数
-	class stEventArg
+	struct stEventArg
 	{
 
 	};

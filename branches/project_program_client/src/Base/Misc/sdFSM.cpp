@@ -101,6 +101,11 @@ int sdFSM::UpdateState()
 	return 0;
 }
 //-------------------------------------------------------------------------------------------------
+sdState* sdFSM::GetCurrentState()
+{
+	return m_pkState;
+}
+//-------------------------------------------------------------------------------------------------
 void sdFSM::AddState(sdState* pkState)
 {
 	assert(pkState);

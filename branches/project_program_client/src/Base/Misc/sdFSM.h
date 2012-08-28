@@ -46,10 +46,14 @@ namespace Base
 		sdState*	GetState();
 		sdState*	FindState(int iStateID);
 
+		// 获取当前状态(状态嵌套时可重载之)
+		virtual sdState* GetCurrentState();
+
 		// 切换状态(立即切换与延迟切换)
 		void		SetState(int iStateID);
 		void		DelaySetState(int iStateID);
 
+		// 更新状态机
 		virtual int UpdateState();
 
 	protected:

@@ -258,6 +258,14 @@
 				>
 			</File>
 			<File
+				RelativePath=".\Event\sdEventSet.cpp"
+				>
+			</File>
+			<File
+				RelativePath=".\Event\sdEventSet.h"
+				>
+			</File>
+			<File
 				RelativePath=".\Event\sdEventType.h"
 				>
 			</File>

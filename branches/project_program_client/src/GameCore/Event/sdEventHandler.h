@@ -19,11 +19,36 @@ namespace GameCore
 	{
 	public:
 		virtual ~sdEventHandle() {}
-		virtual bool operator()(const stEventArg& pkEventArg) = 0;
+		virtual bool operator()(const stEventArg& kEventArg) = 0;
 	};
 
 	//*************************************************************************
 	// 成员函数事件处理者
+	template<typename T>
+	class sdTMemberFunctionHandle : public sdEventHandle
+	{
+	public:
+		typedef bool (T::*MemberFunctionType)(const stEventArg&);
+
+	public:
+		sdTMemberFunctionHandle(T* pkObject, MemberFunctionType pfnFunc): m_pkObject(pkObject), m_pfnFunction(pfnFunc){}
+		virtual ~sdTMemberFunctionHandle(){}
+
+		virtual bool operator()(const stEventArg& kEventArg)
+		{
+			return (m_pkObject->*m_pfnFunction)(kEventArg);
+		}
+
+	protected:
+		T*					m_pkObject;		// 绑定对象
+		MemberFunctionType	m_pfnFunction;	// 绑定成员函数
+	};
+
+#define BEGIN_EVENT(className)			{ typedef className TempClass;	
+#define SUBSCRIBE_EVENT(event, func)	{ SubscribeEvent(event, new sdTMemberFunctionHandle<TempClass>(this, &TempClass::func)); }
+#define SUBSCRIBE_EVENT2(event, func)	{ sdEventMgr::Instance().SubscribeEvent(event, new sdTMemberFunctionHandle<TempClass>(this, &TempClass::func)); }
+#define END_EVENT()						}
+
 
 }
 #endif
