@@ -10,6 +10,8 @@
 
 //
 #include <sdCameraEditState.h>
+#include <sdEditMode.h>
+#include <sdEditEventType.h>
 
 using namespace Base;
 using namespace RenderSystem;
@@ -105,6 +107,13 @@ bool sdWorldEditor::Initialize(HWND hWnd)
 	m_kRenderSystem.SetCamera(m_kCameraFSM.GetCamera());
 	// @}
 
+	// 初始化消息中心
+	m_kEventMgr.Initialize(NUM_EDITEVENTS);
+
+	// 初始化状态机
+	m_kWorldEditFSM.Initialize();
+	m_kWorldEditFSM.SetState(sdEditMode::E_EDITMODE_TERRAIN_DEFORM);
+
 	return true;
 }
 //-------------------------------------------------------------------------------------------------
@@ -124,6 +133,9 @@ void sdWorldEditor::Update()
 
 		// 更新相机
 		m_kCameraFSM.UpdateState();
+
+		// 更新编辑状态机
+		m_kWorldEditFSM.UpdateState();
 		// @}
 
 		// 渲染

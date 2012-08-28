@@ -24,11 +24,11 @@ namespace GameCore
 		bool Initialize();
 		void Destroy();
 
-		// 
-		NiCamera*	GetCamera() { return m_spCamera;};
-
 		// 虚函数继承
 		virtual int UpdateState();
+
+		// 
+		NiCamera*	GetCamera() { return m_spCamera;};
 
 	protected:
 		// 这里直接使用相机,可以考虑挂接在NiNode上使其变换与世界坐标系一致

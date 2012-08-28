@@ -3,9 +3,10 @@
 #include <sdGameCore.h>
 #include <sdRenderSystem_DX9.h>
 #include <sdMap.h>
+#include <sdEventMgr.h>
 #include <sdCameraFSM.h>
 #include <sdTimeMgr.h>
-#include <sdEditFSM.h>
+#include <sdWorldEditFSM.h>
 
 class sdWorldEditor : public NiMemObject
 {
@@ -50,8 +51,11 @@ protected:
 	// WZ渲染系统
 	RenderSystem::sdRenderSystem_DX9	m_kRenderSystem;
 
+	// 消息中兴
+	GameCore::sdEventMgr m_kEventMgr;
+
 	// 编辑管理器
-	GameEditEx::sdEditFSM	m_kEditFSM;
+	GameEditEx::sdWorldEditFSM	m_kWorldEditFSM;
 
 	//*****************************************************
 	sdMapPtr	m_pkMap;

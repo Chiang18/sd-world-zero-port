@@ -5,10 +5,9 @@ namespace GameCore
 {
 //-------------------------------------------------------------------------------------------------
 sdEventMgr::sdEventMgr()
+: m_uiMaxNum(0)
 {
-	m_kEventVec.reserve(NUM_EVENTS);
-	for (uint i = 0; i < NUM_EVENTS; ++i)
-		m_kEventVec.push_back(sdEvent((eEventID)i));
+
 }
 //-------------------------------------------------------------------------------------------------
 sdEventMgr::~sdEventMgr()
@@ -22,20 +21,32 @@ sdEventMgr::~sdEventMgr()
 	m_kEventVec.clear();
 }
 //-------------------------------------------------------------------------------------------------
+bool sdEventMgr::Initialize(uint uiMaxNum)
+{
+	m_uiMaxNum = uiMaxNum;
+
+	m_kEventVec.reserve(m_uiMaxNum);
+	for (uint i = 0; i < m_uiMaxNum; ++i)
+		m_kEventVec.push_back(sdEvent((eEventID)i));
+
+	return true;
+}
+//-------------------------------------------------------------------------------------------------
 void sdEventMgr::SubscribeEvent(eEventID eID, sdEventHandle* pkSubscriber)
 {
-	NIASSERT(eID >= 0 && eID < NUM_EVENTS)
+	NIASSERT(eID >= 0 && (uint)eID < m_uiMaxNum)
 	m_kEventVec[eID].Subscribe(pkSubscriber);
 }
 //-------------------------------------------------------------------------------------------------
 void sdEventMgr::UnsubscribeEvent(eEventID eID, sdEventHandle* pkSubscriber)
 {
-	NIASSERT(eID >= 0 && eID < NUM_EVENTS)
+	NIASSERT(eID >= 0 && (uint)eID < m_uiMaxNum)
 	m_kEventVec[eID].Unsubscribe(pkSubscriber);
 }
 //-------------------------------------------------------------------------------------------------
 void sdEventMgr::FireEvent(eEventID eID, const stEventArg& kArg)
 {
+	NIASSERT(eID >= 0 && (uint)eID < m_uiMaxNum)
 	(*(&m_kEventVec[eID]))(kArg);
 }
 //-------------------------------------------------------------------------------------------------

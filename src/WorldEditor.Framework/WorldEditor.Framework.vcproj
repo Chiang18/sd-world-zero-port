@@ -43,7 +43,7 @@
 			<Tool
 				Name="VCCLCompilerTool"
 				Optimization="0"
-				AdditionalIncludeDirectories="../base;../base/math;../base/misc;../base/multithread;../base/util;../engine;../engine/world;../engine/entity;../engine/utility;../engine/terrain;../engine/graphic;../engine/resourcesystem;../engine/rendersystem;../engine/physicssystem;../gamecore;../gamecore/config;../gamecore/input;../gamecore/camera;../gameeditex;../gameeditex/camera;../gameeditex/edit;../gameeditex/fsm;../../thirdparty/gamebryo/sdk/win32/include;../../thirdparty/physx/sdk/foundation/include;../../thirdparty/physx/sdk/cooking/include;../../thirdparty/physx/sdk/physics/include;../../thirdparty/physx/sdk/physxloader/include"
+				AdditionalIncludeDirectories="../base;../base/math;../base/misc;../base/multithread;../base/util;../engine;../engine/world;../engine/entity;../engine/utility;../engine/terrain;../engine/graphic;../engine/resourcesystem;../engine/rendersystem;../engine/physicssystem;../gamecore;../gamecore/camera;../gamecore/config;../gamecore/event;../gamecore/input;../gameeditex;../gameeditex/camera;../gameeditex/edit;../gameeditex/event;../gameeditex/fsm;../../thirdparty/gamebryo/sdk/win32/include;../../thirdparty/physx/sdk/foundation/include;../../thirdparty/physx/sdk/cooking/include;../../thirdparty/physx/sdk/physics/include;../../thirdparty/physx/sdk/physxloader/include"
 				PreprocessorDefinitions="WIN32;_DEBUG;_WINDOWS;EE_EFD_IMPORT;NIANIMATION_IMPORT;NIMAIN_IMPORT;NIMESH_IMPORT;NISYSTEM_IMPORT;NIFLOODGATE_IMPORT;NIDX9RENDERER_IMPORT"
 				MinimalRebuild="false"
 				BasicRuntimeChecks="0"
@@ -224,6 +224,14 @@
 			<Filter
 				Name="Mangered"
 				>
+				<File
+					RelativePath=".\MEventManager.cpp"
+					>
+				</File>
+				<File
+					RelativePath=".\MEventManager.h"
+					>
+				</File>
 				<File
 					RelativePath=".\MWorldEditor.cpp"
 					>

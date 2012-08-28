@@ -41,7 +41,7 @@
 			<Tool
 				Name="VCCLCompilerTool"
 				Optimization="0"
-				AdditionalIncludeDirectories="../gameeditex;../gameeditex/camera;../gameeditex/fsm;../gameeditex/command;../base;../base/math;../base/misc;../base/multithread;../base/util;../engine;../engine/utility;../engine/rendersystem;../engine/physicssystem;../gamecore;../gamecore/camera;../../thirdparty/gamebryo/sdk/win32/include;../../thirdparty/physx/sdk/foundation/include;../../thirdparty/physx/sdk/cooking/include;../../thirdparty/physx/sdk/physics/include;../../thirdparty/physx/sdk/physxloader/include"
+				AdditionalIncludeDirectories="../gameeditex;../gameeditex/camera;../gameeditex/command;../gameeditex/event;../gameeditex/fsm;../gameeditex/edit;../base;../base/math;../base/misc;../base/multithread;../base/util;../engine;../engine/utility;../engine/rendersystem;../engine/physicssystem;../gamecore;../gamecore/camera;../gamecore/event;../../thirdparty/gamebryo/sdk/win32/include;../../thirdparty/physx/sdk/foundation/include;../../thirdparty/physx/sdk/cooking/include;../../thirdparty/physx/sdk/physics/include;../../thirdparty/physx/sdk/physxloader/include"
 				PreprocessorDefinitions="WIN32;_DEBUG;_LIB;_USRDLL;NIDEBUG;EE_EFD_IMPORT;NIANIMATION_IMPORT;NIMAIN_IMPORT;NIMESH_IMPORT;NISYSTEM_IMPORT;NIFLOODGATE_IMPORT;NIDX9RENDERER_IMPORT"
 				MinimalRebuild="true"
 				BasicRuntimeChecks="3"
@@ -168,15 +168,31 @@
 				RelativePath=".\FSM\sdEditMode.h"
 				>
 			</File>
+			<File
+				RelativePath=".\FSM\sdWorldEditFSM.cpp"
+				>
+			</File>
+			<File
+				RelativePath=".\FSM\sdWorldEditFSM.h"
+				>
+			</File>
 			<Filter
 				Name="Terrain"
 				>
 				<File
-					RelativePath=".\FSM\sdTerrainHeightMode.cpp"
+					RelativePath=".\FSM\sdTerrainDeformMode.cpp"
 					>
 				</File>
 				<File
-					RelativePath=".\FSM\sdTerrainHeightMode.h"
+					RelativePath=".\FSM\sdTerrainDeformMode.h"
+					>
+				</File>
+				<File
+					RelativePath=".\FSM\sdTerrainSurfaceMode.cpp"
+					>
+				</File>
+				<File
+					RelativePath=".\FSM\sdTerrainSurfaceMode.h"
 					>
 				</File>
 			</Filter>
@@ -184,10 +200,50 @@
 		<Filter
 			Name="Edit"
 			>
+			<Filter
+				Name="Brush"
+				>
+				<File
+					RelativePath=".\Edit\sdEditBrush.cpp"
+					>
+				</File>
+				<File
+					RelativePath=".\Edit\sdEditBrush.h"
+					>
+				</File>
+				<File
+					RelativePath=".\Edit\sdEditBrushShape.cpp"
+					>
+				</File>
+				<File
+					RelativePath=".\Edit\sdEditBrushShape.h"
+					>
+				</File>
+				<File
+					RelativePath=".\Edit\sdEditCanvas.cpp"
+					>
+				</File>
+				<File
+					RelativePath=".\Edit\sdEditCanvas.h"
+					>
+				</File>
+				<File
+					RelativePath=".\Edit\sdEditShape.cpp"
+					>
+				</File>
+				<File
+					RelativePath=".\Edit\sdEditShape.h"
+					>
+				</File>
+			</Filter>
 		</Filter>
 		<Filter
 			Name="Utility"
 			>
+			<Filter
+				Name="Cursor"
+				>
+			</Filter>
 		</Filter>
 		<Filter
 			Name="Command"
@@ -206,7 +262,7 @@
 			</Filter>
 		</Filter>
 		<Filter
-			Name="Camera"
+			Name="CameraEx"
 			>
 			<File
 				RelativePath=".\Camera\sdCameraEditState.cpp"
@@ -214,6 +270,14 @@
 			</File>
 			<File
 				RelativePath=".\Camera\sdCameraEditState.h"
+				>
+			</File>
+		</Filter>
+		<Filter
+			Name="EventEx"
+			>
+			<File
+				RelativePath=".\Event\sdEditEventType.h"
 				>
 			</File>
 		</Filter>

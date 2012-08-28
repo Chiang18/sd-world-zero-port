@@ -1,40 +1,35 @@
 //*************************************************************************************************
-// 内容:	事件中心,自定义的事件机制
+// 内容:	
 //---------------------------------------------------------
 // 作者:		
-// 创建:		2012-08-27
+// 创建:		2012-08-28
 // 最后修改:
 //*************************************************************************************************
 #pragma once
-#ifndef _SD_GAMECORE_EVENTMGR_H__
-#define _SD_GAMECORE_EVENTMGR_H__
+#ifndef _SD_GAMECORE_EVENTSET_H__
+#define _SD_GAMECORE_EVENTSET_H__
 #include "sdGameCore.h"
 #include "sdEvent.h"
-#include <sdSingleton.h>
 
 namespace GameCore
 {
-	// 事件中心,维护一组事件和订阅回调函数
-	class sdEventMgr : public Base::sdTSingleton<sdEventMgr> 
+	// 用于保存本地订阅信息,要订阅事件的类可以从这里继承
+	class sdEventSet
 	{
 	public:
-		sdEventMgr();
-		virtual ~sdEventMgr();
-
-		// 用最大事件数量初始化
-		virtual bool Initialize(uint uiMaxNum);
+		sdEventSet();
+		virtual ~sdEventSet();
 
 		// 事件订阅与取消订阅
 		void	SubscribeEvent(eEventID eID, sdEventHandle* pkSubscriber);
 		void	UnsubscribeEvent(eEventID eID, sdEventHandle* pkSubscriber);
-		void	FireEvent(eEventID eID, const stEventArg& kArg);	
+		void	UnsubscribeAllEvents();
 
 	protected:
 		// 事件列表
-		typedef std::vector<sdEvent> EventVec;
-		typedef std::vector<sdEvent>::iterator EventVecItr;
-		EventVec m_kEventVec;
-		uint m_uiMaxNum;
+		typedef std::map<eEventID, sdEventHandle*> EventMap;
+		typedef std::map<eEventID, sdEventHandle*>::iterator EventMapItr;
+		EventMap m_kEventMap;
 	};
 }
 #endif

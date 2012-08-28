@@ -17,12 +17,12 @@ void sdWorldEditor::WndProc(int iMsg, WPARAM wParam, LPARAM lParam)
 		switch (iMsg)
 		{
 			case WM_KEYDOWN:	
-				m_kEditFSM.OnKeyDown(wParam, lParam);	
+				m_kWorldEditFSM.OnKeyDown(wParam, lParam);	
 				pkCurEditCamState->OnKeyDown(wParam, lParam);
 				break;
 
 			case WM_KEYUP:		
-				m_kEditFSM.OnKeyUp(wParam, lParam);	
+				m_kWorldEditFSM.OnKeyUp(wParam, lParam);	
 				pkCurEditCamState->OnKeyUp(wParam, lParam);
 				break;	
 		}
@@ -33,51 +33,51 @@ void sdWorldEditor::WndProc(int iMsg, WPARAM wParam, LPARAM lParam)
 		switch (iMsg)
 		{
 			case WM_MOUSEWHEEL:		
-				m_kEditFSM.OnMouseWheel(wParam, lParam);	
+				m_kWorldEditFSM.OnMouseWheel(wParam, lParam);	
 				pkCurEditCamState->OnMouseWheel(wParam, lParam);
 				break;
 
 			case WM_MOUSEMOVE:		
-				m_kEditFSM.OnMouseMove(wParam, lParam);	
+				m_kWorldEditFSM.OnMouseMove(wParam, lParam);	
 				pkCurEditCamState->OnMouseMove(wParam, lParam);
 				break;
 
 			case WM_LBUTTONDOWN:	
-				m_kEditFSM.OnLeftButtonDown(wParam, lParam);		
+				m_kWorldEditFSM.OnLeftButtonDown(wParam, lParam);		
 				break;
 
 			case WM_LBUTTONUP:		
-				m_kEditFSM.OnLeftButtonUp(wParam, lParam);			
+				m_kWorldEditFSM.OnLeftButtonUp(wParam, lParam);			
 				break;	
 
 			case WM_LBUTTONDBLCLK:	
-				m_kEditFSM.OnLeftButtonDBClick(wParam, lParam);	
+				m_kWorldEditFSM.OnLeftButtonDBClick(wParam, lParam);	
 				break;	
 
 			case WM_RBUTTONDOWN:	
-				m_kEditFSM.OnRightButtonDown(wParam, lParam);	
+				m_kWorldEditFSM.OnRightButtonDown(wParam, lParam);	
 				pkCurEditCamState->OnRightButtonDown(wParam, lParam);
 				break;
 
 			case WM_RBUTTONUP:		
-				m_kEditFSM.OnRightButtonUp(wParam, lParam);	
+				m_kWorldEditFSM.OnRightButtonUp(wParam, lParam);	
 				pkCurEditCamState->OnRightButtonUp(wParam, lParam);
 				break;	
 
 			case WM_RBUTTONDBLCLK:	
-				m_kEditFSM.OnRightButtonDBClick(wParam, lParam);	
+				m_kWorldEditFSM.OnRightButtonDBClick(wParam, lParam);	
 				break;	
 
 			case WM_MBUTTONDOWN:	
-				m_kEditFSM.OnMiddleButtonDown(wParam, lParam);		
+				m_kWorldEditFSM.OnMiddleButtonDown(wParam, lParam);		
 				break;
 
 			case WM_MBUTTONUP:		
-				m_kEditFSM.OnMiddleButtonUp(wParam, lParam);		
+				m_kWorldEditFSM.OnMiddleButtonUp(wParam, lParam);		
 				break;	
 
 			case WM_MBUTTONDBLCLK:	
-				m_kEditFSM.OnMiddleButtonDBClick(wParam, lParam);	
+				m_kWorldEditFSM.OnMiddleButtonDBClick(wParam, lParam);	
 				break;	
 		}
 	}

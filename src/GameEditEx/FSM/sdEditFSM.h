@@ -14,12 +14,16 @@
 
 namespace GameEditEx
 {
-	//
+	// 编辑状态机基类
 	class sdEditFSM : public Base::sdTSingleton<sdEditFSM>, public sdFSM
 	{
 	public:
-		sdEditFSM();
-		virtual ~sdEditFSM();
+		sdEditFSM(){};
+		virtual ~sdEditFSM(){}; 
+
+		// 初始化与销毁
+		virtual bool Initialize(){ return true;};
+		virtual void Destroy() {};
 
 		// 输入消息
 		// @{
@@ -37,10 +41,6 @@ namespace GameEditEx
 		virtual void OnMiddleButtonUp(WPARAM wParam, LPARAM lParam);
 		virtual void OnMiddleButtonDBClick(WPARAM wParam, LPARAM lParam);
 		// @}
-
-
-	protected:
-
 	};
 }
 #endif
