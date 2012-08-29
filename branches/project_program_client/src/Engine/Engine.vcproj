@@ -496,6 +496,14 @@
 					RelativePath=".\Terrain\sdTerrain_Layer.cpp"
 					>
 				</File>
+				<File
+					RelativePath=".\Terrain\sdTerrainPick.cpp"
+					>
+				</File>
+				<File
+					RelativePath=".\Terrain\sdTerrainPick.h"
+					>
+				</File>
 			</Filter>
 			<Filter
 				Name="Effect"

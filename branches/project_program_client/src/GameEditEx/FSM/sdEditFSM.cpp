@@ -2,9 +2,6 @@
 #include "sdEditFSM.h"
 #include <sdEditMode.h>
 
-//
-#include <windef.h>
-
 namespace GameEditEx
 {
 //-------------------------------------------------------------------------------------------------

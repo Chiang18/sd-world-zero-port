@@ -4,19 +4,19 @@
 namespace GameEditEx
 {
 //-------------------------------------------------------------------------------------------------
-sdBrushDoubalCircle::sdBrushDoubalCircle()
+sdDoubalCircleMesh::sdDoubalCircleMesh()
 {
 	
 }
 //-------------------------------------------------------------------------------------------------
-sdBrushDoubalCircle::~sdBrushDoubalCircle()
+sdDoubalCircleMesh::~sdDoubalCircleMesh()
 {
 
 }
 //-------------------------------------------------------------------------------------------------
 
 //-------------------------------------------------------------------------------------------------
-void sdBrushDoubalCircle::CreateInnerCircle()
+void sdDoubalCircleMesh::CreateInnerCircle()
 {
 	m_spInnerCircle = NiNew NiMesh;
 	NIASSERT(m_spInnerCircle);

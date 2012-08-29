@@ -40,8 +40,11 @@ namespace GameEditEx
 		virtual ~sdEditMode(){};
 
 		// 初始化与销毁
-		virtual bool Initialize() { return true;};
-		virtual void Destroy() {};
+		virtual bool Initialize() { return true;}
+		virtual void Destroy() {}
+
+		// 虚函数继承
+		virtual int Update() { return  __super::Update();}
 
 		// 输入消息
 		// @{

@@ -14,11 +14,11 @@ namespace GameEditEx
 {
 	//****************************************************************************
 	// 双圆环笔刷
-	class sdBrushDoubalCircle : public NiNode
+	class sdDoubalCircleMesh : public NiNode
 	{
 	public:
-		sdBrushDoubalCircle();
-		~sdBrushDoubalCircle();
+		sdDoubalCircleMesh();
+		~sdDoubalCircleMesh();
 
 		// 根据当前位置,重新拾取地形高度,更新显示
 		void Update();

@@ -273,6 +273,14 @@
 		<Filter
 			Name="UI"
 			>
+			<File
+				RelativePath=".\UI\sdUIMgr.cpp"
+				>
+			</File>
+			<File
+				RelativePath=".\UI\sdUIMgr.h"
+				>
+			</File>
 			<Filter
 				Name="HUD"
 				>
@@ -300,6 +308,42 @@
 		</Filter>
 		<Filter
 			Name="Data"
+			>
+		</Filter>
+		<Filter
+			Name="Mgr"
+			>
+			<Filter
+				Name="Chat"
+				>
+			</Filter>
+			<Filter
+				Name="Magic"
+				>
+			</Filter>
+			<Filter
+				Name="Download"
+				>
+			</Filter>
+			<Filter
+				Name="Scene"
+				>
+			</Filter>
+			<Filter
+				Name="Society"
+				>
+			</Filter>
+			<Filter
+				Name="Movie"
+				>
+			</Filter>
+			<Filter
+				Name="Pick"
+				>
+			</Filter>
+		</Filter>
+		<Filter
+			Name="Misc"
 			>
 		</Filter>
 		<File

@@ -54,6 +54,9 @@ public:
 	//(wz封装了一层TerrainTileEntity,貌似没啥必要,这里直接返回Mesh)
 	void	Cull(const NiCamera& kCamera, std::vector<NiMesh*>& kMeshVec);
 
+	// 地形拾取
+	//bool	Pick(const NiPoint3& kOrigin, const NiPoint3& kDir, NiPoint3& kIntersect, float fLimit = FLT_MAX);	
+
 	// 地形编辑
 	// @{
 
@@ -84,14 +87,16 @@ public:
 	// @}
 
 
-	//
-	bool	IsVisible() const { return m_bIsVisible;};
+	// 常用属性访问
+	// @{
+	bool	IsVisible() const { return m_bIsVisible;}
 
-	uint	GetTileSize() const { return m_uiTileSize;};
-	uint	GetMeshLevel() const { return m_uiMeshLevel;};
-	bool	GetEnableLOD() const { return m_bEnableLOD;};
+	uint	GetTileSize() const { return m_uiTileSize;}
+	uint	GetMeshLevel() const { return m_uiMeshLevel;}
+	bool	GetEnableLOD() const { return m_bEnableLOD;}
 
 	const RenderSystem::sdTerrainParams& GetTerrainParams() const { return m_kRenderParams;};
+	// @}
 
 protected:
 	// 获取高度图

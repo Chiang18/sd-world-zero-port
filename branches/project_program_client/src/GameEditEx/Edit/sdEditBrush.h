@@ -13,6 +13,7 @@
 #ifndef _SD_GAMEEDITEX_EDITBRUSH_H__
 #define _SD_GAMEEDITEX_EDITBRUSH_H__
 #include "sdGameEditEx.h"
+#include "sdEditShape.h"
 
 namespace GameEditEx
 {
@@ -24,20 +25,33 @@ namespace GameEditEx
 		sdEditBrush(){};
 		virtual ~sdEditBrush() {};
 
+		virtual void Apply() = 0;
+
 	protected:
+		NiNodePtr		m_spBrushShape;
+		sdEditShapePtr	m_pkEditShape;
+		
 	};
 	NiSmartPointer(sdEditBrush);
 
 	//****************************************************************************
-	// 地表高度编辑笔刷
-	class sdTerrainDeformEditBrush : public sdEditBrush
+	// 地表高度拉伸笔刷
+	class sdTerrainDeformPoolBrush : public sdEditBrush
 	{
 	public:
-		sdTerrainDeformEditBrush();
-		virtual ~sdTerrainDeformEditBrush();
+		sdTerrainDeformPoolBrush();
+		virtual ~sdTerrainDeformPoolBrush();
+
+		// 虚函数继承
+		virtual void Apply();
+
+	protected:
+		
+
 	};
-	NiSmartPointer(sdTerrainDeformEditBrush);
+	NiSmartPointer(sdTerrainDeformPoolBrush);
 
 	//****************************************************************************
 	// 地表纹理编辑笔刷
 }
+#endif
