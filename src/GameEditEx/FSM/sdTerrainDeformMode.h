@@ -10,6 +10,7 @@
 #define _SD_GAMEEDITEX_TERRAINDEFORMMODE_H__
 #include "sdGameEditEx.h"
 #include "sdEditMode.h"
+#include "sdEditBrush.h"
 
 namespace GameEditEx
 {
@@ -22,9 +23,19 @@ namespace GameEditEx
 		// Ðéº¯Êý¼Ì³Ð
 		virtual bool Initialize();
 		virtual void Destroy();
+		virtual int Update();
+
+		virtual void OnMouseMove(WPARAM wParam, LPARAM lParam);
+		virtual void OnLeftButtonDown(WPARAM wParam, LPARAM lParam);
+		virtual void OnLeftButtonUp(WPARAM wParam, LPARAM lParam);
 
 	protected:
-		
+		// Êó±ê×´Ì¬
+		bool	m_bLeftButtonDown;
+		POINT	m_kMousePos;
+
+		// ±ÊË¢
+		sdTerrainDeformPoolBrushPtr	m_spTerrainDeformPoolBrush;	
 	};
 }
 #endif
