@@ -62,6 +62,18 @@ namespace Base
 
 			// 运算符重载
 			// @{
+			inline float operator [] (const size_t i) const
+			{
+				assert(i < 3);
+				return *(&m_fX + i);
+			}
+
+			inline float& operator [] (const size_t i)
+			{
+				assert(i < 3);
+				return *(&m_fX + i);
+			}
+
 			inline sdVector3& operator = (const sdVector3& rkVector)
 			{
 				m_fX = rkVector.m_fX;
@@ -275,20 +287,71 @@ namespace Base
 
 				return *this;
 			}
+
+			inline bool operator < (const sdVector3& rhs) const
+			{
+				if (m_fX < rhs.m_fX && m_fY < rhs.m_fY && m_fZ < rhs.m_fZ )
+					return true;
+				return false;
+			}
+
+			inline bool operator > (const sdVector3& rhs) const
+			{
+				if (m_fX > rhs.m_fX && m_fY > rhs.m_fY && m_fZ > rhs.m_fZ )
+					return true;
+				return false;
+			}
 			// @}
 
 			// 常用
 			// @{
-			inline float Length () const
+			// 长度
+			inline float Length() const
 			{
 				return sqrt(m_fX * m_fX + m_fY * m_fY + m_fZ * m_fZ);
 			}
 
-			inline float SquaredLength () const
+			inline float SquaredLength() const
 			{
 				return m_fX * m_fX + m_fY * m_fY + m_fZ * m_fZ;
 			}
 
+			// 内积
+			inline float DotProduct(const sdVector3& kVec) const
+			{
+				return m_fX * kVec.m_fX + m_fY * kVec.m_fY + m_fZ * kVec.m_fZ;
+			}
+
+			// 外积
+			inline sdVector3 CrossProduct(const sdVector3& rkVector) const
+			{
+				return sdVector3(
+					m_fY * rkVector.m_fZ - m_fZ * rkVector.m_fY,
+					m_fZ * rkVector.m_fX - m_fX * rkVector.m_fZ,
+					m_fX * rkVector.m_fY - m_fY * rkVector.m_fX);
+			}
+
+			inline void CrossProduct(const sdVector3& rkVector, sdVector3& kVector) const
+			{
+				kVector.m_fX = m_fY * rkVector.m_fZ - m_fZ * rkVector.m_fY;
+				kVector.m_fY = m_fZ * rkVector.m_fX - m_fX * rkVector.m_fZ;
+				kVector.m_fZ = m_fX * rkVector.m_fY - m_fY * rkVector.m_fX;
+			}
+
+			// 归一化
+			inline float Normalise()
+			{
+				float fLength = sdMath::Sqrt(m_fX * m_fX + m_fY * m_fY + m_fZ * m_fZ);
+				if (fLength > 0.0f)
+				{
+					float fInvLength = 1.0f / fLength;
+					m_fX *= fInvLength;
+					m_fY *= fInvLength;
+					m_fZ *= fInvLength;
+				}
+
+				return fLength;
+			}
 
 			// 取两个Vector每个分量的较小值
 			inline void MakeMinimum(const sdVector3& kVector)

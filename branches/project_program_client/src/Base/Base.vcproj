@@ -178,6 +178,14 @@
 				>
 			</File>
 			<File
+				RelativePath=".\Math\sdMath_Collision.cpp"
+				>
+			</File>
+			<File
+				RelativePath=".\Math\sdRay.h"
+				>
+			</File>
+			<File
 				RelativePath=".\Math\sdVector2.h"
 				>
 			</File>

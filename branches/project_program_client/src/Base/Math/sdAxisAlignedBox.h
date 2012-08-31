@@ -1,5 +1,5 @@
 //*************************************************************************************************
-// 内容:	AxisAlignedBox,抽取自Ogre
+// 内容:	AxisAlignedBox,抽取自Ogre/OgreAxisAlignedBox.h
 //---------------------------------------------------------
 // 作者:		
 // 创建:		2012-08-03
@@ -16,7 +16,6 @@ namespace Base
 {
 	namespace Math
 	{
-		// 
 		class sdAxisAlignedBox
 		{
 		public:
@@ -26,7 +25,6 @@ namespace Base
 				E_EXTENT_FINITE,	// 有限
 				E_EXTENT_INFINITE,	// 无限
 			};
-
 
 		protected:
 			sdVector3 m_kMinimum;
@@ -298,7 +296,28 @@ namespace Base
 
 			// 求交
 			// @{
-			
+
+			// Point是否落入AABB
+			bool Intersects(const sdVector3& kVector) const
+			{
+				switch (m_eExtent)
+				{
+				case E_EXTENT_NULL:
+					return false;
+
+				case E_EXTENT_FINITE:
+					return(kVector.m_fX >= m_kMinimum.m_fX  &&  kVector.m_fX <= m_kMaximum.m_fX  && 
+						kVector.m_fY >= m_kMinimum.m_fY  &&  kVector.m_fY <= m_kMaximum.m_fY  && 
+						kVector.m_fZ >= m_kMinimum.m_fZ  &&  kVector.m_fZ <= m_kMaximum.m_fZ);
+
+				case E_EXTENT_INFINITE:
+					return true;
+
+				default:
+					assert(false && "Never reached");
+					return false;
+				}
+			}
 			// @}
 		};
 	}
