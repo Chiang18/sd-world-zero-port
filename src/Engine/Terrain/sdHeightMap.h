@@ -25,6 +25,8 @@ public:
 
 	// 属性访问
 	uint	GetSize() const { return m_uiSize;};
+	float	GetMinHeight() const { return m_fMinHeight;}
+	float	GetMaxHeight() const { return m_fMaxHeight;}
 
 	// 高度(高度图像素坐标,原始高度)
 	void	SetRawHeight(uint uiX, uint uiY, float fHeight);
