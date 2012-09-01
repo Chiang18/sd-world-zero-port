@@ -51,13 +51,12 @@ protected:
 	// WZ渲染系统
 	RenderSystem::sdRenderSystem_DX9	m_kRenderSystem;
 
-	// 消息中兴
+	// 消息中心
 	GameCore::sdEventMgr m_kEventMgr;
 
 	// 编辑管理器
 	GameEditEx::sdWorldEditFSM	m_kWorldEditFSM;
 
-	//*****************************************************
-	sdMapPtr	m_pkMap;
-	//*****************************************************
+	// 场景
+	sdMap*	m_pkMap;
 };

@@ -8,6 +8,8 @@ namespace GameCore
 {
 //-------------------------------------------------------------------------------------------------
 sdCameraFreeState::sdCameraFreeState()
+: m_fFreeCameraSpeed(50.0f)
+, m_fFreeCameraRotate(0.001f)
 {
 	SetStateID(E_CAMERA_FREE);
 }
@@ -32,6 +34,8 @@ int sdCameraFreeState::Update()
 	if (!pkInputSystem->GetActive())
 		return 0;
 
+	// 关于平移
+	// @{
 	// 检测键盘方向键
 	bool bUp	  = pkInputSystem->IsInputKeyDown(E_INPUTKEY_UP);
 	bool bDown	  = pkInputSystem->IsInputKeyDown(E_INPUTKEY_DOWN);
@@ -44,33 +48,38 @@ int sdCameraFreeState::Update()
 	NiPoint3 kCamPosition = spCamera->GetWorldTranslate();
 
 	// 计算平移
-	float fFreeCameraSpeed = 50.0f;
 	float fFrameTime = pkTimeMgr->GetCurFrameTime();
-	if (bUp)		kCamPosition += spCamera->GetWorldDirection() * fFrameTime * fFreeCameraSpeed;
-	if (bDown)		kCamPosition -= spCamera->GetWorldDirection() * fFrameTime * fFreeCameraSpeed;	
-	if (bLeft)		kCamPosition -= spCamera->GetWorldRightVector() * fFrameTime * fFreeCameraSpeed;
-	if (bRight)		kCamPosition += spCamera->GetWorldRightVector() * fFrameTime * fFreeCameraSpeed;
-	if (bAscend)	kCamPosition += spCamera->GetWorldUpVector() * fFrameTime * fFreeCameraSpeed;
-	if (bDescend)	kCamPosition -= spCamera->GetWorldUpVector() * fFrameTime * fFreeCameraSpeed;
+	if (bUp)		kCamPosition += spCamera->GetWorldDirection() * fFrameTime * m_fFreeCameraSpeed;
+	if (bDown)		kCamPosition -= spCamera->GetWorldDirection() * fFrameTime * m_fFreeCameraSpeed;	
+	if (bLeft)		kCamPosition -= spCamera->GetWorldRightVector() * fFrameTime * m_fFreeCameraSpeed;
+	if (bRight)		kCamPosition += spCamera->GetWorldRightVector() * fFrameTime * m_fFreeCameraSpeed;
+	if (bAscend)	kCamPosition += spCamera->GetWorldUpVector() * fFrameTime * m_fFreeCameraSpeed;
+	if (bDescend)	kCamPosition -= spCamera->GetWorldUpVector() * fFrameTime * m_fFreeCameraSpeed;
 
+	// 应用平移
 	spCamera->SetWorldTranslate(kCamPosition);
+	// }@
 
-	// 检测鼠标
-	int iX = 0, iY = 0, iZ = 0;
-	pkInputSystem->GetPositionDelta(iX, iY, iZ);
 
-	bool bRightButtonDown = pkInputSystem->IsButtonDown(E_MOUSE_RBUTTON);
-
-	// 计算旋转
+	// 关于旋转
+	// @{
+	bool bRightButtonDown = pkInputSystem->IsButtonDown(E_MOUSE_RBUTTON);	
 	if (bRightButtonDown)
 	{
-		float fMouseLookScalar = 0.001f;
-		NiMatrix3 kRotation = NiViewMath::Look(iX * fMouseLookScalar, 
-			iY * fMouseLookScalar, 
+		// 检测鼠标
+		int iX = 0, iY = 0, iZ = 0;
+		pkInputSystem->GetPositionDelta(iX, iY, iZ);
+
+		// 计算旋转
+		NiMatrix3 kRotation = NiViewMath::Look(iX * m_fFreeCameraRotate, 
+			iY * m_fFreeCameraRotate, 
 			spCamera->GetWorldRotate(), 
 			NiPoint3::UNIT_Z);
+
+		// 应用旋转
 		spCamera->SetWorldRotate(kRotation);
 	}
+	// @}
 
 	return 0;
 }

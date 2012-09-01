@@ -39,6 +39,10 @@ namespace GameCore
 
 		// Ðéº¯Êý¼Ì³Ð
 		virtual int Update();
+
+	protected:
+		float m_fFreeCameraSpeed;
+		float m_fFreeCameraRotate;
 	};
 	//*************************************************************************
 }

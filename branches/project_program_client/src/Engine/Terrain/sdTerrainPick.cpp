@@ -25,7 +25,7 @@ sdTerrainPick::sdTerrainPick(sdHeightMap* pkHeightMap)
 	NIASSERT(pkHeightMap);
 }
 //-------------------------------------------------------------------------------------------------
-bool sdTerrainPick::Pick(const sdRay& kRay, NiPoint3& kIntersect)
+bool sdTerrainPick::Pick(const sdRay& kRay, sdVector3& kIntersect)
 {
 	// 计算包围盒
 	uint uiSize = m_pkHeightMap->GetSize();
@@ -44,23 +44,102 @@ bool sdTerrainPick::Pick(const sdRay& kRay, NiPoint3& kIntersect)
 		fEnd = m_fMaxDistance;
 
 	// 从起始点到终止点进行固定步长微分查找
-	float fSampleDelta = 0.5f;
+	// (原始值是0.5f,个人觉得应该是0.707)
+	float fSampleDelta = 0.707f;
 	sdVector3 kDeltaPos(fSampleDelta * kRay.GetDirection());
-	sdVector3 kStartPos(kRay.GetOrigin());
-	sdVector3 kEndPos(kRay.GetOrigin() + kDeltaPos);
-	for (;fStart <= fEnd; fStart += fSampleDelta)
-	{
-		
-		
-	
+	sdVector3 kDeltaStartPos(kRay.GetOrigin());
 
+	uint uiStartX = UINT_MAX;
+	uint uiStartY = UINT_MAX;
+	uint uiEndX = UINT_MAX;
+	uint uiEndY = UINT_MAX;
+	for (bool bFirst = true;fStart <= fEnd; fStart += fSampleDelta, bFirst = false)
+	{
+		// 对齐到栅格
+		uiEndX = (uint)kDeltaStartPos.m_fX;
+		uiEndY = (uint)kDeltaStartPos.m_fY;
 		
+		// 只有线段端点不位于同一个高度格子内才进行处理
+		//   +---+---+
+		//   |   |   |
+		//	 |   |   |
+		//	 +---+---+
+		//   |   |   |
+		//	 |   |   |
+		//	 +---+---+
+		// (总感觉这里不严密,貌似应该先排序一下)
+		if (uiStartX == uiEndX || uiStartY != uiEndY)
+		{
+			// 两个端点位于斜对角的两个格子,则处理另外两个对角的格子
+			// (可能侧漏)
+			if (uiStartX != uiEndX && uiStartX != uiEndY && bFirst == false)
+			{
+				if (Intersect(uiEndX, uiStartY, kRay, kIntersect))
+					return true;
+
+				if (Intersect(uiStartX, uiEndY, kRay, kIntersect))
+					return true;
+			}
+
+			// 处理起始格子
+			if (Intersect(uiStartX, uiStartX, kRay, kIntersect))
+				return true;
+
+			//
+			uiStartX = uiEndX;
+			uiStartY = uiEndY;
+		}
+
+		// 下一个点
+		kDeltaStartPos += kDeltaPos;
 	}
 
-	return true;
+	return false;
 }
 //-------------------------------------------------------------------------------------------------
-bool 
+bool sdTerrainPick::Intersect(uint uiX, uint uiY, const sdRay& kRay, sdVector3& kIntersect)
+{
+	if (uiX >= m_pkHeightMap->GetSize() || uiY >= m_pkHeightMap->GetSize())
+		return false;
+
+	// 三角型组织方式
+	//	1--3
+	//	|\ |
+	//  | \|
+	//  0--2
+	//
+	// 获取四个点
+	sdVector3 kPt0((float)uiX,		(float)uiY,		m_pkHeightMap->GetRawHeight(uiX, uiY));
+	sdVector3 kPt1((float)uiX,		(float)(uiY+1),	m_pkHeightMap->GetRawHeight(uiX, uiY+1));
+	sdVector3 kPt2((float)(uiX+1),	(float)uiY,		m_pkHeightMap->GetRawHeight(uiX+1, uiY));
+	sdVector3 kPt3((float)(uiX+1),	(float)(uiY+1),	m_pkHeightMap->GetRawHeight(uiX+1, uiY+1));
+
+	// 分别于0-1-2和2-1-3求交
+	sdVector3 kIntersectLeft, kIntersectRight;
+	bool bLeft = Intersect(kPt0, kPt1, kPt2, kRay, kIntersectLeft);
+	bool bRight = Intersect(kPt2, kPt1, kPt3, kRay, kIntersectRight);
+
+	// 判断结果(这里可以根据Ray的判断先相交的三角形,从而可能减少依次Intersect)
+	if (bLeft && bRight)
+	{
+		// 若两个都相交则取最近值
+		float fLeft = (kIntersectLeft - kRay.GetOrigin()).SquaredLength();
+		float fRight = (kIntersectLeft - kRay.GetOrigin()).SquaredLength();
+		kIntersect = fLeft < fRight ? kIntersectLeft : kIntersectRight;
+		return true;
+	}
+	else if (bLeft || bRight)
+	{
+		// 只有一个相交取相交值
+		kIntersect = bLeft ? kIntersectLeft : kIntersectRight;
+		return true;
+	}
+	else
+	{
+		// 不相交
+		return false;
+	}
+}
 //-------------------------------------------------------------------------------------------------
 bool sdTerrainPick::Intersect(const sdVector3& kV1, const sdVector3& kV2, const sdVector3& kV3, const sdRay& kRay, sdVector3& kIntersect)
 {
@@ -73,7 +152,6 @@ bool sdTerrainPick::Intersect(const sdVector3& kV1, const sdVector3& kV2, const 
 	sdVector3 kEdge1 = kV2 - kV1;
 	sdVector3 kEdge2 = kV3 - kV2;
 	
-
 	// 计算
 	const sdVector3& kOrigin = kRay.GetOrigin();
 	const sdVector3& kDir = kRay.GetDirection();

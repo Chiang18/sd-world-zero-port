@@ -9,6 +9,7 @@
 #ifndef _SD_BASE_MATH_VECTOR3_H__
 #define _SD_BASE_MATH_VECTOR3_H__
 #include "sdBase.h"
+#include "sdMath.h"
 
 namespace Base
 {

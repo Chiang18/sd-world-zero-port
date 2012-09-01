@@ -14,6 +14,7 @@
 #include "sdNormalMap.h"
 #include "sdLayerMap.h"
 #include "sdQuadNode.h"
+#include "sdTerrainPick.h"
 
 // 渲染系统
 #include "sdRenderSystem.h"
@@ -54,8 +55,12 @@ public:
 	//(wz封装了一层TerrainTileEntity,貌似没啥必要,这里直接返回Mesh)
 	void	Cull(const NiCamera& kCamera, std::vector<NiMesh*>& kMeshVec);
 
+	// 地形高度获取(分别是世界坐标和HeightMap坐标)
+	float	Pick(float fX, float fY);
+	float	Pick(uint uiX, uint uiY);
+
 	// 地形拾取
-	//bool	Pick(const NiPoint3& kOrigin, const NiPoint3& kDir, NiPoint3& kIntersect, float fLimit = FLT_MAX);	
+	bool	Pick(const Base::Math::sdRay& kRay, Base::Math::sdVector3& kIntersect, float fLimit = FLT_MAX);	
 
 	// 地形编辑
 	// @{
@@ -119,6 +124,7 @@ protected:
 
 	// 地表高度图
 	sdHeightMapPtr	m_pkHeightMap;	
+	sdTerrainPickPtr m_pkPick;
 
 	// 地表法线图
 	sdNormalMapPtr	m_pkNormalMap;

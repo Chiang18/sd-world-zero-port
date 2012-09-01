@@ -34,7 +34,7 @@ public:
 	sdTerrainPick(sdHeightMap* pkHeightMap);
 
 	// 拾取,输入坐标系是HeightMap坐标系的浮点形式
-	bool Pick(const Base::Math::sdRay& kRay, NiPoint3& kIntersect);
+	bool Pick(const Base::Math::sdRay& kRay, Base::Math::sdVector3& kIntersect);
 
 	// 拾取设置
 	void SetHeightMap(sdHeightMap* pkHeightMap){NIASSERT(pkHeightMap);m_pkHeightMap = pkHeightMap;}
@@ -42,8 +42,8 @@ public:
 	void SetMaxDistance(float fMaxDistance){ NIASSERT(fMaxDistance >= 0); m_fMaxDistance = fMaxDistance;}
 
 protected:
-	// 
-	//bool Inetersect()
+	// 射线与矩形相交
+	bool Intersect(uint uiX, uint uiY, const Base::Math::sdRay& kRay, Base::Math::sdVector3& kIntersect);
 	
 	// 射线与三角形求交
 	bool Intersect(const Base::Math::sdVector3& kV1, 

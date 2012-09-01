@@ -65,6 +65,10 @@ namespace GameEditEx
 		bool m_bMoveLeft;
 		bool m_bMoveRight;
 		bool m_bRightButtonDown;
+		int m_iX, m_iY, m_iLastX, m_iLastY;
+
+		float m_fFreeCameraSpeed;
+		float m_fFreeCameraRotate;
 	};
 }
 #endif
