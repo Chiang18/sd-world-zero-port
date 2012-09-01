@@ -1,6 +1,8 @@
 #include "Stdafx.h"
 #include "sdTerrain.h"
 
+using namespace Base;
+using namespace Base::Math;
 using namespace RenderSystem;
 //-------------------------------------------------------------------------------------------------
 sdTerrain::sdTerrain()
@@ -46,6 +48,9 @@ bool sdTerrain::CreateScene(uint uiTerrainSize, uint uiBlendTexSize)
 	// 创建高度图
 	m_pkHeightMap = NiNew sdHeightMap(uiTerrainSize);
 	NIASSERT(m_pkHeightMap);
+
+	m_pkPick = NiNew sdTerrainPick(m_pkHeightMap);
+	NIASSERT(m_pkPick);
 
 	// 创建法线贴图
 	// @{
@@ -155,13 +160,29 @@ void sdTerrain::DestroyScene()
 //-------------------------------------------------------------------------------------------------
 void sdTerrain::Cull(const NiCamera& kCamera, std::vector<NiMesh*>& kMeshVec)
 {
-	if (HasScene())
-	{
-		NiFrustumPlanes kFrustumPlanes;
-		kFrustumPlanes.Set(kCamera.GetViewFrustum(), kCamera.GetWorldTransform());
-		kFrustumPlanes.EnableAllPlanes();
-		
-		m_pkQuadRoot->Cull(kCamera, kFrustumPlanes, kMeshVec);
-	}
+	NiFrustumPlanes kFrustumPlanes;
+	kFrustumPlanes.Set(kCamera.GetViewFrustum(), kCamera.GetWorldTransform());
+	kFrustumPlanes.EnableAllPlanes();
+	
+	m_pkQuadRoot->Cull(kCamera, kFrustumPlanes, kMeshVec);
+}
+//-------------------------------------------------------------------------------------------------
+float sdTerrain::Pick(uint uiX, uint uiY)
+{
+	return m_pkHeightMap->GetRawHeight(uiX, uiY) * m_fScale;
+}
+//-------------------------------------------------------------------------------------------------
+float sdTerrain::Pick(float fX, float fY)
+{
+	// 转换到HeightMap坐标系(不进行参数检查)
+	uint uiX = (uint)((fX - m_kOrigin.x) / m_fScale);
+	uint uiY = (uint)((fY - m_kOrigin.y) / m_fScale);
+
+	return m_pkHeightMap->GetRawHeight(uiX, uiY) * m_fScale;
+}
+//-------------------------------------------------------------------------------------------------
+bool sdTerrain::Pick(const sdRay& kRay, sdVector3& kIntersect, float fLimit)
+{
+	return m_pkPick->Pick(kRay, kIntersect);
 }
 //-------------------------------------------------------------------------------------------------

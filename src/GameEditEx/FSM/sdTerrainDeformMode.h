@@ -11,6 +11,7 @@
 #include "sdGameEditEx.h"
 #include "sdEditMode.h"
 #include "sdEditBrush.h"
+#include "sdEditBrushShape.h"
 
 namespace GameEditEx
 {
@@ -35,7 +36,9 @@ namespace GameEditEx
 		POINT	m_kMousePos;
 
 		// ± À¢
-		sdTerrainDeformPoolBrushPtr	m_spTerrainDeformPoolBrush;	
+		sdDualCircleMeshPtr		m_pkDualCircleMesh;
+		sdDualCircleShapePtr	m_pkDualCircleShape;
+		sdTerrainDeformPoolBrushPtr	m_pkTerrainDeformPoolBrush;	
 	};
 }
 #endif

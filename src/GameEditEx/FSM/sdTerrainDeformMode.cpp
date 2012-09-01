@@ -3,13 +3,18 @@
 #include "sdEditBrush.h"
 
 //
+#include <sdRay.h>
+
+//
 #include <sdRenderSystem_DX9.h>
 #include <sdRenderDevice_DX9.h>
+#include <sdMap.h>
 #include <sdTerrain.h>
 
 //
 #include <windef.h>
 
+using namespace Base::Math;
 using namespace RenderSystem;
 
 namespace GameEditEx
@@ -28,15 +33,30 @@ sdTerrainDeformMode::~sdTerrainDeformMode()
 //-------------------------------------------------------------------------------------------------
 bool sdTerrainDeformMode::Initialize()
 {
-	m_spTerrainDeformPoolBrush = NiNew sdTerrainDeformPoolBrush;
-	NIASSERT(m_spTerrainDeformPoolBrush);
+	sdRenderSystem* pkRenderSystem = sdRenderSystem::InstancePtr();
+	NIASSERT(pkRenderSystem);
+
+	sdMap* pkMap = pkRenderSystem->GetMap();
+	NIASSERT(pkMap);
+
+	m_pkDualCircleMesh = NiNew sdDualCircleMesh;
+	NIASSERT(m_pkDualCircleMesh);
+	pkMap->GetDebugNode()->AttachChild((NiAVObject*)(sdDualCircleMesh*)m_pkDualCircleMesh);
+
+	sdDualCircleShapePtr pkDualCircleShape = NiNew sdDualCircleShape;
+	NIASSERT(pkDualCircleShape);
+
+	m_pkTerrainDeformPoolBrush = NiNew sdTerrainDeformPoolBrush;
+	NIASSERT(m_pkTerrainDeformPoolBrush);
+	m_pkTerrainDeformPoolBrush->SetBrushShape((NiAVObject*)(sdDualCircleShape*)m_pkDualCircleShape);
+	m_pkTerrainDeformPoolBrush->SetEditShape((sdDualCircleShape*)pkDualCircleShape);
 
 	return true;
 }
 //-------------------------------------------------------------------------------------------------
 void sdTerrainDeformMode::Destroy()
 {
-	m_spTerrainDeformPoolBrush = 0;
+	m_pkTerrainDeformPoolBrush = 0;
 }
 //-------------------------------------------------------------------------------------------------
 int sdTerrainDeformMode::Update()
@@ -64,14 +84,24 @@ int sdTerrainDeformMode::Update()
 	NiPoint3 kOrigin;
 	NiPoint3 kDir;
 	NiViewMath::MouseToRay((float)m_kMousePos.x, (float)m_kMousePos.y, uiWidth, uiHeight, spCamera, kOrigin, kDir);
+	
+	sdRay kRay(sdVector3(kOrigin.x, kOrigin.y, kOrigin.z), sdVector3(kDir.x, kDir.y, kDir.z));
 	// @}
 
 
 	// Ê°È¡µØÐÎ
+	//m_pkTerrainDeformPoolBrush->Apply();
+
 	sdTerrain* pkTerrain = sdTerrain::InstancePtr();
 	NIASSERT(pkTerrain);
 
-	
+	sdVector3 kIntersect;
+	if (pkTerrain->Pick(kRay, kIntersect))	
+	{
+		m_pkDualCircleMesh->SetTranslate(kOrigin);
+		m_pkDualCircleMesh->Update(0.0f);
+		m_pkDualCircleMesh->UpdateShape();
+	}
 
 
 

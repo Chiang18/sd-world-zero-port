@@ -3,6 +3,21 @@
 
 using namespace RenderSystem;
 //-------------------------------------------------------------------------------------------------
+sdMap::sdMap()
+{
+	// 
+	// @{
+	m_spDebugNode = NiNew NiNode;
+	NIASSERT(m_spDebugNode);
+	m_spDebugNode->SetName("DebugNode");
+	// @}
+}
+//-------------------------------------------------------------------------------------------------
+sdMap::~sdMap()
+{
+	m_spDebugNode = 0;
+}
+//-------------------------------------------------------------------------------------------------
 bool sdMap::CreateScene()
 {
 
@@ -21,6 +36,9 @@ bool sdMap::CreateScene()
 	//
 	m_kTerrain.CreateScene(512,1024);
 	//*************************************************
+
+	// 更新一次节点
+	m_spDebugNode->Update(0.0f);
 
 
 

@@ -178,7 +178,8 @@ float4 PS_Main_Planar(VS_OUTPUT kInput) : COLOR0
 					vSpeculatLight * vDiffuseGloss.a   * g_vTerrainSpecularMaterial;	
 	// @}
 	
-	return float4(vColor, 0);
+	//return float4(vColor, 0);
+	return float4(0.3, 0.3, 0, 0);
 };
 //---------------------------------------------------------------------------------------
 // 陡峭地区着色

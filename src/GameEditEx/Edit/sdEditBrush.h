@@ -25,10 +25,12 @@ namespace GameEditEx
 		sdEditBrush(){};
 		virtual ~sdEditBrush() {};
 
+		void SetEditShape(sdEditShape* pkEditShape) { m_pkEditShape = pkEditShape;}
+		void SetBrushShape(NiAVObject* spAVObject) { m_spBrushShape = spAVObject;}
 		virtual void Apply() = 0;
 
 	protected:
-		NiNodePtr		m_spBrushShape;
+		NiAVObjectPtr	m_spBrushShape;
 		sdEditShapePtr	m_pkEditShape;
 		
 	};
@@ -46,8 +48,7 @@ namespace GameEditEx
 		virtual void Apply();
 
 	protected:
-		
-
+	
 	};
 	NiSmartPointer(sdTerrainDeformPoolBrush);
 

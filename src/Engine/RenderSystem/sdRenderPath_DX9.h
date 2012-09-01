@@ -98,6 +98,7 @@ namespace RenderSystem
 		//void UmbraCull();
 
 		void RenderTerrain();
+		void RenderDebugGizmo();
 		// @}
 
 		//*******************************************************

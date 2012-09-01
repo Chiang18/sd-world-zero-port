@@ -14,14 +14,14 @@ namespace GameEditEx
 {
 	//****************************************************************************
 	// 双圆环笔刷
-	class sdDoubalCircleMesh : public NiNode
+	class sdDualCircleMesh : public NiNode
 	{
 	public:
-		sdDoubalCircleMesh();
-		~sdDoubalCircleMesh();
+		sdDualCircleMesh();
+		~sdDualCircleMesh();
 
 		// 根据当前位置,重新拾取地形高度,更新显示
-		void Update();
+		void UpdateShape();
 
 	protected:
 		void CreateInnerCircle();
@@ -34,6 +34,10 @@ namespace GameEditEx
 		float	m_fOuterRadius;
 		NiMeshPtr	m_spInnerCircle;
 		NiMeshPtr	m_spOuterCircle;
+
+		// 圆刷子圆周采样点数
+		const static uint ms_uiCirclePointCount = 50;
 	};
+	NiSmartPointer(sdDualCircleMesh);
 }
 #endif
