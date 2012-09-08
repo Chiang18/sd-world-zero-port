@@ -191,13 +191,13 @@ void sdDualCircleMesh::UpdateInnerCircle()
 
 		// 计算当前点绝对坐标
 		float fAbsX = kCenterPos.x + fX;
-		float fAbsY = kCenterPos.x + fX;
-		float fAbsZ = pkTerrain->Pick(fAbsX, fAbsY);
+		float fAbsY = kCenterPos.y + fY;
+		float fAbsZ = pkTerrain->GetHeight(fAbsX, fAbsY);
 
 		//
 		kVertexItr[i].x = fX;
 		kVertexItr[i].y = fY;
-		kVertexItr[i].z = 0.0f;
+		kVertexItr[i].z = fAbsZ;
 
 		//
 		fCurRadian += fDeltaRadian;
@@ -234,13 +234,13 @@ void sdDualCircleMesh::UpdateOutterCirlce()
 
 		// 计算当前点绝对坐标
 		float fAbsX = kCenterPos.x + fX;
-		float fAbsY = kCenterPos.x + fX;
-		float fAbsZ = pkTerrain->Pick(fAbsX, fAbsY);
+		float fAbsY = kCenterPos.y + fY;
+		float fAbsZ = pkTerrain->GetHeight(fAbsX, fAbsY);
 
 		//
 		kVertexItr[i].x = fX;
 		kVertexItr[i].y = fY;
-		kVertexItr[i].z = 0.0f;
+		kVertexItr[i].z = fAbsZ;
 
 		//
 		fCurRadian += fDeltaRadian;

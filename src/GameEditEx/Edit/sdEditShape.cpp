@@ -5,8 +5,8 @@ namespace GameEditEx
 {
 //-------------------------------------------------------------------------------------------------
 sdDualCircleShape::sdDualCircleShape()
-: m_fInnerRadius(0.0f)
-, m_fOuterRadius(5.0f)
+: m_fInnerRadius(5.0f)
+, m_fOuterRadius(10.0f)
 , m_fHardness(1.0f)
 {
 	

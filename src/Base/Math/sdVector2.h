@@ -1,5 +1,5 @@
 //*************************************************************************************************
-// 内容:	借鉴自CryEngine3
+// 内容:	借鉴自CryEngine3/Ogre/Gamebryo
 //---------------------------------------------------------
 // 作者:		
 // 创建:		2012-08-02
@@ -36,6 +36,27 @@ namespace Base
 
 		//typedef sdVector2T<float>			sdVector2f;
 		//typedef sdVector2T<double>		sdVector2d;
+
+		// Vector的float版本特别实现(抽取自Ogre)
+		class sdVector2 
+		{
+		public:
+			float	m_fX, m_fY;
+
+		public:
+			// 特殊值
+			static const sdVector2 ZERO;
+			static const sdVector2 UNIT_X;
+			static const sdVector2 UNIT_Y;
+			static const sdVector2 NEGATIVE_UNIT_X;
+			static const sdVector2 NEGATIVE_UNIT_Y;
+			static const sdVector2 UNIT_SCALE;
+
+		public:
+			inline sdVector2() {};
+			inline sdVector2(const float fX, const float fY) : m_fX(fX), m_fY(fY){};
+			inline sdVector2(const float fScaler) : m_fX(fScaler), m_fY(fScaler){};
+		};
 	}
 }
 #endif

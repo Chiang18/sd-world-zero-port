@@ -59,6 +59,9 @@ sdRenderPath_DX9::sdRenderPath_DX9()
 
 	m_pkTerrainAtlasShadingPass = NiNew sdTerrainAtlasShadingPass(m_pkRenderObjectAlloc);
 	NIASSERT(m_pkTerrainAtlasShadingPass);
+
+	m_pkDebugGizmoPass = NiNew sdDebugGizmoPass(m_pkRenderObjectAlloc);
+	NIASSERT(m_pkDebugGizmoPass);
 	//@}
 
 
@@ -93,6 +96,7 @@ sdRenderPath_DX9::~sdRenderPath_DX9()
 	m_pkTerrainDepthPass = 0;
 	m_pkTerrainAtlasGeometryPass = 0;
 	m_pkTerrainAtlasShadingPass = 0;
+	m_pkDebugGizmoPass = 0;
 	// }@
 
 	// 清除RenderTargetGroup
@@ -150,6 +154,8 @@ bool sdRenderPath_DX9::Initialize()
 	m_pkTerrainDepthPass->Initialize(E_SID_TERRAIN, E_SID_MASK);
 	m_pkTerrainAtlasGeometryPass->Initialize(E_SID_TERRAIN, E_SID_MASK, E_PSB_DISTANCE_TERRAIN, m_spDepthOrLightTexture);
 	m_pkTerrainAtlasShadingPass->Initialize(E_SID_TERRAIN, E_SID_MASK, m_spDepthOrLightTexture, m_spGeometryTexture);
+	
+	m_pkDebugGizmoPass->Initialize();
 	// @}
 
 	return (m_bInitialized = true);
@@ -168,6 +174,7 @@ void sdRenderPath_DX9::Destroy()
 	m_pkTerrainDepthPass->Destroy();
 	m_pkTerrainAtlasGeometryPass->Destroy();
 	m_pkTerrainAtlasShadingPass->Destroy();
+	m_pkDebugGizmoPass->Destroy();
 
 	// 销毁Textute
 	ReleaseAllRenderTexture();
@@ -321,6 +328,7 @@ void sdRenderPath_DX9::BeginRenderScene(sdMap* pkMap, NiCamera* spCamera, NiRend
 	m_pkTerrainDepthPass->Begin();
 	m_pkTerrainAtlasGeometryPass->Begin();
 	m_pkTerrainAtlasShadingPass->Begin();
+	m_pkDebugGizmoPass->Begin();
 }
 //-------------------------------------------------------------------------------------------------
 void sdRenderPath_DX9::EndRenderScene()
@@ -332,6 +340,7 @@ void sdRenderPath_DX9::EndRenderScene()
 	m_pkTerrainDepthPass->End();
 	m_pkTerrainAtlasGeometryPass->End();
 	m_pkTerrainAtlasShadingPass->End();
+	m_pkDebugGizmoPass->End();
 
 	// 更新
 	Update(NULL, NULL, NULL);

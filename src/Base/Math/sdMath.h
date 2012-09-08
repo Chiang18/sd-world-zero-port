@@ -40,6 +40,10 @@ namespace Base
 			static inline float Sqr(float fValue) { return fValue*fValue;}
 			static inline float Sqrt(float fValue) { return (float)sqrt(fValue);}
 
+			// È¡ÕûÊý
+			static inline int Ceil (float fValue) { return int(ceil(fValue)); }
+			static inline int Floor (float fValue) { return int(floor(fValue)); }
+
 			//  
 			static inline bool IsPowerOf2(uint uiNum)
 			{

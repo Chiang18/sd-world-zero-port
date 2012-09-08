@@ -16,6 +16,7 @@
 #include "sdTerrainDepthPass.h"
 #include "sdTerrainAtlasGeometryPass.h"
 #include "sdTerrainAtlasShadingPass.h"
+#include "sdDebugGizmoPass.h"
 
 namespace RenderSystem
 {
@@ -138,6 +139,8 @@ namespace RenderSystem
 		sdTerrainDepthPassPtr			m_pkTerrainDepthPass;
 		sdTerrainAtlasGeometryPassPtr	m_pkTerrainAtlasGeometryPass;
 		sdTerrainAtlasShadingPassPtr	m_pkTerrainAtlasShadingPass;
+
+		sdDebugGizmoPassPtr		m_pkDebugGizmoPass;
 		// }@
 
 	

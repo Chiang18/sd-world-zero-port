@@ -13,14 +13,26 @@
 namespace GameEditEx
 {
 	//****************************************************************************
+	// 绘制笔刷基类
+	class sdBrushShape : public NiNode
+	{
+	public:
+		virtual ~sdBrushShape(){};
+
+		// 根据当前位置,重新拾取地形高度,更新显示
+		virtual void UpdateShape(){};
+	};
+	NiSmartPointer(sdBrushShape);
+
+	//****************************************************************************
 	// 双圆环笔刷
-	class sdDualCircleMesh : public NiNode
+	class sdDualCircleMesh : public sdBrushShape
 	{
 	public:
 		sdDualCircleMesh();
 		~sdDualCircleMesh();
 
-		// 根据当前位置,重新拾取地形高度,更新显示
+		// 虚函数继承
 		void UpdateShape();
 
 	protected:

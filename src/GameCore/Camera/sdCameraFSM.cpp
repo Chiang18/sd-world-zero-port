@@ -37,7 +37,7 @@ bool sdCameraFSM::Initialize()
 
 	NiFrustum kFrustum(-fViewPlaneHalfWidth, fViewPlaneHalfWidth,
 		fViewPlaneHalfHeight, -fViewPlaneHalfHeight, 
-		10.0f, 10000.0f);
+		1.0f, 1000.0f);
 	m_spCamera->SetViewFrustum(kFrustum);
 
 	// 视口
@@ -45,7 +45,6 @@ bool sdCameraFSM::Initialize()
 	m_spCamera->SetViewPort(kViewport);
 
 	// 位置
-	//m_spCamera->SetTranslate(-6000, 500, 500);
 	m_spCamera->SetTranslate(0, 0, 10);
 
 	// 旋转

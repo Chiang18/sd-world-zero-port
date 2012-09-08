@@ -179,7 +179,15 @@ float4 PS_Main_Planar(VS_OUTPUT kInput) : COLOR0
 	// @}
 	
 	//return float4(vColor, 0);
-	return float4(0.3, 0.3, 0, 0);
+	
+	
+	//*****************************
+	float3 vDiffuseLightTemp;
+	float3 vSpeculatLightTemp;
+	AccumLighting(vViewVector, vViewNormal, g_fTerrainShiness, 1.0f, float4(0,0,0,0), vDiffuseLightTemp, vSpeculatLightTemp);
+	
+	return float4(vDiffuseLightTemp, 0);
+	//*****************************
 };
 //---------------------------------------------------------------------------------------
 // 陡峭地区着色

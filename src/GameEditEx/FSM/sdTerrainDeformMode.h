@@ -36,9 +36,8 @@ namespace GameEditEx
 		POINT	m_kMousePos;
 
 		// ± À¢
-		sdDualCircleMeshPtr		m_pkDualCircleMesh;
-		sdDualCircleShapePtr	m_pkDualCircleShape;
-		sdTerrainDeformPoolBrushPtr	m_pkTerrainDeformPoolBrush;	
+		sdEditBrushPtr m_pkkEditBrushArray[sdEditBrush::NUM_BRUSHES];
+		sdEditBrushPtr m_pkActiveBrush;
 	};
 }
 #endif

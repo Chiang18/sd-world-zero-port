@@ -35,6 +35,11 @@ namespace WorldEditorFramework
 		m_pkImpl->Update();
 	}
 
+	bool MWorldEditor::SaveScene()
+	{
+		return m_pkImpl->SaveScene();
+	}
+
 	void MWorldEditor::WndProc(System::Windows::Forms::Message% msg)
 	{
 		m_pkImpl->WndProc(msg.Msg, msg.WParam.ToInt32(), msg.LParam.ToInt32());

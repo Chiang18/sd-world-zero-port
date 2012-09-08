@@ -20,7 +20,8 @@ namespace Base
 }
 class sdHeightMap;
 
-// 地形拾取,常用方法有:
+// 地形拾取,基本原理是对射线经过的每一个高度格子作相交判断
+// 常用方法有:
 //	1.不进行预处理,从Ray与AABB起始交点到终止交点进行固定步长微分查找
 //	2.不进行预处理,从Ray与AABB起始交点到终止交点进行Bresenham微分查找
 //	3.预处理为QuadTree的AABB

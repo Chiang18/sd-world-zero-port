@@ -189,6 +189,14 @@
 				Name="RenderPass"
 				>
 				<File
+					RelativePath=".\RenderSystem\sdDebugGizmoPass.cpp"
+					>
+				</File>
+				<File
+					RelativePath=".\RenderSystem\sdDebugGizmoPass.h"
+					>
+				</File>
+				<File
 					RelativePath=".\RenderSystem\sdEarlyZPass.cpp"
 					>
 				</File>
@@ -504,6 +512,14 @@
 					RelativePath=".\Terrain\sdTerrainPick.h"
 					>
 				</File>
+				<File
+					RelativePath=".\Terrain\sdTerrainStream.cpp"
+					>
+				</File>
+				<File
+					RelativePath=".\Terrain\sdTerrainStream.h"
+					>
+				</File>
 			</Filter>
 			<Filter
 				Name="Effect"
@@ -549,10 +565,18 @@
 				Name="Movie"
 				>
 			</Filter>
+			<Filter
+				Name="Tree"
+				>
+			</Filter>
 		</Filter>
 		<Filter
 			Name="UISystemm"
 			>
+			<Filter
+				Name="Font"
+				>
+			</Filter>
 		</Filter>
 		<Filter
 			Name="Utility"
@@ -563,6 +587,10 @@
 			</Filter>
 			<Filter
 				Name="Stats"
+				>
+			</Filter>
+			<Filter
+				Name="Image"
 				>
 			</Filter>
 		</Filter>
@@ -665,6 +693,14 @@
 		<Filter
 			Name="ScriptSystem"
 			>
+			<File
+				RelativePath=".\ScriptSystem\sdLuaFile.cpp"
+				>
+			</File>
+			<File
+				RelativePath=".\ScriptSystem\sdLuaFile.h"
+				>
+			</File>
 		</Filter>
 		<File
 			RelativePath=".\sdEngine.h"

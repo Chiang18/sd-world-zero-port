@@ -146,3 +146,8 @@ void sdWorldEditor::Update()
 	}
 }
 //-------------------------------------------------------------------------------------------------
+bool sdWorldEditor::SaveScene()
+{
+	return m_pkMap->GetTerrain()->SaveScene("E:\\project_game\\edata\\world0\\scene\\xinshoucun");
+}
+//-------------------------------------------------------------------------------------------------

@@ -1,5 +1,5 @@
 //*************************************************************************************************
-// 内容:	地形笔刷形状,描述一个矢量形状或者是一幅栅格图,
+// 内容:	笔刷形状,描述一个矢量形状或者是一幅栅格图,
 //---------------------------------------------------------
 // 作者:		
 // 创建:		2012-08-28
@@ -13,6 +13,7 @@
 namespace GameEditEx
 {
 	//*************************************************************************
+	// 描述一块编辑区域
 	class sdEditShape : public NiRefObject
 	{
 	public:
@@ -22,6 +23,7 @@ namespace GameEditEx
 	NiSmartPointer(sdEditShape);
 
 	//*************************************************************************
+	// 这里单位米,世界坐标
 	class sdDualCircleShape : public sdEditShape
 	{
 	public:
@@ -33,6 +35,7 @@ namespace GameEditEx
 
 		// 
 		void	SetCenter(const NiPoint2& kPos) { m_kCenter = kPos;}
+		void	SetCenter(float fX, float fY) { m_kCenter.x = fX; m_kCenter.y = fY;}
 		void	SetInnerRadius(float fInnerRadius);
 		void	SetOuterRadius(float fOuterRadius);
 		void	SetHardness(float fHardness);

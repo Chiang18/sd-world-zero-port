@@ -2,6 +2,8 @@
 #include "sdQuadMesh.h"
 #include "sdTerrain.h"
 
+using namespace Base::Math;
+//-------------------------------------------------------------------------------------------------
 uint sdQuadMesh::ms_uiGPUPostVertexCacheSize = 24;
 NiDataStreamPtr sdQuadMesh::ms_spIndexStream = NULL;
 std::vector<Base::Math::sdVector3us>	sdQuadMesh::ms_kIndexMap;
@@ -270,8 +272,12 @@ sdQuadMesh::sdQuadMesh(uint uiX, uint uiY, uint uiSpacing, uint uiSize, float fS
 	NiRenderer* spRenderer = NiRenderer::GetRenderer();
 	NIASSERT(spRenderer);
 
+	sdTerrain* pkTerrain = sdTerrain::InstancePtr();
+	NIASSERT(pkTerrain);
+
 	// 创建顶点数据流
-	CreateVertexStream(uiX, uiY, uiSpacing, uiSize, fSkirtDepth);
+	bool bEnableEditHeight = pkTerrain->GetEnableEditHeight();
+	CreateVertexStream(uiX, uiY, uiSpacing, uiSize, fSkirtDepth, bEnableEditHeight);
 	
 	// 创建Mesh
 	// @{
@@ -315,10 +321,59 @@ sdQuadMesh::~sdQuadMesh()
 	m_spVertexStream = 0;
 }
 //-------------------------------------------------------------------------------------------------
+void sdQuadMesh::UpdateGeometry(float& fMinHeight, float& fMaxHeight, float fSkirtDepth)
+{
+	sdTerrain* pkTerrain = sdTerrain::InstancePtr();
+	NIASSERT(pkTerrain);
+
+	sdHeightMap* pkHeightMap = pkTerrain->GetHeightMap();
+	NIASSERT(pkHeightMap);
+
+	// 重新填充Mesh
+	// @{
+	NiDataStreamElementLock kVertexStreamLock(this,
+		NiCommonSemantics::POSITION(), 0,
+		NiDataStreamElement::F_INT16_2,
+		NiDataStream::LOCK_WRITE);
+
+	NiTStridedRandomAccessIterator<short> kVertexStreamItr = kVertexStreamLock.begin<short>();
+
+	uint uiSize = pkTerrain->GetTileSize();
+	uint uiVertexNum = CalcVertexNum(uiSize);
+	short* psVertexData = &(kVertexStreamItr[0]);
+	for (uint uiVertex = 0; uiVertex < uiVertexNum; ++uiVertex)
+	{
+		// 查找对应索引位置对应的Tile点坐标
+		const sdVector3us& kMapping = ms_kIndexMap[uiVertex];
+
+		// 查找高度(这里是抓取的顶点高度,没有经过插值)
+		float fHeight = pkHeightMap->GetRawHeight(m_uiX + kMapping.m_kX, m_uiY + kMapping.m_kY);
+
+		// 
+		fMinHeight = min(fMinHeight, fHeight);
+		fMaxHeight = max(fMaxHeight, fHeight);
+
+		// 减去裙子高度
+		fHeight -= kMapping.m_kZ * fSkirtDepth;
+
+		// 压缩顶点到数据流,以减少DMA传输
+		//	1.不明白为什么是乘以129,而不是128(这里是带符号数,所以不是256)
+		//  2.高度值乘以20四舍五入,从而最小分辨率是0.05
+		uchar ucX = (uchar)kMapping.m_kX;
+		uchar ucY = (uchar)kMapping.m_kY;
+		*psVertexData = short(ucX * 129 + ucY);
+		++psVertexData;
+
+		*psVertexData = (short)floor(fHeight * 20.0f + 0.5f);
+		++psVertexData;
+	}
+
+	kVertexStreamLock.Unlock();
+	// @}
+}
+//-------------------------------------------------------------------------------------------------
 void sdQuadMesh::CreateVertexStream(uint uiX, uint uiY, uint uiSpacing, uint uiSize, float fSkirtDepth, bool bAllowEdit)
 {
-	using namespace Base::Math;
-
 	sdTerrain* pkTerrain = sdTerrain::InstancePtr();
 	NIASSERT(pkTerrain);
 
@@ -383,6 +438,4 @@ void sdQuadMesh::CreateVertexStream(uint uiX, uint uiY, uint uiSpacing, uint uiS
 	spDataStreamFactory->SetCallback(spOldCallback);
 	// @}
 }
-//-------------------------------------------------------------------------------------------------
-
 //-------------------------------------------------------------------------------------------------

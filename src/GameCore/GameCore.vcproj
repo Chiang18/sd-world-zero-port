@@ -328,6 +328,18 @@
 			<Filter
 				Name="Scene"
 				>
+				<File
+					RelativePath=".\Mgr\sdISceneHandler.h"
+					>
+				</File>
+				<File
+					RelativePath=".\Mgr\sdSceneMgr.cpp"
+					>
+				</File>
+				<File
+					RelativePath=".\Mgr\sdSceneMgr.h"
+					>
+				</File>
 			</Filter>
 			<Filter
 				Name="Society"
@@ -345,6 +357,10 @@
 		<Filter
 			Name="Misc"
 			>
+			<File
+				RelativePath=".\sdCmdParser.h"
+				>
+			</File>
 		</Filter>
 		<File
 			RelativePath=".\sdGameCore.h"
