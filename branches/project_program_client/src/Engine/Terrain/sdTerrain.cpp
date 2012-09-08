@@ -1,5 +1,6 @@
 #include "Stdafx.h"
 #include "sdTerrain.h"
+#include "sdTerrainStream.h"
 
 using namespace Base;
 using namespace Base::Math;
@@ -14,6 +15,8 @@ sdTerrain::sdTerrain()
 , m_uiTexTileSize(4)
 , m_fMeterPerPixel(0.5f)
 , m_uiMeshLevel(2)
+, m_fScale(1.0f)
+, m_kOrigin(NiPoint3::ZERO)
 {
 
 }
@@ -135,12 +138,33 @@ bool sdTerrain::CreateScene(uint uiTerrainSize, uint uiBlendTexSize)
 	m_pkQuadRoot->Build(sdVector4ui(0, 0, uiTerrainSize, uiTerrainSize), NULL);
 
 	// 初始化地形渲染信息
+	// @{
 	m_kRenderParams.Reset();
+
+	m_kRenderParams.terrainSize = sdVector2ui(m_uiTerrainSize, m_uiTerrainSize);
+
+	m_kRenderParams.ambientMaterial	 = sdVector3(0.5f, 0, 0);
+	m_kRenderParams.diffuseMaterial	 = sdVector3(0, 0.5f, 0);
+	m_kRenderParams.specularMaterial = sdVector3(0, 0, 0.5f);
+	m_kRenderParams.shiness			 = 1.0f;
+
 	m_kRenderParams.baseNormalMap = m_pkNormalMap->GetGBTexture();
-	m_kRenderParams.spTileMap	= m_spTileMap;
-	m_kRenderParams.spBlendMap	= m_spBlendMap;	
+	m_kRenderParams.tileMap		= m_spTileMap;
+	m_kRenderParams.blendMap	= m_spBlendMap;	
+	// @}
 
 	return (m_bInitialized = true);
+}
+//-------------------------------------------------------------------------------------------------
+bool sdTerrain::SaveScene(const std::string& szSceneFullPath)
+{
+	if (!m_bInitialized)
+		return false;
+
+	// 保存高度图
+	sdTerrainStream::SaveHeightMap(m_pkHeightMap, szSceneFullPath);
+
+	return true;
 }
 //-------------------------------------------------------------------------------------------------
 void sdTerrain::DestroyScene()
@@ -158,6 +182,42 @@ void sdTerrain::DestroyScene()
 	}
 }
 //-------------------------------------------------------------------------------------------------
+void sdTerrain::UpdateGeometry(float fCenterX, float fCenterY, float fRadius)
+{
+	// 更行GeometryMesh
+	m_pkQuadRoot->UpdateGeometry(fCenterX, fCenterY, fRadius);
+
+	// 更新NormalMap
+	// @{
+	// 计算范围(世界坐标)
+	float fStartX	= fCenterX - fRadius;
+	float fStartY	= fCenterY - fRadius;
+	float fEndX	= fCenterX + fRadius;
+	float fEndY = fCenterY + fRadius;
+
+	// 计算范围(高度图/法线图坐标)
+	float fTotalScale = m_fScale * m_fMeterPerGrid;
+	float fNStartX = (fStartX - m_kOrigin.x) / fTotalScale;
+	float fNStartY = (fStartY - m_kOrigin.y) / fTotalScale;
+	float fNEndX = (fEndX - m_kOrigin.x) / fTotalScale;
+	float fNEndY = (fEndY - m_kOrigin.y) / fTotalScale;
+
+	// 钳位到范围内整数
+	if (fNStartX < 0)	fNStartX = 0.0f;
+	if (fNStartY < 0)	fNStartY = 0.0f;
+	if (fNEndX > (float)m_uiTerrainSize)	fNEndX = (float)m_uiTerrainSize;
+	if (fNEndY > (float)m_uiTerrainSize)	fNEndY = (float)m_uiTerrainSize;
+
+	uint uiNStartX = (uint)fNStartX;
+	uint uiNStartY = (uint)fNStartY;
+	uint uiNEndX = (uint)(fNEndX);
+	uint uiNEndY = (uint)(fNEndY);
+
+	// 更新法线图
+	m_pkNormalMap->Update(uiNStartX, uiNStartY, uiNEndX - uiNStartX, uiNEndY - uiNStartY);
+	// @}
+}
+//-------------------------------------------------------------------------------------------------
 void sdTerrain::Cull(const NiCamera& kCamera, std::vector<NiMesh*>& kMeshVec)
 {
 	NiFrustumPlanes kFrustumPlanes;
@@ -167,18 +227,24 @@ void sdTerrain::Cull(const NiCamera& kCamera, std::vector<NiMesh*>& kMeshVec)
 	m_pkQuadRoot->Cull(kCamera, kFrustumPlanes, kMeshVec);
 }
 //-------------------------------------------------------------------------------------------------
-float sdTerrain::Pick(uint uiX, uint uiY)
+float sdTerrain::GetRawHeight(uint uiX, uint uiY)
 {
-	return m_pkHeightMap->GetRawHeight(uiX, uiY) * m_fScale;
+	return m_pkHeightMap->GetRawHeight(uiX, uiY);
 }
 //-------------------------------------------------------------------------------------------------
-float sdTerrain::Pick(float fX, float fY)
+void sdTerrain::SetRawHeight(uint uiX, uint uiY, float fHeight)
+{
+	m_pkHeightMap->SetRawHeight(uiX, uiY, fHeight);
+}
+//-------------------------------------------------------------------------------------------------
+float sdTerrain::GetHeight(float fX, float fY)
 {
 	// 转换到HeightMap坐标系(不进行参数检查)
-	uint uiX = (uint)((fX - m_kOrigin.x) / m_fScale);
-	uint uiY = (uint)((fY - m_kOrigin.y) / m_fScale);
+	float fTotalScale = m_fScale * m_fMeterPerGrid;
+	float fHX = (fX - m_kOrigin.x) / fTotalScale;
+	float fHY = (fY - m_kOrigin.y) / fTotalScale;
 
-	return m_pkHeightMap->GetRawHeight(uiX, uiY) * m_fScale;
+	return m_pkHeightMap->GetHeight(fHX, fHY) * fTotalScale + m_kOrigin.z;
 }
 //-------------------------------------------------------------------------------------------------
 bool sdTerrain::Pick(const sdRay& kRay, sdVector3& kIntersect, float fLimit)

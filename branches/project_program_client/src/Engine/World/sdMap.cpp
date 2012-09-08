@@ -23,15 +23,15 @@ bool sdMap::CreateScene()
 
 	//*************************************************
 	// ÁÙÊ±´úÂë
-	NiStream kStream;
-	kStream.Load("E:\\project_game\\dependence\\engine\\TheClockAndTheOcularis.nif");
-	NiAVObjectPtr pAVObject = (NiAVObject*)kStream.GetObjectAt(0);
-	//pAVObject->SetScale(0.001f);
-	pAVObject->Update(0.0f);
-	pAVObject->UpdateProperties();
-	pAVObject->UpdateEffects();
+	//NiStream kStream;
+	//kStream.Load("E:\\project_game\\dependence\\engine\\TheClockAndTheOcularis.nif");
+	//NiAVObjectPtr pAVObject = (NiAVObject*)kStream.GetObjectAt(0);
+	////pAVObject->SetScale(0.001f);
+	//pAVObject->Update(0.0f);
+	//pAVObject->UpdateProperties();
+	//pAVObject->UpdateEffects();
 
-	m_pkRoot = pAVObject;
+	//m_pkRoot = pAVObject;
 
 	//
 	m_kTerrain.CreateScene(512,1024);

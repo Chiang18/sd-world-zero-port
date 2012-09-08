@@ -24,6 +24,7 @@ sdTerrainDeformMode::sdTerrainDeformMode()
 : m_bLeftButtonDown(false)
 {
 	m_kMousePos.x = m_kMousePos.y = 0;
+	SetStateID(E_EDITMODE_TERRAIN_DEFORM);
 }
 //-------------------------------------------------------------------------------------------------
 sdTerrainDeformMode::~sdTerrainDeformMode()
@@ -39,24 +40,26 @@ bool sdTerrainDeformMode::Initialize()
 	sdMap* pkMap = pkRenderSystem->GetMap();
 	NIASSERT(pkMap);
 
-	m_pkDualCircleMesh = NiNew sdDualCircleMesh;
-	NIASSERT(m_pkDualCircleMesh);
-	pkMap->GetDebugNode()->AttachChild((NiAVObject*)(sdDualCircleMesh*)m_pkDualCircleMesh);
+	sdDualCircleMeshPtr pkDualCircleMesh = NiNew sdDualCircleMesh;
+	NIASSERT(pkDualCircleMesh);
+	pkMap->GetDebugNode()->AttachChild((NiAVObject*)(sdDualCircleMesh*)pkDualCircleMesh);
 
 	sdDualCircleShapePtr pkDualCircleShape = NiNew sdDualCircleShape;
 	NIASSERT(pkDualCircleShape);
 
-	m_pkTerrainDeformPoolBrush = NiNew sdTerrainDeformPoolBrush;
-	NIASSERT(m_pkTerrainDeformPoolBrush);
-	m_pkTerrainDeformPoolBrush->SetBrushShape((NiAVObject*)(sdDualCircleShape*)m_pkDualCircleShape);
-	m_pkTerrainDeformPoolBrush->SetEditShape((sdDualCircleShape*)pkDualCircleShape);
+	sdTerrainDeformPoolBrushPtr pkTerrainDeformPoolBrush = NiNew sdTerrainDeformPoolBrush;
+	NIASSERT(pkTerrainDeformPoolBrush);
+	pkTerrainDeformPoolBrush->SetBrushShape((sdDualCircleMesh*)pkDualCircleMesh);
+	pkTerrainDeformPoolBrush->SetEditShape((sdDualCircleShape*)pkDualCircleShape);
+
+	m_pkActiveBrush = pkTerrainDeformPoolBrush;
 
 	return true;
 }
 //-------------------------------------------------------------------------------------------------
 void sdTerrainDeformMode::Destroy()
 {
-	m_pkTerrainDeformPoolBrush = 0;
+	m_pkActiveBrush = 0;
 }
 //-------------------------------------------------------------------------------------------------
 int sdTerrainDeformMode::Update()
@@ -89,21 +92,32 @@ int sdTerrainDeformMode::Update()
 	// @}
 
 
-	// 拾取地形
-	//m_pkTerrainDeformPoolBrush->Apply();
-
-	sdTerrain* pkTerrain = sdTerrain::InstancePtr();
-	NIASSERT(pkTerrain);
-
-	sdVector3 kIntersect;
-	if (pkTerrain->Pick(kRay, kIntersect))	
+	if (m_bLeftButtonDown)
 	{
-		m_pkDualCircleMesh->SetTranslate(kOrigin);
-		m_pkDualCircleMesh->Update(0.0f);
-		m_pkDualCircleMesh->UpdateShape();
+		// 左键按下
+		//
+		// 更新地形笔刷
+		m_pkActiveBrush->Apply(kRay);
 	}
+	else
+	{
+		// 左键未按下
+		//
+		// 仅仅更新绘制笔刷
+		sdTerrain* pkTerrain = sdTerrain::InstancePtr();
+		NIASSERT(pkTerrain);
 
+		sdVector3 kIntersect;
+		if (pkTerrain->Pick(kRay, kIntersect))	
+		{
+			sdBrushShape* pkBrushShape = m_pkActiveBrush->GetBrushShape();
+			NIASSERT(pkBrushShape);
 
+			pkBrushShape->SetTranslate(kIntersect.m_fX, kIntersect.m_fY, 0);
+			pkBrushShape->Update(0.0f);
+			pkBrushShape->UpdateShape();
+		}
+	}
 
 	return __super::Update();;
 }

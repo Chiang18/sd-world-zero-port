@@ -2,6 +2,7 @@
 #include "sdQuadNode.h"
 #include "sdTerrain.h"
 
+using namespace Base::Math;
 //-------------------------------------------------------------------------------------------------
 sdQuadNode::sdQuadNode()
 : m_pkQuadNodePar(NULL)
@@ -132,17 +133,105 @@ void sdQuadNode::Destroy()
 
 }
 //-------------------------------------------------------------------------------------------------
+void sdQuadNode::UpdateGeometry(float fCenterX, float fCenterY, float fRadius)
+{
+	// 计算圆形与AABB求交
+	//	1.AABB中心与Circle中心距离在两个维度方向都不大于2者半径之和
+	//	 (此处为Circle位于AABB上下左右四条边处判断)
+	//	2.AABB四角与Circle中心连线距离平方不大于Circle半径平方
+	//   (此处为Circle位于AABB四角)
+	// @{
+	bool bIntersect = false;
+	const sdVector3& kMinimum = m_kAABB.GetMinimum();
+	const sdVector3& kMaximum = m_kAABB.GetMaximum();
+	float fAABBCenterX = (kMaximum.m_fX + kMinimum.m_fX) / 2.0f;	// AABB中心
+	float fAABBCenterY = (kMaximum.m_fY + kMinimum.m_fY) / 2.0f;
+	float fAABBHalfSizeX = (kMaximum.m_fX - kMinimum.m_fX) / 2.0f;	// AABB半长
+	float fAABBHalfSizeY = (kMaximum.m_fY - kMinimum.m_fY) / 2.0f;
+	float fMaxDistanceX = fAABBHalfSizeX + fRadius;		// AABB与Circle之间能够相交时,中心的最大距离
+	float fMaxDistanceY = fAABBHalfSizeY + fRadius;
+	float fDistanceX = fabs(fCenterX - fAABBCenterX);	// AABB与Circle的中心距离
+	float fDistanceY = fabs(fCenterY - fAABBCenterY);
+	if (fDistanceX <= fMaxDistanceX && fDistanceY <= fMaxDistanceY)
+	{
+		float fDeltaX = max(fDistanceX - fAABBHalfSizeX, 0.0f);
+		float fDeltaY = max(fDistanceY - fAABBHalfSizeY, 0.0f);
+		if (fDeltaX * fDeltaX + fDeltaY * fDeltaY <= fRadius)
+			bIntersect = true;
+	}
+	// @}
+
+	// 处理更新(笔刷一般不大,不需要区分全覆盖/部分覆盖/不相交)
+	// @{
+	if (bIntersect)
+	{	
+		if (m_uiLevel != 0)
+		{
+			// 中间节点
+			//
+			// 向下遍历
+			m_pkQuadNodeChild[E_LT_CHILD]->UpdateGeometry(fCenterX, fCenterY,fRadius);
+			m_pkQuadNodeChild[E_RT_CHILD]->UpdateGeometry(fCenterX, fCenterY,fRadius);
+			m_pkQuadNodeChild[E_LB_CHILD]->UpdateGeometry(fCenterX, fCenterY,fRadius);
+			m_pkQuadNodeChild[E_RB_CHILD]->UpdateGeometry(fCenterX, fCenterY,fRadius);
+
+			// 更新当前节点GeometryMesh
+			float fMinHeight = FLT_MAX;
+			float fMaxHeight = -FLT_MAX;
+			if (m_pkQuadMesh)
+			{
+				m_pkQuadMesh->UpdateGeometry(fMinHeight, fMaxHeight, m_fError);
+			}
+
+			// 更新当前节点包围盒(从下向上累积)
+			fMinHeight = min(fMinHeight, m_pkQuadNodeChild[E_LT_CHILD]->GetBound().GetMinimum().m_fZ);
+			fMinHeight = min(fMinHeight, m_pkQuadNodeChild[E_RT_CHILD]->GetBound().GetMinimum().m_fZ);
+			fMinHeight = min(fMinHeight, m_pkQuadNodeChild[E_LB_CHILD]->GetBound().GetMinimum().m_fZ);
+			fMinHeight = min(fMinHeight, m_pkQuadNodeChild[E_RB_CHILD]->GetBound().GetMinimum().m_fZ);
+
+			fMaxHeight = max(fMaxHeight, m_pkQuadNodeChild[E_LT_CHILD]->GetBound().GetMaximum().m_fZ);
+			fMaxHeight = max(fMaxHeight, m_pkQuadNodeChild[E_RT_CHILD]->GetBound().GetMaximum().m_fZ);
+			fMaxHeight = max(fMaxHeight, m_pkQuadNodeChild[E_LB_CHILD]->GetBound().GetMaximum().m_fZ);
+			fMaxHeight = max(fMaxHeight, m_pkQuadNodeChild[E_RB_CHILD]->GetBound().GetMaximum().m_fZ);
+
+			m_kAABB.SetMinimumZ(fMinHeight);
+			m_kAABB.SetMaximumZ(fMaxHeight);
+
+			// 更新当前节点误差
+			//*************************
+			//
+			//*************************
+		}
+		else
+		{
+			// 叶子节点
+			//
+			// 更新当前节点GeometryMesh
+			float fMinHeight = FLT_MAX;
+			float fMaxHeight = -FLT_MAX;
+			m_pkQuadMesh->UpdateGeometry(fMinHeight, fMaxHeight, m_fError);
+
+			// 设置包围盒
+			m_kAABB.SetMinimumZ(fMinHeight);
+			m_kAABB.SetMaximumZ(fMaxHeight);
+		}
+	}
+	// @}
+}
+//-------------------------------------------------------------------------------------------------
 void sdQuadNode::Cull(const NiCamera& kCamera, NiFrustumPlanes& kFrustumPlanes, std::vector<NiMesh*>& kMeshVec)
 {
 	using namespace Base::Math;
+
+	// 
+	sdTerrain* pkTerrain = sdTerrain::InstancePtr();
+	NIASSERT(pkTerrain);
 
 	// 对当前节点进行裁剪,检测
 	//	1.是否可见
 	//	2.是否继续向下遍历
 
-	// 
-	sdTerrain* pkTerrain = sdTerrain::InstancePtr();
-	NIASSERT(pkTerrain);
+
 
 	// 包围盒
 	sdVector3 kCenter, kHalfSize;
@@ -326,8 +415,8 @@ void sdQuadNode::CalcBound(Base::Math::sdAxisAlignedBox& kAABB)
 
 	//
 	float fHeight = pkHeightMap->GetRawHeight(uiStartX, uiStartY);
-	float fMinHeight = fHeight;
-	float fMaxHeight = fHeight;
+	float fMinHeight = FLT_MAX;
+	float fMaxHeight = -FLT_MAX;
 
 	for (uint uiY = 0; uiY <= uiSize; ++uiY)
 	{

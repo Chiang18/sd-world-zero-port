@@ -14,6 +14,17 @@
 #define _SD_GAMEEDITEX_EDITBRUSH_H__
 #include "sdGameEditEx.h"
 #include "sdEditShape.h"
+#include "sdEditCanvas.h"
+#include "sdEditBrushShape.h"
+
+//
+namespace Base
+{
+	namespace Math
+	{
+		class sdRay;
+	}
+}
 
 namespace GameEditEx
 {
@@ -22,17 +33,37 @@ namespace GameEditEx
 	class sdEditBrush : public NiRefObject
 	{
 	public:
+		// 编辑笔刷
+		enum eBrushType
+		{
+			E_BRUSH_PULL = 0,	// 地表拉伸
+			E_BRUSH_SMOOTH,		// 地表平滑
+			E_BRUSH_NOISE,		// 地表噪声
+			E_BRUSH_AVERAGE,
+			E_BRUSH_FLAT,		// 地表踏平
+			E_BRUSH_DETAIL,		// 地表纹理混合
+			NUM_BRUSHES,		
+		};	
+
+	public:
 		sdEditBrush(){};
 		virtual ~sdEditBrush() {};
 
+		void SetEditCanvas(sdEditCanvas* pkEditCanvas) { m_pkEditCanvas = pkEditCanvas;}
+		sdEditCanvas* GetEditCanvas() const {return m_pkEditCanvas;}
+
 		void SetEditShape(sdEditShape* pkEditShape) { m_pkEditShape = pkEditShape;}
-		void SetBrushShape(NiAVObject* spAVObject) { m_spBrushShape = spAVObject;}
-		virtual void Apply() = 0;
+		sdEditShape* GetEditShape() const {return m_pkEditShape;}
+
+		void SetBrushShape(sdBrushShape* pkBrushShape) { m_pkBrushShape = pkBrushShape;}
+		sdBrushShape* GetBrushShape() const { return m_pkBrushShape;}
+
+		virtual void Apply(const Base::Math::sdRay& kRay) = 0;
 
 	protected:
-		NiAVObjectPtr	m_spBrushShape;
+		sdBrushShapePtr	m_pkBrushShape;
 		sdEditShapePtr	m_pkEditShape;
-		
+		sdEditCanvasPtr m_pkEditCanvas;
 	};
 	NiSmartPointer(sdEditBrush);
 
@@ -45,10 +76,7 @@ namespace GameEditEx
 		virtual ~sdTerrainDeformPoolBrush();
 
 		// 虚函数继承
-		virtual void Apply();
-
-	protected:
-	
+		virtual void Apply(const Base::Math::sdRay& kRay);
 	};
 	NiSmartPointer(sdTerrainDeformPoolBrush);
 

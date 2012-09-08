@@ -55,6 +55,7 @@ namespace GameEditEx
 
 		virtual void OnKeyDown(WPARAM wParam, LPARAM lParam);
 		virtual void OnKeyUp(WPARAM wParam, LPARAM lParam);
+		virtual void OnMouseWheel(WPARAM wParam, LPARAM lParam);
 		virtual void OnMouseMove(WPARAM wParam, LPARAM lParam);
 		virtual void OnRightButtonDown(WPARAM wParam, LPARAM lParam);
 		virtual void OnRightButtonUp(WPARAM wParam, LPARAM lParam);
@@ -65,10 +66,11 @@ namespace GameEditEx
 		bool m_bMoveLeft;
 		bool m_bMoveRight;
 		bool m_bRightButtonDown;
-		int m_iX, m_iY, m_iLastX, m_iLastY;
+		int m_iX, m_iY, m_iLastX, m_iLastY, m_iDeltaZ;
 
-		float m_fFreeCameraSpeed;
-		float m_fFreeCameraRotate;
+		float m_fKeyToFreeCameraSpeed;
+		float m_fMouseToFreeCameraSpeed;
+		float m_fMouseToFreeCameraRotate;
 	};
 }
 #endif

@@ -19,6 +19,8 @@ public:
 	bool	Initialize(HWND hWnd);
 	void	Destroy();
 	void	Update();
+
+	bool	SaveScene();
 	// @}
 
 	// œ‡ª˙…Ë÷√

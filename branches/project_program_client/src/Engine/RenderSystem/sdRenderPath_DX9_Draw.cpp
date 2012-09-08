@@ -59,6 +59,9 @@ void sdRenderPath_DX9::Draw()
 
 	// 勾边之类的
 
+	// 调试信息
+	m_pkDebugGizmoPass->Draw();
+
 	//@}
 
 	// 恢复所有渲染状态
@@ -192,14 +195,14 @@ void sdRenderPath_DX9::PrepareShaderConstants()
 	bool bLocalLight	= m_kRenderParams.IsEnableChannel(sdRenderParams::E_BUILDING, sdRenderParams::E_LOCALLIGHT);
 
 	NiColor kTerrainAmbientColor(0.0f, 0.0f, 0.0f);
-	NiColor kSkyAmbientColor(1.0f, 1.0f, 1.0f);
+	NiColor kSkyAmbientColor(0.0f, 0.0f, 0.0f);
 
 	NiPoint3 kMainLightDir(1.0f, 1.0f, -1.0f);
-	NiColor kMainLightColor(1.0f, 1.0f, 1.0f);
+	NiColor kMainLightColor(0.1f, 0.0f, 0.0f);
 	NiColor kMainLightAmbient(0.0f, 0.0f, 0.0f);
 
 	NiPoint3 kAssistLightDir(1.0f, -1.0f, -1.0f);
-	NiColor kAssistLightColor(1.0f, 1.0f, 1.0f);
+	NiColor kAssistLightColor(0.0f, 0.1f, 0.0f);
 	NiColor kAssistLightAmbient(0.0f, 0.0f, 0.0f);
 
 	NiPoint4 kLightFactor(1.0f, 1.0f, 1.0f, 1.0f);
@@ -218,8 +221,26 @@ void sdRenderPath_DX9::PrepareShaderConstants()
 	pkRenderDevice->SetGlobalShaderConstant("g_vLightFactor", sizeof(kLightFactor), &kLightFactor);
 	// }@
 
+	// 地形参数
+	// @{
+	// 地形尺寸倒数
+	float fRecipTerrainSize[2] = { 1.0f / m_kTerrainParams.terrainSize.m_kX, 1.0f / m_kTerrainParams.terrainSize.m_kY};
+	pkRenderDevice->SetGlobalShaderConstant("g_vRecipTerrainSize", sizeof(fRecipTerrainSize), &(fRecipTerrainSize[0]));
 
-	// 全局雾
+	// 地形材质
+	pkRenderDevice->SetGlobalShaderConstant("g_vTerrainDiffuseMaterial", sizeof(m_kTerrainParams.diffuseMaterial), &(m_kTerrainParams.diffuseMaterial.m_fX));
+	pkRenderDevice->SetGlobalShaderConstant("g_vTerrainSpecularMaterial", sizeof(m_kTerrainParams.specularMaterial), &(m_kTerrainParams.specularMaterial.m_fX));
+	pkRenderDevice->SetGlobalShaderConstant("g_fTerrainShiness", sizeof(m_kTerrainParams.shiness), &(m_kTerrainParams.shiness));
+	// @}
+
+
+	// 环境
+	// @{
+
+
+	// @}
+
+	// 后期特效
 	// @{
 
 

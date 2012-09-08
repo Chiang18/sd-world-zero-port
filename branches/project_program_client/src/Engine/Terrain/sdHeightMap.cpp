@@ -26,17 +26,14 @@ sdHeightMap::~sdHeightMap()
 	{
 		delete m_pfHeight;
 		m_pfHeight = NULL;
-
-		m_uiSize = 0;
-		m_uiAllocSize = 0;
 	}
 }
 //-------------------------------------------------------------------------------------------------
 float sdHeightMap::GetRawHeight(uint uiX, uint uiY)
 {
 	// 溢出则返回对应边缘部分的值
-	if (uiX > m_uiSize)	uiX = m_uiSize;
-	if (uiY > m_uiSize)	uiY = m_uiSize;
+	if (uiX > m_uiSize)	return 0.0f;
+	if (uiY > m_uiSize)	return 0.0f;
 
 	return m_pfHeight[uiY * m_uiAllocSize + uiX];
 }
@@ -48,7 +45,7 @@ void sdHeightMap::SetRawHeight(uint uiX, uint uiY, float fHeight)
 	if (uiY > m_uiSize)	return;
 
 	// 检查并更新高度范围
-	const static float fMaxHeightRange = 1000.0f;
+	const static float fMaxHeightRange = 10000.0f;
 	if (fHeight < m_fMinHeight)
 	{
 		if (m_fMaxHeight - fHeight < fMaxHeightRange)	
@@ -64,12 +61,97 @@ void sdHeightMap::SetRawHeight(uint uiX, uint uiY, float fHeight)
 			return;
 	}
 
-	// 高度对齐
-	if (m_fAlignedHeight > 0.0f)
-		fHeight = floor(fHeight / m_fAlignedHeight + 0.5f) * m_fAlignedHeight;
+	// 高度对齐(四舍五入)
+	NIASSERT(m_fAlignedHeight > 0.0f);
+	fHeight = floor(fHeight / m_fAlignedHeight + 0.5f) * m_fAlignedHeight;
 
 	// 高度保存
 	m_pfHeight[uiY * m_uiAllocSize + uiX] = fHeight;
+}
+//-------------------------------------------------------------------------------------------------
+float sdHeightMap::GetHeight(float fX, float fY)
+{
+	//	v2----v3
+	//	| \   |
+	//	|  \  |
+	//	| 	\ |
+	//	v0----v1
+	//
+	// 溢出则不设置
+	if (fX >= (float)m_uiSize)	return 0.0f;
+	if (fY >= (float)m_uiSize)	return 0.0f;
+
+	// 
+	float fStartX = floor(fX);
+	float fStartY = floor(fY);
+	float fDeltaX = fX - fStartX;
+	float fDeltaY = fY - fStartY;
+	if (fDeltaX + fDeltaY <= 1.0f)
+	{
+		// 下三角v0-v2-v1
+		//
+		// 三角形三点高度
+		float fV0 = GetRawHeight((uint)fStartX,	 (uint)fStartY);
+		float fV1 = GetRawHeight((uint)fStartX + 1, (uint)fStartY);
+		float fV2 = GetRawHeight((uint)fStartX,	 (uint)fStartY + 1);
+
+		// Y方向插值
+		float fH1 = fV0 + (fV2 - fV0) * fDeltaY;
+		float fH2 = fV1 + (fV2 - fV1) * fDeltaY;
+
+		// X方向插值
+		return fH1 + (fH2 - fH1) * (fDeltaX / (1.0f - fDeltaY));
+	}
+	else
+	{
+		// 上三角v1-v2-v3
+		//
+		// 三角形三点高度
+		float fV1 = GetRawHeight((uint)fStartX + 1, (uint)fStartY);
+		float fV2 = GetRawHeight((uint)fStartX,	 (uint)fStartY + 1);
+		float fV3 = GetRawHeight((uint)fStartX + 1, (uint)fStartY + 1);
+
+		// Y方向插值
+		float fH1 = fV1 + (fV2 - fV1) * fDeltaY;
+		float fH2 = fV1 + (fV3 - fV1) * fDeltaY;
+
+		// X方向插值
+		// 原式:	(fDeltaX - (1.0f - fDeltaY)) / 1.0f - (1.0f - fDeltaY)
+		// 简化:	(fDeltaX + fDeltaY - 1.0f) / fDeltaY
+		return fH1 + (fH2 - fH1) * ((fDeltaX + fDeltaY - 1.0f) / fDeltaY);
+	}
+}
+//-------------------------------------------------------------------------------------------------
+float sdHeightMap::GetHeight_Bilinear(float fX, float fY)
+{
+	//	v2----v3
+	//	|     |
+	//	|     |
+	//	| 	  |
+	//	v0----v1
+	//
+	// 溢出则不设置
+	if (fX >= (float)m_uiSize)	return 0.0f;
+	if (fY >= (float)m_uiSize)	return 0.0f;
+
+	// 
+	float fStartX = floor(fX);
+	float fStartY = floor(fY);
+	float fDeltaX = fX - fStartX;
+	float fDeltaY = fY - fStartY;
+
+	// 矩形四角高度
+	float fV0 = GetRawHeight((uint)fStartX,		(uint)fStartY);
+	float fV1 = GetRawHeight((uint)fStartX + 1, (uint)fStartY);
+	float fV2 = GetRawHeight((uint)fStartX,		(uint)fStartY + 1);
+	float fV3 = GetRawHeight((uint)fStartX + 1,	(uint)fStartY + 1);
+
+	// Y方向插值
+	float fH1 = fV0 + (fV2 - fV0) * fDeltaY;
+	float fH2 = fV1 + (fV3 - fV1) * fDeltaY;
+
+	// X方向插值
+	return fH1 + (fH2 - fH1) * fDeltaX;
 }
 //-------------------------------------------------------------------------------------------------
 void sdHeightMap::GetNormal(uint uiX, uint uiY, float& fNX, float& fNY, float& fNZ)
@@ -110,11 +192,11 @@ float sdHeightMap::GetMorphDelta(uint uiX, uint uiY, uint uiSpacing)
 	// LOD采样示意:
 	//	1.tt点为下一级粗糙LOD的采样点
 	//	2.tf/ft/ff点为下一级粗糙LOD对精细LOD产生误差的点
-	// tf ff tf tf tt tf
+	// tf ff tf ff tf ff
 	// tt ft tt ft tt ft
-	// tf ff tf tf tt tf
+	// tf ff tf ff tf ff
 	// tt ft tt ft tt ft
-	// tf ff tf tf tt tf
+	// tf ff tf ff tf ff
 	// tt ft tt ft tt ft
 
 	// 判定是否位于非变形点上

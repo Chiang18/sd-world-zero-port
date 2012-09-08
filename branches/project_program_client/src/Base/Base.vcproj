@@ -186,6 +186,10 @@
 				>
 			</File>
 			<File
+				RelativePath=".\Math\sdVector2.cpp"
+				>
+			</File>
+			<File
 				RelativePath=".\Math\sdVector2.h"
 				>
 			</File>
@@ -209,6 +213,54 @@
 		<Filter
 			Name="File"
 			>
+			<Filter
+				Name="FileSystem"
+				>
+			</Filter>
+			<Filter
+				Name="FileFormat"
+				>
+				<File
+					RelativePath=".\FileFormat\sdCsvFile.cpp"
+					>
+				</File>
+				<File
+					RelativePath=".\FileFormat\sdCsvFile.h"
+					>
+				</File>
+				<File
+					RelativePath=".\FileFormat\sdIniFile.cpp"
+					>
+				</File>
+				<File
+					RelativePath=".\FileFormat\sdIniFile.h"
+					>
+				</File>
+				<File
+					RelativePath=".\FileFormat\sdLuaFile.cpp"
+					>
+				</File>
+				<File
+					RelativePath=".\FileFormat\sdLuaFile.h"
+					>
+				</File>
+				<File
+					RelativePath=".\FileFormat\sdXmlFile.cpp"
+					>
+				</File>
+				<File
+					RelativePath=".\FileFormat\sdXmlFile.h"
+					>
+				</File>
+				<Filter
+					Name="tinyxml"
+					>
+				</Filter>
+				<Filter
+					Name="zip"
+					>
+				</Filter>
+			</Filter>
 		</Filter>
 		<Filter
 			Name="Misc"
@@ -268,6 +320,10 @@
 					RelativePath=".\Misc\sdStaticAssert.h"
 					>
 				</File>
+			</Filter>
+			<Filter
+				Name="Encryption"
+				>
 			</Filter>
 		</Filter>
 		<Filter

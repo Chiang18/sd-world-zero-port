@@ -16,7 +16,7 @@
 //	2.根据GPU的VertexBuffer,优化排列顶点
 //	  在XBOX中,保存24个vertex数据的Post Vertex Cache.Cache的算法是FIFO的(PC上的也是一样的)
 //	3.使用TriangleStrip来绘制
-//	4.使用IndexStream(不解,GB?)
+//	4.使用IndexStream
 // (考虑预分配MeshCache以优化内存)
 class sdQuadMesh : public NiMesh
 {
@@ -28,6 +28,9 @@ public:
 	// (这里主要是为了初始化共享顶点缓存)
 	static void	StaticInitialize();
 	static void StaticDestroy();
+
+	// 更新Mesh,返回当前Mesh的最小最大高度(内部使用,用于编辑器)
+	void	UpdateGeometry(float& fMinHeight, float& fMaxHeight, float fSkirtDepth);
 
 protected:
 	// 创建顶点数据流

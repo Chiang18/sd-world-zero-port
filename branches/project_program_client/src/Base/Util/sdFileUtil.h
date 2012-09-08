@@ -34,17 +34,27 @@ namespace Base
 		// 判断目录是否存在
 		static bool IsDirExist(const std::string& szDirName)
 		{
-			DWORD uiAttribute = ::GetFileAttributes(szDirName.c_str());
+			return IsDirExist(szDirName.c_str());
+		}
+
+		static bool IsDirExist(const char* szDirName)
+		{
+			DWORD uiAttribute = ::GetFileAttributes(szDirName);
 			return (uiAttribute != -1) && (uiAttribute & FILE_ATTRIBUTE_DIRECTORY);
 		}
 
 		// 确定目录是否存在,不存在则创建之
 		static void ConfimDir(const std::string& szDir)
 		{
+			ConfimDir(szDir.c_str());
+		}
+
+		static void ConfimDir(const char* szDir)
+		{
 			using namespace std;
 
 			char szDOSName[MAX_PATH];
-			ConvertToDOSName(szDOSName, szDir.c_str());
+			ConvertToDOSName(szDOSName, szDir);
 
 			string szFullPath(szDOSName);
 			ConfimSlash(szFullPath);

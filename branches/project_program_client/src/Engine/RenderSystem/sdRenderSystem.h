@@ -147,8 +147,8 @@ namespace RenderSystem
 		NiTexture*	baseLightMap;			// 整个地表的光照贴图
 		NiTexture*	baseNormalMap;			// 整个地表的法线贴图
 
-		NiTexture*	spBlendMap;				// 整个地表的纹理混合贴图
-		NiTexture*	spTileMap;				// 整个地表的纹理混合贴图查找表
+		NiTexture*	blendMap;				// 整个地表的纹理混合贴图
+		NiTexture*	tileMap;				// 整个地表的纹理混合贴图查找表
 
 		NiTexture*	diffuseAtlasMap;		// 整个地形漫反射贴图集
 		NiTexture*	diffuseAtlasTableMap;	// 整个地形漫反射贴图查找表

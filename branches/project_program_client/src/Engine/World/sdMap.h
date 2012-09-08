@@ -25,6 +25,10 @@ public:
 
 	// 
 	bool	CreateScene();
+	//void	DestroyScene();
+	//bool	LoadScene();
+	//bool	SaveScene(const std::string& szSceneFullPath);
+	//bool	HasScene() { return m_bInitialized;};
 
 	//*********************
 	NiAVObjectPtr	m_pkRoot;

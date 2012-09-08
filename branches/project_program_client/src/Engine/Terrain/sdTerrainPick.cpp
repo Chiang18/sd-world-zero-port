@@ -36,30 +36,31 @@ bool sdTerrainPick::Pick(const sdRay& kRay, sdVector3& kIntersect)
 	// 计算Ray与HeightMap的AABB的交点
 	float fStart = 0.0f;
 	float fEnd = 0.0f;
-	bool bIntersect = sdMath::Intersects(kRay, kAABB, fStart, fEnd);
-	if (!bIntersect)
-		return false;
+	//bool bIntersect = sdMath::Intersects(kRay, kAABB, fStart, fEnd);
+	//if (!bIntersect)
+	//	return false;
+	fEnd = 1024.0f;
 
 	if (fEnd > m_fMaxDistance)
 		fEnd = m_fMaxDistance;
 
-	// 从起始点到终止点进行固定步长微分查找
-	// (原始值是0.5f,个人觉得应该是0.707)
-	float fSampleDelta = 0.707f;
+	// 从起始点到终止点进行固定步长微分以遍历所有经过的格子进行逐格查找
+	// (原始值是0.5f,个人觉得应该是0.99999)
+	float fSampleDelta = 0.99999f;
 	sdVector3 kDeltaPos(fSampleDelta * kRay.GetDirection());
 	sdVector3 kDeltaStartPos(kRay.GetOrigin());
 
-	uint uiStartX = UINT_MAX;
-	uint uiStartY = UINT_MAX;
-	uint uiEndX = UINT_MAX;
-	uint uiEndY = UINT_MAX;
+	uint uiLastX = UINT_MAX;
+	uint uiLastY = UINT_MAX;
+	uint uiX = UINT_MAX;
+	uint uiY = UINT_MAX;
 	for (bool bFirst = true;fStart <= fEnd; fStart += fSampleDelta, bFirst = false)
 	{
 		// 对齐到栅格
-		uiEndX = (uint)kDeltaStartPos.m_fX;
-		uiEndY = (uint)kDeltaStartPos.m_fY;
+		uiX = (uint)kDeltaStartPos.m_fX;
+		uiY = (uint)kDeltaStartPos.m_fY;
 		
-		// 只有线段端点不位于同一个高度格子内才进行处理
+		// 只有当前点与上一点不位于同一个高度格子内才进行处理
 		//   +---+---+
 		//   |   |   |
 		//	 |   |   |
@@ -68,26 +69,27 @@ bool sdTerrainPick::Pick(const sdRay& kRay, sdVector3& kIntersect)
 		//	 |   |   |
 		//	 +---+---+
 		// (总感觉这里不严密,貌似应该先排序一下)
-		if (uiStartX == uiEndX || uiStartY != uiEndY)
+		if (uiX != uiLastX || uiY != uiLastY)
 		{
-			// 两个端点位于斜对角的两个格子,则处理另外两个对角的格子
+			// 当前点与上一点位于斜对角的两个格子,则处理另外两个对角的格子
+			// (可以判断两个点与对角线连线判断与哪个格子相交)
 			// (可能侧漏)
-			if (uiStartX != uiEndX && uiStartX != uiEndY && bFirst == false)
+			if (uiX != uiLastX && uiY != uiLastY && bFirst == false)
 			{
-				if (Intersect(uiEndX, uiStartY, kRay, kIntersect))
+				if (Intersect(uiX, uiLastY, kRay, kIntersect))
 					return true;
 
-				if (Intersect(uiStartX, uiEndY, kRay, kIntersect))
+				if (Intersect(uiLastX, uiY, kRay, kIntersect))
 					return true;
 			}
 
-			// 处理起始格子
-			if (Intersect(uiStartX, uiStartX, kRay, kIntersect))
+			// 处理当前格子
+			if (Intersect(uiX, uiY, kRay, kIntersect))
 				return true;
 
 			//
-			uiStartX = uiEndX;
-			uiStartY = uiEndY;
+			uiLastX = uiX;
+			uiLastY = uiY;
 		}
 
 		// 下一个点
@@ -103,6 +105,7 @@ bool sdTerrainPick::Intersect(uint uiX, uint uiY, const sdRay& kRay, sdVector3& 
 		return false;
 
 	// 三角型组织方式
+	// (这里没有排序,有可能与绘制的组织方式不一致)
 	//	1--3
 	//	|\ |
 	//  | \|
@@ -119,7 +122,8 @@ bool sdTerrainPick::Intersect(uint uiX, uint uiY, const sdRay& kRay, sdVector3& 
 	bool bLeft = Intersect(kPt0, kPt1, kPt2, kRay, kIntersectLeft);
 	bool bRight = Intersect(kPt2, kPt1, kPt3, kRay, kIntersectRight);
 
-	// 判断结果(这里可以根据Ray的判断先相交的三角形,从而可能减少依次Intersect)
+	// 判断结果
+	// (这里可以根据Ray的判断先相交的三角形,从而可能减少依次Intersect)
 	if (bLeft && bRight)
 	{
 		// 若两个都相交则取最近值
@@ -150,15 +154,14 @@ bool sdTerrainPick::Intersect(const sdVector3& kV1, const sdVector3& kV2, const 
 	//
 	// 计算Triangle边矢量和法线(这里假设三角形以正面看顺时针顺序编号)
 	sdVector3 kEdge1 = kV2 - kV1;
-	sdVector3 kEdge2 = kV3 - kV2;
+	sdVector3 kEdge2 = kV3 - kV1;
 	
 	// 计算
 	const sdVector3& kOrigin = kRay.GetOrigin();
 	const sdVector3& kDir = kRay.GetDirection();
 
-	sdVector3 kP = kDir.CrossProduct(kEdge1);
+	sdVector3 kP = kDir.CrossProduct(kEdge2);
 	float fDet = kEdge1.DotProduct(kP);
-
 	float fR, fS, fT;
 	float fTolerance = 1e-05f;
 	if (fDet <= -fTolerance)

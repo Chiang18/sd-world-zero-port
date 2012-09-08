@@ -48,23 +48,27 @@ public:
 	bool	CreateScene(uint uiTerrainSize, uint uiBlendTextureSize);
 	void	DestroyScene();
 	//bool	LoadScene();
-	//void	SaveScene();
+	bool	SaveScene(const std::string& szSceneFullPath);
 	bool	HasScene() { return m_bInitialized;};
 
-	// 地形裁剪
+	// 地形裁剪(世界坐标)
 	//(wz封装了一层TerrainTileEntity,貌似没啥必要,这里直接返回Mesh)
 	void	Cull(const NiCamera& kCamera, std::vector<NiMesh*>& kMeshVec);
 
-	// 地形高度获取(分别是世界坐标和HeightMap坐标)
-	float	Pick(float fX, float fY);
-	float	Pick(uint uiX, uint uiY);
-
-	// 地形拾取
+	// 地形拾取(世界坐标)
 	bool	Pick(const Base::Math::sdRay& kRay, Base::Math::sdVector3& kIntersect, float fLimit = FLT_MAX);	
 
-	// 地形编辑
-	// @{
+	// 地形高度获取(世界坐标)
+	float	GetHeight(float fX, float fY);
 
+	// 地形编辑(函数均用于地形编辑器)
+	// @{
+	// 地形高度获取与设置(高度图坐标,直接从高度图取出和设置,没有进行变换)
+	float	GetRawHeight(uint uiX, uint uiY);
+	void	SetRawHeight(uint uiX, uint uiY, float fHeight);
+
+	// 更新几何体(世界坐标)
+	void	UpdateGeometry(float fCenterX, float fCenterY, float fRadius);
 	// @}
 
 
@@ -96,20 +100,32 @@ public:
 	// @{
 	bool	IsVisible() const { return m_bIsVisible;}
 
+	bool	GetEnableEditHeight() const { return m_bEnableEditHeight;}
+	bool	GetEnableEditMaterial() const { return m_bEnableEditMaterial;}
+
 	uint	GetTileSize() const { return m_uiTileSize;}
+	uint	GetTerrainSize() const { return m_uiTerrainSize;}
 	uint	GetMeshLevel() const { return m_uiMeshLevel;}
 	bool	GetEnableLOD() const { return m_bEnableLOD;}
+
+	float	GetScale() const { return m_fScale;}
+	const NiPoint3& GetOrigin() const { return m_kOrigin;}
 
 	const RenderSystem::sdTerrainParams& GetTerrainParams() const { return m_kRenderParams;};
 	// @}
 
 protected:
-	// 获取高度图
+	// 获取高度图(内部使用,编辑器使用)
 	sdHeightMap*	GetHeightMap() { return m_pkHeightMap;};
 
 	// @{
 	// 获取指定像素点的权重列表,wz原始版本提取方式
 	uint	GetWeights(uint uiX, uint uiY, uchar* pucWeights);
+	// @}
+
+	// 数据加载与保存
+	// @{
+	
 	// @}
 
 protected:
@@ -119,8 +135,8 @@ protected:
 	bool	m_bEnableEditMaterial;	// 是否允许编辑地形材质
 
 	// 地形世界偏移与缩放
-	NiPoint3	m_kOrigin;
-	float		m_fScale;
+	NiPoint3	m_kOrigin;	// 地形整体偏移(默认为(0,0,0))
+	float		m_fScale;	// 地形整体缩放(默认1.0f)
 
 	// 地表高度图
 	sdHeightMapPtr	m_pkHeightMap;	

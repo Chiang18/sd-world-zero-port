@@ -25,10 +25,6 @@ void sdEditFSM::OnKeyUp(WPARAM wParam, LPARAM lParam)
 //-------------------------------------------------------------------------------------------------
 void sdEditFSM::OnMouseWheel(WPARAM wParam, LPARAM lParam)
 {
-	//UINT uiLines;
-	//SystemParametersInfo(SPI_GETWHEELSCROLLLINES, 0, &uiLines, 0);
-	//int iZ = (int)(short)HIWORD(wParam) / WHEEL_DELTA * uiLines;
-
 	sdEditMode* pkEditMode = (sdEditMode*)GetCurrentState();
 	if (pkEditMode)
 	{
@@ -38,10 +34,6 @@ void sdEditFSM::OnMouseWheel(WPARAM wParam, LPARAM lParam)
 //-------------------------------------------------------------------------------------------------
 void sdEditFSM::OnMouseMove(WPARAM wParam, LPARAM lParam)
 {
-	//POINT ptPos;
-	//ptPos.x = (int)(short)LOWORD(lParam);
-	//ptPos.y = (int)(short)HIWORD(lParam);
-
 	sdEditMode* pkEditMode = (sdEditMode*)GetCurrentState();
 	if (pkEditMode)
 	{

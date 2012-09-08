@@ -38,16 +38,19 @@ public:
 	~sdQuadNode();
 
 	// 从高度图构建四叉树,从指定范围向下细分,直到尺寸等于QuadSize
-	// (为了提高效率,这里没有检查输入参数)
+	// (没有检查输入参数)
 	bool	Build(Base::Math::sdVector4ui& kRect, sdQuadNode* pkParent);
 
 	// 
 	void	Destroy();
 
+	// 更新四叉树指定区域的几何体(一般是高度图被修改了)
+	void	UpdateGeometry(float fCenterX, float fCenterY, float fRadius);
+
 	// 用指定相机裁剪四叉树
 	void	Cull(const NiCamera& kCamera, NiFrustumPlanes& kFrustumPlanes,std::vector<NiMesh*>& kMeshVec);
 
-	//
+	// 属性访问
 	bool	IsLeaf() const { return (m_uiLevel == 0);};
 	uint	GetLevel() const { return m_uiLevel;};
 	uint	GetSpacing() const { return m_uiSpacing;};
@@ -56,7 +59,6 @@ public:
 	const Base::Math::sdAxisAlignedBox& GetBound() const { return m_kAABB;};
 
 protected:
-
 	// 计算当前节点与下一节点采样高度图之间的最大误差绝对值
 	float	CalcError();
 

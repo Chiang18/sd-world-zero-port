@@ -22,6 +22,9 @@ namespace WorldEditorFramework
 		bool	Initialize(System::IntPtr hWndPtr);
 		void	Destroy();
 		void	Update();
+	
+		//
+		bool	SaveScene();
 
 		//  ‰»Îœ˚œ¢
 		void	WndProc(System::Windows::Forms::Message% msg);

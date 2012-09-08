@@ -26,8 +26,7 @@ void sdRenderPath_DX9::RenderMainView()
 	//********************************************************
 	using namespace std;
 	vector<NiMesh*> kMeshVec;
-	CollectMeshes((NiNode*)(NiAVObject*)m_pkCurMap->m_pkRoot, kMeshVec);
-	CollectMeshes((NiNode*)(NiAVObject*)m_pkCurMap->GetDebugNode(), kMeshVec);
+	//CollectMeshes((NiNode*)(NiAVObject*)m_pkCurMap->m_pkRoot, kMeshVec);
 	
 	vector<NiMesh*>::iterator itr = kMeshVec.begin();
 	vector<NiMesh*>::iterator itr_end = kMeshVec.end();
@@ -115,6 +114,22 @@ void sdRenderPath_DX9::RenderDebugGizmo()
 	// 确信Camera/Map有效性
 	if (!m_spCurCam || !m_pkCurMap)
 		return;
+
+	// 确定绘制Pass非空
+	if (m_pkDebugGizmoPass == 0)
+		return;
+
+	// 收集DebugNode的Mesh(用于编辑器)
+	using namespace std;
+	vector<NiMesh*> kMeshVec;
+	CollectMeshes((NiNode*)(NiAVObject*)m_pkCurMap->GetDebugNode(), kMeshVec);
+
+	vector<NiMesh*>::iterator itr = kMeshVec.begin();
+	vector<NiMesh*>::iterator itr_end = kMeshVec.end();
+	for (; itr!=itr_end; ++itr)
+	{
+		m_pkDebugGizmoPass->InsertStaticMesh(*itr);
+	}
 }
 //-------------------------------------------------------------------------------------------------
 }

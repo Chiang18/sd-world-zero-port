@@ -22,7 +22,6 @@ public:
 	sdHeightMap(uint uiSize);
 	~sdHeightMap();
 
-
 	// 属性访问
 	uint	GetSize() const { return m_uiSize;};
 	float	GetMinHeight() const { return m_fMinHeight;}
@@ -32,17 +31,24 @@ public:
 	void	SetRawHeight(uint uiX, uint uiY, float fHeight);
 	float	GetRawHeight(uint uiX, uint uiY);
 
-	// 法线(高度图像素坐标,差值法线)
+	// 法线(高度图像素坐标,平均法线)
 	void	GetNormal(uint uiX, uint uiY, float& fNX, float& fNY, float& fNZ);
 
-	// 高度(插值)/法线/坡度
-	//float		GetHeight(float fX, float fY);
+	// 高度(高度图像素坐标,插值高度)
+	//	1.按照图形渲染的方式分两块三角形,在三角形内部进行插值
+	//	2.双线性插值(2x2)
+	//	3.双三次插值
+	float	GetHeight(float fX, float fY);
+	float	GetHeight_Bilinear(float fX, float fY);
+	//float	GetHeight_Bicubic(float fX, float fY);
+
+	// 坡度(高度图像素坐标)
 	//NiPoint3	GetGradients(float fX, float fY);
 
 	// 获取LOD次级粗糙网格与LOD精细级网格在指定坐标处误差值(相差一级)
 	// (为了提高效率,这里没有检查输入参数)
 	//	uiX,uiY		高度图像素坐标
-	//	uiSpacing	精细级网格的网格大小,应该满足power(2,n)
+	//	uiSpacing	精细级网格的网格大小,应该满足power(2,n),即1/2/4/8/16/32
 	float	GetMorphDelta(uint uiX, uint uiY, uint uiSpacing);
 
 protected:

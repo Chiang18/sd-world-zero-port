@@ -21,10 +21,12 @@ sdEditFreeCameraState::sdEditFreeCameraState()
 , m_bRightButtonDown(false)
 , m_iX(0)
 , m_iY(0)
+, m_iDeltaZ(0)
 , m_iLastX(0)
 , m_iLastY(0)
-, m_fFreeCameraSpeed(50.0f)
-, m_fFreeCameraRotate(0.001f)
+, m_fKeyToFreeCameraSpeed(10.0f)
+, m_fMouseToFreeCameraSpeed(1.0f)
+, m_fMouseToFreeCameraRotate(0.001f)
 {
 	SetStateID(E_EDIT_CAMERA_FREE);
 }
@@ -73,6 +75,13 @@ void sdEditFreeCameraState::OnKeyUp(WPARAM wParam, LPARAM lParam)
 	}
 }
 //-------------------------------------------------------------------------------------------------
+void sdEditFreeCameraState::OnMouseWheel(WPARAM wParam, LPARAM lParam)
+{
+	UINT uiLines;
+	SystemParametersInfo(SPI_GETWHEELSCROLLLINES, 0, &uiLines, 0);
+	m_iDeltaZ += (int)(short)HIWORD(wParam) / WHEEL_DELTA * uiLines;
+}
+//-------------------------------------------------------------------------------------------------
 void sdEditFreeCameraState::OnMouseMove(WPARAM wParam, LPARAM lParam)
 {
 	m_iLastX = m_iX;
@@ -100,19 +109,27 @@ int sdEditFreeCameraState::Update()
 	NIASSERT(pkTimeMgr);
 
 	NiCamera* spCamera = pkCameraFSM->GetCamera();
-	NiPoint3 kCamPosition = spCamera->GetWorldTranslate();
+	NIASSERT(spCamera);
 
 	// 关于平移
 	// @{
+	//
+	NiPoint3 kCamPosition = spCamera->GetTranslate();
+
 	// 计算平移
 	float fFrameTime = pkTimeMgr->GetCurFrameTime();
-	if (m_bMoveForward)		kCamPosition += spCamera->GetWorldDirection() * fFrameTime * m_fFreeCameraSpeed;
-	if (m_bMoveBack)		kCamPosition -= spCamera->GetWorldDirection() * fFrameTime * m_fFreeCameraSpeed;	
-	if (m_bMoveLeft)		kCamPosition -= spCamera->GetWorldRightVector() * fFrameTime * m_fFreeCameraSpeed;
-	if (m_bMoveRight)		kCamPosition += spCamera->GetWorldRightVector() * fFrameTime * m_fFreeCameraSpeed;
+	NiPoint3& kCameraWorldDirection = spCamera->GetWorldDirection();
+	NiPoint3& kCameraRightDirection = spCamera->GetWorldRightVector();
+	if (m_bMoveForward)		kCamPosition += kCameraWorldDirection * fFrameTime * m_fKeyToFreeCameraSpeed;
+	if (m_bMoveBack)		kCamPosition -= kCameraWorldDirection * fFrameTime * m_fKeyToFreeCameraSpeed;	
+	if (m_bMoveLeft)		kCamPosition -= kCameraRightDirection * fFrameTime * m_fKeyToFreeCameraSpeed;
+	if (m_bMoveRight)		kCamPosition += kCameraRightDirection * fFrameTime * m_fKeyToFreeCameraSpeed;
+	
+	kCamPosition += kCameraWorldDirection * m_iDeltaZ * m_fMouseToFreeCameraSpeed;
+	m_iDeltaZ = 0;
 
 	// 应用平移
-	spCamera->SetWorldTranslate(kCamPosition);
+	spCamera->SetTranslate(kCamPosition);
 	// @}
 
 
@@ -122,16 +139,18 @@ int sdEditFreeCameraState::Update()
 	{
 		// 计算旋转
 		NiMatrix3 kRotation = NiViewMath::Look(
-			(m_iX - m_iLastX) * m_fFreeCameraRotate, 
-			(m_iY - m_iLastY) * m_fFreeCameraRotate, 
-			spCamera->GetWorldRotate(), 
+			(m_iX - m_iLastX) * m_fMouseToFreeCameraRotate, 
+			(m_iY - m_iLastY) * m_fMouseToFreeCameraRotate, 
+			spCamera->GetRotate(), 
 			NiPoint3::UNIT_Z);
 
 		// 应用旋转
-		spCamera->SetWorldRotate(kRotation);
+		spCamera->SetRotate(kRotation);
 	}
 	// @}
 
+	//
+	spCamera->Update(0.0f);
 
 	return 0;
 }
