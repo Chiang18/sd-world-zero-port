@@ -26,4 +26,22 @@ NiSourceTexturePtr sdResourceSystem::LoadTexture(const std::string& szFileName, 
 	return spTexture;
 }
 //-------------------------------------------------------------------------------------------------
+NiPixelDataPtr sdResourceSystem::LoadTextureToMemory(const std::string& szFileName)
+{
+	// 获取完整路径
+	NiFixedString kFileName(szFileName.c_str());
+
+	// 检查路径合法性
+
+
+	// 加载纹理
+	NiImageConverter* pkImageConverter = NiDevImageConverter::GetImageConverter();
+	NIASSERT(pkImageConverter);
+
+	NiPixelData* pkPixelData = pkImageConverter->ReadImageFile(szFileName.c_str(), NULL);
+	NIASSERT(pkPixelData); 
+
+	return pkPixelData;
+}
+//-------------------------------------------------------------------------------------------------
 }

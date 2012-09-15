@@ -82,6 +82,9 @@ bool sdWorldEditor::Initialize(HWND hWnd)
 	NIASSERT(m_spRenderer);
 	m_spRenderer->IncRefCount();
 
+	// 初始化资源系统
+	m_kResourceSystem.Initialize();
+
 	// 初始化渲染系统
 	m_kRenderSystem.Initialize();
 
@@ -112,7 +115,7 @@ bool sdWorldEditor::Initialize(HWND hWnd)
 
 	// 初始化编辑状态机
 	m_kWorldEditFSM.Initialize();
-	m_kWorldEditFSM.SetState(sdEditMode::E_EDITMODE_TERRAIN_DEFORM);
+	m_kWorldEditFSM.SetState(sdEditMode::E_EDITMODE_TERRAIN_SURFACE);
 
 	return true;
 }
@@ -130,6 +133,9 @@ void sdWorldEditor::Update()
 		// @{
 		// 更新时间
 		m_kTimeMgr.Update();
+
+		// 资源
+		m_kResourceSystem.Update();
 
 		// 更新相机
 		m_kCameraFSM.UpdateState();

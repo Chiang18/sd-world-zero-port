@@ -56,8 +56,13 @@ bool sdTerrainAtlasShadingPass::Initialize(uint uiStencilRef, uint uiStencilMask
 	m_spTexturingProp  = NiNew NiTexturingProperty;
 	NIASSERT(m_spTexturingProp);
 	m_spTexturingProp->SetShaderMap(0, NiNew NiTexturingProperty::ShaderMap(0, 0));
-	m_spTexturingProp->SetShaderMap(2, NiNew NiTexturingProperty::ShaderMap(spGeomTexture, 0));
+	m_spTexturingProp->SetShaderMap(1, NiNew NiTexturingProperty::ShaderMap(spGeomTexture, 0));
 	m_spTexturingProp->SetShaderMap(2, NiNew NiTexturingProperty::ShaderMap(spLightTexture, 0));
+	m_spTexturingProp->SetShaderMap(3, NiNew NiTexturingProperty::ShaderMap(0, 0));
+	m_spTexturingProp->SetShaderMap(4, NiNew NiTexturingProperty::ShaderMap(0, 0));
+	m_spTexturingProp->SetShaderMap(5, NiNew NiTexturingProperty::ShaderMap(0, 0));
+	m_spTexturingProp->SetShaderMap(6, NiNew NiTexturingProperty::ShaderMap(0, 0));
+	m_spTexturingProp->SetShaderMap(7, NiNew NiTexturingProperty::ShaderMap(0, 0));
 	m_kPropertyList.AddTail((NiTexturingProperty*)m_spTexturingProp);
 
 	return (m_bInitialized = true);
@@ -77,7 +82,44 @@ void sdTerrainAtlasShadingPass::Destroy()
 //-------------------------------------------------------------------------------------------------
 void sdTerrainAtlasShadingPass::SetTerrainParams(const sdTerrainParams& kTerrainParams)
 {
-	
+	// 地表normalMap
+	NiTexturingProperty::ShaderMap* spShaderMap = m_spTexturingProp->GetShaderMap(3);
+	NIASSERT(spShaderMap);
+	if (spShaderMap->GetTexture() != kTerrainParams.baseNormalMap)
+	{
+		spShaderMap->SetTexture(kTerrainParams.baseNormalMap);
+	}
+
+	// 地表TileMap
+	spShaderMap = m_spTexturingProp->GetShaderMap(4);
+	NIASSERT(spShaderMap);
+	if (spShaderMap->GetTexture() != kTerrainParams.tileMap)
+	{
+		spShaderMap->SetTexture(kTerrainParams.tileMap);
+	}
+
+	// 地表BlendeMap
+	spShaderMap = m_spTexturingProp->GetShaderMap(5);
+	NIASSERT(spShaderMap);
+	if (spShaderMap->GetTexture() != kTerrainParams.blendMap)
+	{
+		spShaderMap->SetTexture(kTerrainParams.blendMap);
+	}
+
+	// 地表DiffuseMap
+	//spShaderMap = m_spTexturingProp->GetShaderMap(6);
+	//NIASSERT(spShaderMap);
+	//if (spShaderMap->GetTexture() != kTerrainParams.diffuseAtlasTableMap)
+	//{
+	//	spShaderMap->SetTexture(kTerrainParams.diffuseAtlasTableMap);
+	//}
+
+	//spShaderMap = m_spTexturingProp->GetShaderMap(7);
+	//NIASSERT(spShaderMap);
+	//if (spShaderMap->GetTexture() != kTerrainParams.diffuseAtlasMap)
+	//{
+	//	spShaderMap->SetTexture(kTerrainParams.diffuseAtlasMap);
+	//}
 }
 //-------------------------------------------------------------------------------------------------
 void sdTerrainAtlasShadingPass::Draw()

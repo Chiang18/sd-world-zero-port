@@ -3,6 +3,13 @@
 #include "sdRenderDevice_DX9.h"
 #include "sdRenderSystem.h"
 
+//
+#include <sdMatrix3.h>
+#include <sdMatrix4.h>
+
+//
+using namespace Base::Math;
+
 namespace RenderSystem
 {
 //-------------------------------------------------------------------------------------------------
@@ -169,6 +176,7 @@ void sdRenderPath_DX9::PrepareShaderConstants()
 	NiPoint3 kCamDir = m_spCurCam->GetWorldDirection();
 	NiPoint3 kCamUp	 = m_spCurCam->GetWorldUpVector();
 	NiPoint3 kCamRight = m_spCurCam->GetWorldRightVector();
+	kCamDir.Unitize();
 	kCamUp.Unitize();
 	kCamRight.Unitize();
 	pkRenderDevice->SetGlobalShaderConstant("g_vCameraUp", sizeof(NiPoint3), &kCamUp);
@@ -179,11 +187,40 @@ void sdRenderPath_DX9::PrepareShaderConstants()
 	NiPoint4 kFrustumData(kCamFrustum.m_fRight, kCamFrustum.m_fTop, kCamFrustum.m_fNear, kCamFrustum.m_fFar);
 	pkRenderDevice->SetGlobalShaderConstant("g_fCameraFarClip", sizeof(kCamFrustum.m_fFar), &kCamFrustum.m_fFar);
 	pkRenderDevice->SetGlobalShaderConstant("g_vCameraFrustum", sizeof(NiPoint4), &kFrustumData);
-
-	// 变换矩阵
 	
+	// 观察矩阵
+	const NiPoint3& kCamPos = m_spCurCam->GetWorldLocation();
+	sdMatrix4 kViewMatrix(
+		kCamRight.x, kCamUp.x, kCamDir.x, 0.0f,
+		kCamRight.y, kCamUp.y, kCamDir.y, 0.0f,
+		kCamRight.z, kCamUp.z, kCamDir.z, 0.0f,
+		-kCamPos.Dot(kCamRight), -kCamPos.Dot(kCamUp), -kCamPos.Dot(kCamDir), 1.0f);
 
+	// 深度逆变换矩阵
+	NiPoint3 kRight, kUp, kDir;
+	if (kCamFrustum.m_bOrtho)
+	{
+		kRight = kCamRight * kCamFrustum.m_fRight;
+		kUp = kCamUp * kCamFrustum.m_fTop;
+		kDir = kCamDir * kCamFrustum.m_fFar;
+	}
+	else
+	{
+		kRight = kCamRight * kCamFrustum.m_fRight * kCamFrustum.m_fFar;
+		kUp = kCamUp * kCamFrustum.m_fTop * kCamFrustum.m_fFar;
+		kDir = kCamDir * kCamFrustum.m_fFar;
+	}
 
+	sdMatrix4 kDepthToWorldMatrix(
+		kRight.x,	kRight.y,	kRight.z,	0.0f,
+		kUp.x,		kUp.y,		kUp.z,		0.0f,
+		kDir.x,		kDir.y,		kDir.z,		0.0f,
+		kCamPos.x,	kCamPos.y,	kCamPos.z,	1.0f);
+	
+	sdMatrix4 kDepthToViewMatrix = kDepthToWorldMatrix * kViewMatrix;
+
+	pkRenderDevice->SetGlobalShaderConstant("g_mDepthToWorld", sizeof(kDepthToWorldMatrix), &kDepthToWorldMatrix);
+	pkRenderDevice->SetGlobalShaderConstant("g_mDepthToView", sizeof(kDepthToViewMatrix), &kDepthToViewMatrix);
 	// @}
 
 	
@@ -197,27 +234,52 @@ void sdRenderPath_DX9::PrepareShaderConstants()
 	NiColor kTerrainAmbientColor(0.0f, 0.0f, 0.0f);
 	NiColor kSkyAmbientColor(0.0f, 0.0f, 0.0f);
 
-	NiPoint3 kMainLightDir(1.0f, 1.0f, -1.0f);
-	NiColor kMainLightColor(0.1f, 0.0f, 0.0f);
+	sdVector3 kMainLightDir(0.0f, 0.0f, -1.0f);
+	NiColor kMainLightColor(1.0f, 1.0f, 1.0f);
 	NiColor kMainLightAmbient(0.0f, 0.0f, 0.0f);
 
-	NiPoint3 kAssistLightDir(1.0f, -1.0f, -1.0f);
-	NiColor kAssistLightColor(0.0f, 0.1f, 0.0f);
+	sdVector3 kAssistLightDir(1.0f, -1.0f, -1.0f);
+	NiColor kAssistLightColor(0.0f, 0.0f, 0.0f);
 	NiColor kAssistLightAmbient(0.0f, 0.0f, 0.0f);
 
 	NiPoint4 kLightFactor(1.0f, 1.0f, 1.0f, 1.0f);
 
-	pkRenderDevice->SetGlobalShaderConstant("g_vTerraimAmbientColor", sizeof(kTerrainAmbientColor), &kTerrainAmbientColor);
-	pkRenderDevice->SetGlobalShaderConstant("g_vSkyAmbientColor", sizeof(kSkyAmbientColor), &kSkyAmbientColor);
+	// 观察矩阵的旋转矩阵
+	sdMatrix3 kViewRotationMatrix(
+		kCamRight.x, kCamUp.x, kCamDir.x,
+		kCamRight.y, kCamUp.y, kCamDir.y,
+		kCamRight.z, kCamUp.z, kCamDir.z);
 
-	pkRenderDevice->SetGlobalShaderConstant("g_vMainLightDir", sizeof(kMainLightDir), &kMainLightDir);
-	pkRenderDevice->SetGlobalShaderConstant("g_vMainLightColor", sizeof(kMainLightColor), &kMainLightColor);
-	pkRenderDevice->SetGlobalShaderConstant("g_vMainLightAmbientColor", sizeof(kMainLightAmbient), &kMainLightAmbient);
+	// 主光
+	if (bMainLight)
+	{
+		sdVector3 kMainLightViewDir = kMainLightDir * kViewRotationMatrix;
+		kMainLightViewDir.Normalise();
 
-	pkRenderDevice->SetGlobalShaderConstant("g_vAssistLightDir", sizeof(kAssistLightDir), &kAssistLightDir);
-	pkRenderDevice->SetGlobalShaderConstant("g_vAssistLightColor", sizeof(kAssistLightColor), &kAssistLightColor);
-	pkRenderDevice->SetGlobalShaderConstant("g_vAssistLightAmbientColor", sizeof(kAssistLightAmbient), &kAssistLightAmbient);
-	
+		pkRenderDevice->SetGlobalShaderConstant("g_vMainLightDir", sizeof(kMainLightViewDir), &kMainLightViewDir);
+		pkRenderDevice->SetGlobalShaderConstant("g_vMainLightColor", sizeof(kMainLightColor), &kMainLightColor);
+		pkRenderDevice->SetGlobalShaderConstant("g_vMainLightAmbientColor", sizeof(kMainLightAmbient), &kMainLightAmbient);
+	}
+
+	// 辅助光
+	if (bAssistLight)
+	{
+		sdVector3 kAssistLightViewDir = kAssistLightDir * kViewRotationMatrix;
+		kAssistLightViewDir.Normalise();
+
+		pkRenderDevice->SetGlobalShaderConstant("g_vAssistLightDir", sizeof(kAssistLightViewDir), &kAssistLightViewDir);
+		pkRenderDevice->SetGlobalShaderConstant("g_vAssistLightColor", sizeof(kAssistLightColor), &kAssistLightColor);
+		pkRenderDevice->SetGlobalShaderConstant("g_vAssistLightAmbientColor", sizeof(kAssistLightAmbient), &kAssistLightAmbient);
+	}
+
+	// 环境光
+	if (bAmbientLight)
+	{
+		 pkRenderDevice->SetGlobalShaderConstant("g_vTerraimAmbientColor", sizeof(kTerrainAmbientColor), &kTerrainAmbientColor);
+		 pkRenderDevice->SetGlobalShaderConstant("g_vSkyAmbientColor", sizeof(kSkyAmbientColor), &kSkyAmbientColor);
+	}
+
+	//
 	pkRenderDevice->SetGlobalShaderConstant("g_vLightFactor", sizeof(kLightFactor), &kLightFactor);
 	// }@
 

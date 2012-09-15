@@ -103,7 +103,6 @@ namespace Base
 				return (m_fX != rkVector.m_fX || m_fY != rkVector.m_fY || m_fZ != rkVector.m_fZ);
 			}
 
-			// arithmetic operations
 			inline sdVector3 operator + (const sdVector3& rkVector) const
 			{
 				return sdVector3(

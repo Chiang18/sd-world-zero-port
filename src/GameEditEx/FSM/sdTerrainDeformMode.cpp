@@ -125,6 +125,12 @@ int sdTerrainDeformMode::Update()
 void sdTerrainDeformMode::OnLeftButtonDown(WPARAM wParam, LPARAM lParam)
 {
 	__super::OnLeftButtonDown(wParam,lParam);
+
+	// 提取鼠标屏幕位置
+	m_kMousePos.x = (int)(short)LOWORD(lParam);
+	m_kMousePos.y = (int)(short)HIWORD(lParam);
+
+	//
 	m_bLeftButtonDown = true;
 }
 //-------------------------------------------------------------------------------------------------

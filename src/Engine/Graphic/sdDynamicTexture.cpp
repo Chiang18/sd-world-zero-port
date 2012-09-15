@@ -38,7 +38,7 @@ sdDynamicTexture::sdDynamicTexture(uint uiWidth, uint uiHeight, eDynamicFormat e
 		m_uiWidth, 
 		m_uiHeight, 
 		uiLevel, 
-		0,								// 内存纹理居然是0...
+		0,
 		ms_kD3DFormatTable[m_eFormat],
 		D3DPOOL_SYSTEMMEM,
 		&m_spD3DSysTexture);

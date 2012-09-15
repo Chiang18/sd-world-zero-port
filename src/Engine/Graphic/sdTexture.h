@@ -44,7 +44,7 @@ namespace RenderSystem
 		static uint	ms_uiLostNotifyIndex;
 		static uint	ms_uiResetNotifyIndex;
 
-		// 所有sdDynamicTexture对象双向链表(参考GB/NiTexture)
+		// 所有Texture对象双向链表(参考GB/NiTexture.h)
 		//	1.设备丢失与重设时处理所有对象
 		sdTexture*	m_pkPrev;
 		sdTexture*	m_pkNext;

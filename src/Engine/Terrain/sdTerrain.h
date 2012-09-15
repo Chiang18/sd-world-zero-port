@@ -61,7 +61,7 @@ public:
 	// 地形高度获取(世界坐标)
 	float	GetHeight(float fX, float fY);
 
-	// 地形编辑(函数均用于地形编辑器)
+	// 高度编辑(函数均用于地形编辑器)
 	// @{
 	// 地形高度获取与设置(高度图坐标,直接从高度图取出和设置,没有进行变换)
 	float	GetRawHeight(uint uiX, uint uiY);
@@ -71,8 +71,7 @@ public:
 	void	UpdateGeometry(float fCenterX, float fCenterY, float fRadius);
 	// @}
 
-
-	// 图层编辑
+	// 图层编辑(函数大部用于地形编辑器)
 	// @{
 	bool	AppendLayer(sdLayerMap* pkLayerMap);
 	//bool	Insert(sdLayerMap* pkLayerMap, uint uiIndex);
@@ -82,14 +81,13 @@ public:
 
 	//bool	SwapLayer(uint uiLIndex, uint uiRIndex);
 
+	// 图层像素点权值的获取与设置
+	uchar	GetBlendMapData(uint uiX, uint uiY, uint uiLayer);
+	void	SetBlendMapData(uint uiX, uint uiY, uint uiLayer, uchar uiWeight);
 
-	// 设置Layer指定像素点权值(用于编辑)
-	void	SetBlendMapData(uint uiX, uint uiY, uint uiLayer, float fWeight);
-
-	// 更新指定范围的混合贴图(用于编辑)
+	// 更新混合贴图(世界坐标)
 	//	@kRect	m_fX,m_fY为矩形起始位置, m_fZ,m_fW为矩形尺寸(世界坐标系)
-	void	UpdateBlendMap();
-	void	UpdateBlendMap(const Base::Math::sdVector4& kRect);
+	void	UpdateBlendMap(float fCenterX, float fCenterY, float fRadius);
 
 	// 对贴图进行重新打包
 	void	RepackMaps();
@@ -105,6 +103,13 @@ public:
 
 	uint	GetTileSize() const { return m_uiTileSize;}
 	uint	GetTerrainSize() const { return m_uiTerrainSize;}
+	float	GetHeightMapScale() const { return m_fMeterPerGrid;}
+
+	uint	GetTexTileSize() const { return m_uiTexTileSize;}
+	uint	GetBlendMapSize() const { return m_uiBlendTexSize;}
+	uint	GetTileMapSize() const { return m_uiTileMapSize;}
+	float	GetBlendMapScale() const { return m_fMeterPerPixel;}
+
 	uint	GetMeshLevel() const { return m_uiMeshLevel;}
 	bool	GetEnableLOD() const { return m_bEnableLOD;}
 

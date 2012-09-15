@@ -40,19 +40,16 @@ namespace RenderSystem
 		// 图集所属贴图操作
 		// @{
 		// 向结尾添加和删除纹理(失败返回-1,即0xffffffff)
-		uint	AddTexture(NiTexture* spTexture, float fUVRepeat, uint uiNumLevel = 0);
+		uint	AddTexture(NiTexture* spTexture, float fUVRepeat = 1.0f, float fMipmapBias = 0.0f,  uint uiNumLevel = 0);
 		bool	RemoveTexture();
 
 		// 向任意位置添加和删除纹理
-		uint	InsertTexture(uint uiIndex, NiTexture* spTexture, float fUVRepeat, uint uiNumLevel);
+		uint	InsertTexture(uint uiIndex, NiTexture* spTexture, float fUVRepeat = 1.0f, float fMipmapBias = 0.0f,  uint uiNumLevel = 0);
 		bool	RemoveTexture(uint uiIndex);
-
-		// 交换
-		//bool	SwapTexture(uint uiLIndex, uint uiRIndex);
-
-		// 设置指定位置纹理
-		//bool	SetTexture(uint uiIndex, NiTexture* spTexture, float fUVRepeat);
 		// @}
+
+		// 属性访问
+
 		
 	protected:
 		//

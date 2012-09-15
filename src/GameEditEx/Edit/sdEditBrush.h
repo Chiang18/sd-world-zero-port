@@ -34,14 +34,14 @@ namespace GameEditEx
 	{
 	public:
 		// 编辑笔刷
-		enum eBrushType
+		enum EBrushType
 		{
 			E_BRUSH_PULL = 0,	// 地表拉伸
 			E_BRUSH_SMOOTH,		// 地表平滑
 			E_BRUSH_NOISE,		// 地表噪声
-			E_BRUSH_AVERAGE,
+			E_BRUSH_AVERAGE,	// 地表平均
 			E_BRUSH_FLAT,		// 地表踏平
-			E_BRUSH_DETAIL,		// 地表纹理混合
+			E_BRUSH_LAYER,		// 地表纹理混合
 			NUM_BRUSHES,		
 		};	
 
@@ -58,6 +58,7 @@ namespace GameEditEx
 		void SetBrushShape(sdBrushShape* pkBrushShape) { m_pkBrushShape = pkBrushShape;}
 		sdBrushShape* GetBrushShape() const { return m_pkBrushShape;}
 
+		virtual EBrushType GetType() = 0;
 		virtual void Apply(const Base::Math::sdRay& kRay) = 0;
 
 	protected:
@@ -72,15 +73,61 @@ namespace GameEditEx
 	class sdTerrainDeformPoolBrush : public sdEditBrush
 	{
 	public:
-		sdTerrainDeformPoolBrush();
-		virtual ~sdTerrainDeformPoolBrush();
-
 		// 虚函数继承
+		virtual EBrushType GetType() { return E_BRUSH_PULL;}
 		virtual void Apply(const Base::Math::sdRay& kRay);
 	};
 	NiSmartPointer(sdTerrainDeformPoolBrush);
 
+	// 地表高度平滑笔刷
+	class sdTerrainDeformSmoothBrush : public sdEditBrush
+	{
+	public:
+		// 虚函数继承
+		virtual EBrushType GetType() { return E_BRUSH_SMOOTH;}
+		virtual void Apply(const Base::Math::sdRay& kRay);
+	};
+	NiSmartPointer(sdTerrainDeformSmoothBrush);
+
+	// 地表高度噪声笔刷
+	//class sdTerrainDeformNoiseBrush : public sdEditBrush
+	//{
+	//public:
+	//	// 虚函数继承
+	//	virtual EBrushType GetType() { return E_BRUSH_NOISE;}
+	//	virtual void Apply(const Base::Math::sdRay& kRay);
+	//};
+	//NiSmartPointer(sdTerrainDeformNoiseBrush);
+
+	// 地表高度踏平笔刷
+	//class sdTerrainDeformFlatBrush : public sdEditBrush
+	//{
+	//public:
+	//	// 虚函数继承
+	//	virtual EBrushType GetType() { return E_BRUSH_FLAT;}
+	//	virtual void Apply(const Base::Math::sdRay& kRay);
+	//};
+	//NiSmartPointer(sdTerrainDeformFlatBrush);
+
+	// 地表高度平均笔刷
+	//class sdTerrainDeformAverageBrush : public sdEditBrush
+	//{
+	//public:
+	//	// 虚函数继承
+	//	virtual EBrushType GetType() { return E_BRUSH_AVERAGE;}
+	//	virtual void Apply(const Base::Math::sdRay& kRay);
+	//};
+	//NiSmartPointer(sdTerrainDeformAverageBrush);
+
 	//****************************************************************************
 	// 地表纹理编辑笔刷
+	class sdTerrainSurfaceLayerBrush : public sdEditBrush
+	{
+	public:
+		// 虚函数继承
+		virtual EBrushType GetType() { return E_BRUSH_LAYER;}
+		virtual void Apply(const Base::Math::sdRay& kRay);
+	};
+	NiSmartPointer(sdTerrainSurfaceLayerBrush);
 }
 #endif

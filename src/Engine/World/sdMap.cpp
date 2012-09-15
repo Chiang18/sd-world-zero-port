@@ -35,6 +35,13 @@ bool sdMap::CreateScene()
 
 	//
 	m_kTerrain.CreateScene(512,1024);
+
+
+	sdLayerMap* pkLayerMap = NiNew sdLayerMap("Default", 
+		"E:\\project_game\\edata\\world0\\texture\\terrain\\ice_broken.dds",
+		"E:\\project_game\\edata\\world0\\texture\\terrain\\ice_broken_nrm.dds");
+	m_kTerrain.AppendLayer(pkLayerMap);
+	//m_kTerrain.UpdateBlendMap();
 	//*************************************************
 
 	// 更新一次节点

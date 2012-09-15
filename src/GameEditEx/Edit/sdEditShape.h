@@ -31,6 +31,7 @@ namespace GameEditEx
 		virtual ~sdDualCircleShape();
 
 		// 获取指定位置权重
+		bool	InShape(float fX, float fY);
 		float	GetWeight(float fX, float fY);
 
 		// 

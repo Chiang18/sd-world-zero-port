@@ -137,10 +137,12 @@ namespace RenderSystem
 		Base::Math::sdVector2ui terrainSize;
 
 		// 地形材质信息
+		// @{
 		Base::Math::sdVector3	ambientMaterial;
 		Base::Math::sdVector3	diffuseMaterial;
 		Base::Math::sdVector3	specularMaterial;
 		float					shiness;
+		// @}
 
 		// 地形纹理信息
 		// @{
@@ -157,6 +159,8 @@ namespace RenderSystem
 		NiTexture*	normalAtlasTableMap;	// 整个地形漫反射贴图查找表
 		// @}
 
+		// 
+		
 	};
 
 	// 渲染系统基础接口

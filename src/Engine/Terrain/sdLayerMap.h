@@ -8,7 +8,8 @@
 #pragma once
 #ifndef _TERRAIN_LAYER_MAP_H__
 #define _TERRAIN_LAYER_MAP_H__
-#include "sdTypes.h"
+#include "sdEngine.h"
+#include "sdMemoryTexture.h"
 
 // 表示地表一层资源贴图(仅仅在编辑器状态下使用,相当于Cry的SSurfaceType)
 class sdLayerMap : public NiRefObject
@@ -27,8 +28,8 @@ public:
 	const std::string&	GetNormalMapPath() const { return m_szNormalMap;}
 	void				SetNormalMapPath(const std::string& szName);
 
-	NiTexture*	GetDiffuseMap() { return m_spDiffuseMap;}
-	NiTexture*	GetNormalMap() { return m_spNormalMap;}
+	NiTexture*	GetDiffuseMap() { return m_pkDiffuseMap ? m_pkDiffuseMap->GetGBTexture() : NULL;}
+	NiTexture*	GetNormalMap() { return m_pkNormalMap ? m_pkDiffuseMap->GetGBTexture() : NULL;}
 
 	float	GetRepeatSize() const { return m_fRepeatSize;}
 	void	SetRepeatSize(float fRepeatSize) { m_fRepeatSize = fRepeatSize; }
@@ -37,18 +38,22 @@ public:
 	void	SetMipmapBias(float fMipmapBias) { m_fMipmapBias = fMipmapBias; }
 
 protected:
+	// 加载数据到Texture
+	RenderSystem::sdMemoryTexturePtr LoadPixelDataToD3DTexture(const char* szName);
+
+protected:
 	// 图层名
 	std::string		m_szName;			
 
 	// 图层纹理
 	std::string		m_szDiffuseMap;	
-	std::string		m_szNormalMap;	
-	NiTexturePtr	m_spDiffuseMap;
-	NiTexturePtr	m_spNormalMap;
+	std::string		m_szNormalMap;
+	RenderSystem::sdMemoryTexturePtr	m_pkDiffuseMap;
+	RenderSystem::sdMemoryTexturePtr	m_pkNormalMap;
 
 	// 图层信息
-	float			m_fRepeatSize;
-	float			m_fMipmapBias;
+	float	m_fRepeatSize;
+	float	m_fMipmapBias;
 };
 NiSmartPointer(sdLayerMap);
 #endif
