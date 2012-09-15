@@ -66,7 +66,7 @@ void sdTextureAtlas::GetCoordinate(uint uiNumAllAllocatedPixels, uint& uiX, uint
 sdTextureAtlas::sdTextureAtlas(D3DFORMAT eFormat)
 : m_eFormat(eFormat)
 , m_uiAtlasSize(0)
-, m_bAtlasDirty(false)
+, m_uiTotalPixels(0)
 {
 	// 获取渲染设备
 	m_spRenderer = NiDX9Renderer::GetRenderer();
@@ -93,9 +93,9 @@ sdTextureAtlas::~sdTextureAtlas()
 
 }
 //-------------------------------------------------------------------------------------------------
-uint sdTextureAtlas::AddTexture(NiTexture *spTexture, float fUVRepeat, uint uiNumLevel)
+uint sdTextureAtlas::AddTexture(NiTexture *spTexture, float fUVRepeat, float fMipmapBias,  uint uiNumLevel)
 {
-	return InsertTexture(m_kTextureInfoVec.size(), spTexture, fUVRepeat, uiNumLevel);
+	return InsertTexture(m_kTextureInfoVec.size(), spTexture, fUVRepeat, fMipmapBias, uiNumLevel);
 }
 //-------------------------------------------------------------------------------------------------
 bool sdTextureAtlas::RemoveTexture()
@@ -103,7 +103,7 @@ bool sdTextureAtlas::RemoveTexture()
 	return RemoveTexture(m_kTextureInfoVec.size() - 1);
 }
 //-------------------------------------------------------------------------------------------------
-uint sdTextureAtlas::InsertTexture(uint uiIndex, NiTexture *spTexture, float fUVRepeat, uint uiNumLevel)
+uint sdTextureAtlas::InsertTexture(uint uiIndex, NiTexture *spTexture, float fUVRepeat, float fMipmapBias,  uint uiNumLevel)
 {
 	// 检查输入参数
 	// @{
@@ -161,6 +161,7 @@ uint sdTextureAtlas::InsertTexture(uint uiIndex, NiTexture *spTexture, float fUV
 	spD3DTexture->AddRef();
 
 	pkTexPageInfo->fUVRepeat		= fUVRepeat;
+	pkTexPageInfo->fMipmapBias		= fMipmapBias;
 
 	for (uint i = 0; i < uiNumLevel; ++i)
 	{
@@ -172,7 +173,7 @@ uint sdTextureAtlas::InsertTexture(uint uiIndex, NiTexture *spTexture, float fUV
 		hr = spD3DSurface->GetDesc(&kSurfaceDesc);
 		NIASSERT(SUCCEEDED(hr));
 
-		NIASSERT(kSurfaceDesc.Width < 4);
+		NIASSERT(kSurfaceDesc.Width >= 4);
 		NIASSERT(NiIsPowerOf2(kSurfaceDesc.Width));
 		NIASSERT(kSurfaceDesc.Width == kSurfaceDesc.Height);
 

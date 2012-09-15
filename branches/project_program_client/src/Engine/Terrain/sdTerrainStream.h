@@ -17,8 +17,15 @@ class sdTerrainStream : public NiRefObject
 {
 public:
 	// 加载与保存高度图
-	static bool SaveHeightMap(sdHeightMap* pkHeightMap, const std::string& szSceneFullPath);
-	static sdHeightMap* LoadHeightMap(const std::string& szSceneFullPath);
+	static bool SaveHeightMap(sdHeightMap* pkHeightMap, const char* szSceneFullPath);
+	static sdHeightMap* LoadHeightMap(const char* szSceneFullPath);
+
+	// 加载和保存混合贴图
+	// (这里使用D3DX来处理,WZ原始方式是自己手工处理)
+	static bool SaveBlendMap(NiTexture* spBlendMap, const char* szSceneFullPath);
+
+
+	// 加载和保存混合贴图索引
 
 };
 NiSmartPointer(sdTerrainStream);

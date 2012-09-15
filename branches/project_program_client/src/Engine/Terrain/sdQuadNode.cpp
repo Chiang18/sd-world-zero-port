@@ -156,7 +156,7 @@ void sdQuadNode::UpdateGeometry(float fCenterX, float fCenterY, float fRadius)
 	{
 		float fDeltaX = max(fDistanceX - fAABBHalfSizeX, 0.0f);
 		float fDeltaY = max(fDistanceY - fAABBHalfSizeY, 0.0f);
-		if (fDeltaX * fDeltaX + fDeltaY * fDeltaY <= fRadius)
+		if (fDeltaX * fDeltaX + fDeltaY * fDeltaY <= fRadius * fRadius)
 			bIntersect = true;
 	}
 	// @}

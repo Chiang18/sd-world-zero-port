@@ -75,7 +75,6 @@ void sdTerrainAtlasGeometryPass::Destroy()
 //-------------------------------------------------------------------------------------------------
 void sdTerrainAtlasGeometryPass::SetTerrainParams(const sdTerrainParams& kTerrainParams)
 {
-
 	// 地表法线纹理
 	NiTexturingProperty::ShaderMap* spShaderMap = m_spTexturingProp->GetShaderMap(2);
 	NIASSERT(spShaderMap);

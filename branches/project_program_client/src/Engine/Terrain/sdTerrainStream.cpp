@@ -4,6 +4,9 @@
 //
 #include <sdFileUtil.h>
 
+//
+#include <NiDX9TextureData.h>
+
 #define TERRAIN_DIRECTORY					"terrain"		// 地形数据相对目录
 #define TERRAIN_HEIGHTMAP_FILENAME			"heightmap.raw"	// 地表高度图
 #define TERRAIN_HEIGHTMAP_CONFIG_FILENAME	"heightmap.lua"	// 地表高度图配置文件
@@ -19,15 +22,15 @@
 
 using namespace Base;
 //-------------------------------------------------------------------------------------------------
-bool sdTerrainStream::SaveHeightMap(sdHeightMap* pkHeightMap, const std::string& szSceneFullPath)
+bool sdTerrainStream::SaveHeightMap(sdHeightMap* pkHeightMap, const char* szSceneFullPath)
 {
 	NIASSERT(pkHeightMap);;
-	NIASSERT(!szSceneFullPath.empty());
+	NIASSERT(szSceneFullPath);
 
 	// 构建文件夹路径
 	char szBuffer[MAX_PATH];
 	memset(szBuffer, 0, MAX_PATH * sizeof(char));
-	strcpy(szBuffer, szSceneFullPath.c_str());
+	strcpy(szBuffer, szSceneFullPath);
 	strcat(szBuffer, "\\");
 	strcat(szBuffer, TERRAIN_DIRECTORY);
 
@@ -77,14 +80,14 @@ bool sdTerrainStream::SaveHeightMap(sdHeightMap* pkHeightMap, const std::string&
 	return true;
 }
 //-------------------------------------------------------------------------------------------------
-sdHeightMap* sdTerrainStream::LoadHeightMap(const std::string& szSceneFullPath)
+sdHeightMap* sdTerrainStream::LoadHeightMap(const char* szSceneFullPath)
 {
-	NIASSERT(!szSceneFullPath.empty());
+	NIASSERT(szSceneFullPath);
 
 	// 构建文件夹路径
 	char szBuffer[MAX_PATH];
 	memset(szBuffer, 0, MAX_PATH * sizeof(char));
-	strcpy(szBuffer, szSceneFullPath.c_str());
+	strcpy(szBuffer, szSceneFullPath);
 	strcat(szBuffer, "\\");
 	strcat(szBuffer, TERRAIN_DIRECTORY);
 
@@ -128,5 +131,43 @@ sdHeightMap* sdTerrainStream::LoadHeightMap(const std::string& szSceneFullPath)
 	// @}
 
 	return pkHeightMap;
+}
+//-------------------------------------------------------------------------------------------------
+bool sdTerrainStream::SaveBlendMap(NiTexture* spBlendMap, const char *szSceneFullPath)
+{
+	NIASSERT(spBlendMap);;
+	NIASSERT(szSceneFullPath);
+
+	// 构建文件夹路径
+	char szBuffer[MAX_PATH];
+	memset(szBuffer, 0, MAX_PATH * sizeof(char));
+	strcpy(szBuffer, szSceneFullPath);
+	strcat(szBuffer, "\\");
+	strcat(szBuffer, TERRAIN_DIRECTORY);
+
+	// 确定路径存在
+	sdFileUtil::ConfimDir(szBuffer);
+
+
+	// 保存
+	// @{
+	// 路径
+	char szRawFullPath[MAX_PATH];
+	strcpy(szRawFullPath, szBuffer);
+	strcat(szRawFullPath, "\\");
+	strcat(szRawFullPath, TERRAIN_BLENDMAP_FILENAME);
+
+	// 获取D3D纹理
+	NiDX9TextureData* spDX9TextureData = (NiDX9TextureData*)spBlendMap->GetRendererData();
+	NIASSERT(spDX9TextureData);
+
+	LPDIRECT3DBASETEXTURE9 spD3DBaseTexture = (LPDIRECT3DBASETEXTURE9)spDX9TextureData->GetD3DTexture();
+	NIASSERT(spD3DBaseTexture);
+
+	// 保存D3D纹理
+	D3DXSaveTextureToFile(szRawFullPath, D3DXIFF_DDS, spD3DBaseTexture, NULL);
+	// @}
+
+	return true;
 }
 //-------------------------------------------------------------------------------------------------

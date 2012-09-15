@@ -65,7 +65,7 @@ void sdNormalMap::Update(uint uiX, uint uiY, uint uiW, uint uiH)
 		for (uint uiCol = uiStartX; uiCol < uiEndX; ++uiCol)
 		{
 			// 获取法线
-			m_pkHeightMap->GetNormal(uiCol, uiRow, fNZ, fNY, fNZ);
+			m_pkHeightMap->GetNormal(uiCol, uiRow, fNX, fNY, fNZ);
 
 			// 压缩法线([-1,1]到[0,255])
 			ucNX = (uchar)((fNX * 0.5f + 0.5f) * 255.0f);

@@ -182,6 +182,22 @@
 				>
 			</File>
 			<File
+				RelativePath=".\Math\sdMatrix3.cpp"
+				>
+			</File>
+			<File
+				RelativePath=".\Math\sdMatrix3.h"
+				>
+			</File>
+			<File
+				RelativePath=".\Math\sdMatrix4.cpp"
+				>
+			</File>
+			<File
+				RelativePath=".\Math\sdMatrix4.h"
+				>
+			</File>
+			<File
 				RelativePath=".\Math\sdRay.h"
 				>
 			</File>

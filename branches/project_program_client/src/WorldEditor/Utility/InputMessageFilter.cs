@@ -22,6 +22,20 @@ namespace WorldEditor
     //  4.默认的响应函数然后根据对象的事件字段(如this.MouseDown )中的函数指针列表，
     //    调用用户所加入的响应函数(如Form1_MouseDown1和Form1_MouseDown2)，
     //    而且调用顺序和用户添加顺序一致。 
+    //
+    //
+    // Win32消息:
+    //  1.PostMessage执行后马上返回
+    //  2.SendMessage必须等到消息被处理后才会返回
+    //  3.PostThreadMessage
+    //  4.GetMessage
+    //  5.PeekMessage
+    //
+    //
+    // 输入
+    //  1.Win32输入
+    //  2.C#输入事件/输入消息
+    //
     //*****************************************************************************************
     class InputMessageFilter : IMessageFilter
     {

@@ -44,7 +44,6 @@ bool sdTerrain::CreateScene(uint uiTerrainSize, uint uiBlendTexSize)
 	m_uiTileMapSize		= uiBlendTexSize / m_uiTexTileSize;
 	m_fMeterPerPixel	= uiTerrainSize / (float)uiBlendTexSize;
 	
-
 	// 初始化静态成员
 	sdQuadMesh::StaticInitialize();
 
@@ -52,15 +51,14 @@ bool sdTerrain::CreateScene(uint uiTerrainSize, uint uiBlendTexSize)
 	m_pkHeightMap = NiNew sdHeightMap(uiTerrainSize);
 	NIASSERT(m_pkHeightMap);
 
+	// 地形拾取
 	m_pkPick = NiNew sdTerrainPick(m_pkHeightMap);
 	NIASSERT(m_pkPick);
 
 	// 创建法线贴图
-	// @{
 	m_pkNormalMap = NiNew sdNormalMap(uiTerrainSize, m_pkHeightMap);
 	NIASSERT(m_pkNormalMap);
 	m_pkNormalMap->Update();
-	// @}
 
 	if (m_bEnableEditMaterial)
 	{
@@ -80,7 +78,7 @@ bool sdTerrain::CreateScene(uint uiTerrainSize, uint uiBlendTexSize)
 
 		// 创建混合贴图瓦片贴图(用于保存每个瓦片内的四层混合贴图信息)
 		// @{
-		m_pkDynamicTileMap = NiNew sdDynamicTexture(m_uiTileMapSize, m_uiTileMapSize, sdDynamicTexture::E_FORMAT_A4R4G4B4);
+		m_pkDynamicTileMap = NiNew sdDynamicTexture(m_uiTileMapSize, m_uiTileMapSize, sdDynamicTexture::E_FORMAT_A8R8G8B8);
 		NIASSERT(m_pkDynamicTileMap);
 
 		kLockedRect = m_pkDynamicTileMap->LockRegion(0, 0, m_uiTileMapSize, m_uiTileMapSize);
@@ -161,8 +159,9 @@ bool sdTerrain::SaveScene(const std::string& szSceneFullPath)
 	if (!m_bInitialized)
 		return false;
 
-	// 保存高度图
-	sdTerrainStream::SaveHeightMap(m_pkHeightMap, szSceneFullPath);
+	// 保存
+	sdTerrainStream::SaveHeightMap(m_pkHeightMap, szSceneFullPath.c_str());
+	sdTerrainStream::SaveBlendMap(m_spBlendMap, szSceneFullPath.c_str());
 
 	return true;
 }

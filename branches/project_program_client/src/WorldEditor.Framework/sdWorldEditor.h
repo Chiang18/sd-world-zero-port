@@ -2,6 +2,7 @@
 #include <sdGameEditEx.h>
 #include <sdGameCore.h>
 #include <sdRenderSystem_DX9.h>
+#include <sdResourceSystem.h>
 #include <sdMap.h>
 #include <sdEventMgr.h>
 #include <sdCameraFSM.h>
@@ -50,8 +51,11 @@ protected:
 	// Gamebryo渲染器
 	NiDX9RendererPtr	m_spRenderer;
 
-	// WZ渲染系统
+	// 渲染系统
 	RenderSystem::sdRenderSystem_DX9	m_kRenderSystem;
+
+	// 资源系统
+	ResourceSystem::sdResourceSystem m_kResourceSystem;
 
 	// 消息中心
 	GameCore::sdEventMgr m_kEventMgr;
