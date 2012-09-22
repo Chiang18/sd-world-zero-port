@@ -236,6 +236,38 @@
 					>
 				</File>
 			</Filter>
+			<Filter
+				Name="Helper"
+				>
+				<File
+					RelativePath=".\Edit\sdEditGizmoHelper.cpp"
+					>
+				</File>
+				<File
+					RelativePath=".\Edit\sdEditGizmoHelper.h"
+					>
+				</File>
+				<File
+					RelativePath=".\Edit\sdEditHelper.cpp"
+					>
+				</File>
+				<File
+					RelativePath=".\Edit\sdEditHelper.h"
+					>
+				</File>
+				<File
+					RelativePath=".\Edit\sdEditObjectHelper.h"
+					>
+				</File>
+				<File
+					RelativePath=".\Edit\sdEditTerrainHelper.cpp"
+					>
+				</File>
+				<File
+					RelativePath=".\Edit\sdEditTerrainHelper.h"
+					>
+				</File>
+			</Filter>
 		</Filter>
 		<Filter
 			Name="Utility"

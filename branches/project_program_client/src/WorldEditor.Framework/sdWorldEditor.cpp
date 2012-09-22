@@ -115,7 +115,6 @@ bool sdWorldEditor::Initialize(HWND hWnd)
 
 	// ³õÊ¼»¯±à¼­×´Ì¬»ú
 	m_kWorldEditFSM.Initialize();
-	m_kWorldEditFSM.SetState(sdEditMode::E_EDITMODE_TERRAIN_SURFACE);
 
 	return true;
 }

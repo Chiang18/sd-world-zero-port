@@ -6,13 +6,12 @@ using System.Drawing;
 using System.Linq;
 using System.Text;
 using System.Windows.Forms;
-using WeifenLuo.WinFormsUI.Docking;
 
-namespace WorldEditor
+namespace WorldEditor.SceneModule.Window
 {
-    public partial class OperateForm : DockContent
+    public partial class OutputForm : WeifenLuo.WinFormsUI.Docking.DockContent
     {
-        public OperateForm()
+        public OutputForm()
         {
             InitializeComponent();
         }

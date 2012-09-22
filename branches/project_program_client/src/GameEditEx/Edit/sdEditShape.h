@@ -35,17 +35,17 @@ namespace GameEditEx
 		float	GetWeight(float fX, float fY);
 
 		// 
-		void	SetCenter(const NiPoint2& kPos) { m_kCenter = kPos;}
-		void	SetCenter(float fX, float fY) { m_kCenter.x = fX; m_kCenter.y = fY;}
-		void	SetInnerRadius(float fInnerRadius);
-		void	SetOuterRadius(float fOuterRadius);
-		void	SetHardness(float fHardness);
-
+		void SetCenter(const NiPoint2& kPos) { m_kCenter = kPos;}
+		void SetCenter(float fX, float fY) { m_kCenter.x = fX; m_kCenter.y = fY;}
 		const NiPoint2& GetCenter() const { return m_kCenter;}
+
+		void SetInnerRadius(float fInnerRadius);
+		void SetOuterRadius(float fOuterRadius);
 		float GetInnerRadius() const { return m_fInnerRadius;}
 		float GetOuterRadius() const { return m_fOuterRadius;}
-		float GetHardness() const { return m_fHardness;}
 
+		void  SetHardness(float fHardness);
+		float GetHardness() const { return m_fHardness;}
 	protected:
 		NiPoint2	m_kCenter;
 		float	m_fInnerRadius;

@@ -9,9 +9,9 @@ D3DFORMAT sdDynamicTexture::ms_kD3DFormatTable[NUM_FORMATS] =
 {
 	D3DFMT_A8R8G8B8,
 	D3DFMT_A8,
-	D3DFMT_A8R8G8B8,
 	D3DFMT_A4R4G4B4,
 	D3DFMT_R8G8B8,
+	D3DFMT_A8R8G8B8,
 };
 //-------------------------------------------------------------------------------------------------
 sdDynamicTexture::sdDynamicTexture(uint uiWidth, uint uiHeight, eDynamicFormat eFormat, bool bMipmap)

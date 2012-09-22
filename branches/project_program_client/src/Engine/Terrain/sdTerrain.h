@@ -73,6 +73,11 @@ public:
 
 	// 图层编辑(函数大部用于地形编辑器)
 	// @{
+	int		GetLayerNum() const { return m_kLayerMapVec.size();}
+
+	sdLayerMap*	GetLayerMap(uint uiIndex);
+	sdLayerMap* GetLayerMap(const char* szName);
+
 	bool	AppendLayer(sdLayerMap* pkLayerMap);
 	//bool	Insert(sdLayerMap* pkLayerMap, uint uiIndex);
 

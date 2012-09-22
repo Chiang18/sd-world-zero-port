@@ -124,9 +124,19 @@ namespace GameEditEx
 	class sdTerrainSurfaceLayerBrush : public sdEditBrush
 	{
 	public:
+		sdTerrainSurfaceLayerBrush() : m_uiActiveLayerMap(0){}
+
 		// 虚函数继承
 		virtual EBrushType GetType() { return E_BRUSH_LAYER;}
 		virtual void Apply(const Base::Math::sdRay& kRay);
+
+		// 属性设置与访问
+		uint GetActiveLayerMap() const { return m_uiActiveLayerMap;}
+		void SetActiveLayerMap(uint uiIndex) { m_uiActiveLayerMap = uiIndex;}
+
+	protected:
+		// 当前激活图层
+		uint	m_uiActiveLayerMap;	
 	};
 	NiSmartPointer(sdTerrainSurfaceLayerBrush);
 }

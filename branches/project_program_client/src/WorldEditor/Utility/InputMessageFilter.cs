@@ -39,16 +39,17 @@ namespace WorldEditor
     //*****************************************************************************************
     class InputMessageFilter : IMessageFilter
     {
-        private MWorldEditor mWorldEditor;  // 主操作接口
+        // 场景编辑器模块
+        SceneModule.Module.SceneModule mSceneModule;
 
-        public InputMessageFilter(MWorldEditor worldEditor)
+        public InputMessageFilter(SceneModule.Module.SceneModule sceneModule)
         {
-            mWorldEditor = worldEditor;
+            mSceneModule = sceneModule;
         }
 
         public bool PreFilterMessage(ref Message m)
         {
-            mWorldEditor.WndProc(ref m);
+            mSceneModule.WndProc(ref m);
             return false;
         }
     }

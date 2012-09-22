@@ -30,8 +30,11 @@ sdWorldEditFSM::~sdWorldEditFSM()
 bool sdWorldEditFSM::Initialize()
 {
 	// 建立编辑状态,加入到状态机
-	AddState(new sdTerrainDeformMode);
-	AddState(new sdTerrainSurfaceMode);
+	sdTerrainDeformMode* pkTerrainDeformMode = new sdTerrainDeformMode;
+	AddState(pkTerrainDeformMode);
+
+	sdTerrainSurfaceMode* pkTerrainSurfaceMode = new sdTerrainSurfaceMode;
+	AddState(pkTerrainSurfaceMode);
 
 	// 初始化所有编辑状态
 	StateMapItr itr_state = m_kStateMap.begin();
@@ -42,6 +45,13 @@ bool sdWorldEditFSM::Initialize()
 		NIASSERT(pkEditMode);
 		pkEditMode->Initialize();
 	}
+
+	// 初始化帮助对象
+	m_pkEditHelper = NiNew sdEditHelper;
+	NIASSERT(m_pkEditHelper);
+
+	m_pkEditTerrainHelper = NiNew sdEditTerrainHelper(pkTerrainDeformMode, pkTerrainSurfaceMode);
+	NIASSERT(m_pkEditTerrainHelper);
 
 	// 绑定事件
 	BEGIN_EVENT(sdWorldEditFSM)
@@ -63,6 +73,10 @@ void sdWorldEditFSM::Destroy()
 		NIASSERT(pkEditMode);
 		pkEditMode->Destroy();
 	}
+
+	//
+	m_pkEditHelper = 0;
+	m_pkEditTerrainHelper = 0;
 }
 //-------------------------------------------------------------------------------------------------
 bool sdWorldEditFSM::OnEditModeSelect(const GameCore::stEventArg& kArgs)

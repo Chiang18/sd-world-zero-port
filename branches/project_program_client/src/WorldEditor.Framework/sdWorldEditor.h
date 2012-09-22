@@ -9,7 +9,7 @@
 #include <sdTimeMgr.h>
 #include <sdWorldEditFSM.h>
 
-class sdWorldEditor : public NiMemObject
+class sdWorldEditor : public Base::sdTSingleton<sdWorldEditor>
 {
 public:
 	sdWorldEditor();
@@ -29,11 +29,18 @@ public:
 
 	// @}
 
-	// 编辑模块
+	// 地形编辑模块
 	// @{
+	//void SetTerrainBrushInnerRadius(float fRadius);
+	//float GetTerrainBrushInnerRadius();
 
+	//void SetTerrainBrushOutterRadius(float fRadius);
+	//float GetTerrainBrushInnerRadius();
 
 	// @}
+
+	// 属性访问
+	GameEditEx::sdWorldEditFSM* GetWorldEditFSM(){ return &m_kWorldEditFSM;}
 
 	// 输入消息分发处理器
 	void	WndProc(int iMsg, WPARAM wParam, LPARAM lParam);

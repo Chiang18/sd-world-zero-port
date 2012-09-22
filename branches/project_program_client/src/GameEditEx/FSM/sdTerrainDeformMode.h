@@ -24,7 +24,10 @@ namespace GameEditEx
 		// Ðéº¯Êý¼Ì³Ð
 		virtual bool Initialize();
 		virtual void Destroy();
-		virtual int Update();
+
+		virtual void Enter();
+		virtual	void Leave();
+		virtual int	 Update();
 
 		virtual void OnMouseMove(WPARAM wParam, LPARAM lParam);
 		virtual void OnLeftButtonDown(WPARAM wParam, LPARAM lParam);

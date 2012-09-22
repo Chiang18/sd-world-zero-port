@@ -170,6 +170,26 @@
 			AssemblyName="System.Windows.Forms, Version=2.0.0.0, PublicKeyToken=b77a5c561934e089, processorArchitecture=MSIL"
 			MinFrameworkVersion="131072"
 		/>
+		<AssemblyReference
+			RelativePath="System.dll"
+			AssemblyName="System, Version=2.0.0.0, PublicKeyToken=b77a5c561934e089, processorArchitecture=MSIL"
+			MinFrameworkVersion="131072"
+		/>
+		<AssemblyReference
+			RelativePath="System.Data.dll"
+			AssemblyName="System.Data, Version=2.0.0.0, PublicKeyToken=b77a5c561934e089, processorArchitecture=x86"
+			MinFrameworkVersion="131072"
+		/>
+		<AssemblyReference
+			RelativePath="System.Drawing.dll"
+			AssemblyName="System.Drawing, Version=2.0.0.0, PublicKeyToken=b03f5f7f11d50a3a, processorArchitecture=MSIL"
+			MinFrameworkVersion="131072"
+		/>
+		<AssemblyReference
+			RelativePath="System.XML.dll"
+			AssemblyName="System.Xml, Version=2.0.0.0, PublicKeyToken=b77a5c561934e089, processorArchitecture=MSIL"
+			MinFrameworkVersion="131072"
+		/>
 	</References>
 	<Files>
 		<Filter
@@ -222,26 +242,6 @@
 				>
 			</File>
 			<Filter
-				Name="Mangered"
-				>
-				<File
-					RelativePath=".\MEventManager.cpp"
-					>
-				</File>
-				<File
-					RelativePath=".\MEventManager.h"
-					>
-				</File>
-				<File
-					RelativePath=".\MWorldEditor.cpp"
-					>
-				</File>
-				<File
-					RelativePath=".\MWorldEditor.h"
-					>
-				</File>
-			</Filter>
-			<Filter
 				Name="Unmanagered"
 				>
 				<File
@@ -256,6 +256,74 @@
 					RelativePath=".\sdWorldEditor_Input.cpp"
 					>
 				</File>
+			</Filter>
+			<Filter
+				Name="Mangered"
+				>
+				<Filter
+					Name="Base"
+					>
+					<File
+						RelativePath=".\MDisposable.cpp"
+						>
+					</File>
+					<File
+						RelativePath=".\MDisposable.h"
+						>
+					</File>
+					<File
+						RelativePath=".\MMacros.h"
+						>
+					</File>
+				</Filter>
+				<Filter
+					Name="Scene"
+					>
+					<File
+						RelativePath=".\MWorldEditor.cpp"
+						>
+					</File>
+					<File
+						RelativePath=".\MWorldEditor.h"
+						>
+					</File>
+					<File
+						RelativePath=".\MWorldEditorFSM.cpp"
+						>
+					</File>
+					<File
+						RelativePath=".\MWorldEditorFSM.h"
+						>
+					</File>
+				</Filter>
+				<Filter
+					Name="EditHelper"
+					>
+					<File
+						RelativePath=".\MEditTerrainHelper.cpp"
+						>
+					</File>
+					<File
+						RelativePath=".\MEditTerrainHelper.h"
+						>
+					</File>
+				</Filter>
+				<Filter
+					Name="Common"
+					>
+					<File
+						RelativePath=".\MEventManager.cpp"
+						>
+					</File>
+					<File
+						RelativePath=".\MEventManager.h"
+						>
+					</File>
+				</Filter>
+				<Filter
+					Name="Tool"
+					>
+				</Filter>
 			</Filter>
 		</Filter>
 		<Filter

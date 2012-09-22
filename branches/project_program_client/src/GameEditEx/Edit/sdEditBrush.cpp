@@ -67,9 +67,10 @@ void sdTerrainDeformPoolBrush::Apply(const sdRay& kRay)
 		uint uiHEndY = (uint)(fHEndY);
 
 		// 遍历高度像素,处理
-		//	1.添加偏移,变换到世界坐标系
+		//	1.变换到世界坐标系
 		//	2.获取权值
 		//	3.变换
+		static const float fPullSpeed = 3.0f;
 		float fFrameTime = sdTimeMgr::Instance().GetCurFrameTime();
 		for (uint uiHY = uiHStartY; uiHY < uiHEndY; ++uiHY)
 		{
@@ -81,7 +82,7 @@ void sdTerrainDeformPoolBrush::Apply(const sdRay& kRay)
 				{
 					float fWeight = pkDualCirlceShape->GetWeight(fX, fY);
 					float fOldHeight = pkTerrain->GetRawHeight(uiHX, uiHY);
-					pkTerrain->SetRawHeight(uiHX, uiHY, fOldHeight + fFrameTime * fWeight * 3.0f);
+					pkTerrain->SetRawHeight(uiHX, uiHY, fOldHeight + fFrameTime * fWeight * fPullSpeed);
 				}
 			}
 		}
@@ -258,7 +259,10 @@ void sdTerrainSurfaceLayerBrush::Apply(const sdRay& kRay)
 
 		// 遍历BlendMap像素,处理
 		//	1.变换到世界坐标系
-		//	3.填充新值
+		//	2.获取权值
+		//	3.变换
+		static const float fPaintSpeed = 10.0f;
+		float fFrameTime = sdTimeMgr::Instance().GetCurFrameTime();
 		for (uint uiBY = uiBStartY; uiBY < uiBEndY; ++uiBY)
 		{
 			float fY = (uiBY + 0.5f) * fScale + kOrigin.y; 
@@ -267,19 +271,17 @@ void sdTerrainSurfaceLayerBrush::Apply(const sdRay& kRay)
 				float fX = (uiBX + 0.5f) * fScale + kOrigin.x;
 				if (pkDualCirlceShape->InShape(fX, fY))
 				{
-					float fWeight = pkDualCirlceShape->GetWeight(fX, fY);
-
-					uint uiOldBlend = pkTerrain->GetBlendMapData(uiBX, uiBY, 0);
-					uiOldBlend += 10;
-					uiOldBlend = uiOldBlend > 255 ? 255 : uiOldBlend;
-
-					pkTerrain->SetBlendMapData(uiBX, uiBY, 0, uiOldBlend);
+					//float fWeight = pkDualCirlceShape->GetWeight(fX, fY);
+					//float fBias = fFrameTime * fWeight * fPaintSpeed;
+					//uint uiOldBlend = pkTerrain->GetBlendMapData(uiBX, uiBY, m_uiActiveLayerMap);
+					//pkTerrain->SetBlendMapData(uiBX, uiBY, m_uiActiveLayerMap, (uchar)NiClamp(uiOldBlend + fBias, 0.0, 128.0f));
+					pkTerrain->SetBlendMapData(uiBX, uiBY, m_uiActiveLayerMap, 255);
 				}
 			}
 		}
 
 		// 更新纹理
-		
+		pkTerrain->UpdateBlendMap(kIntersect.m_fX, kIntersect.m_fY, fOuterRadius);
 
 		// 更新笔刷
 		m_pkBrushShape->SetTranslate(kIntersect.m_fX, kIntersect.m_fY, 0);

@@ -6,27 +6,23 @@ using System.Drawing;
 using System.Linq;
 using System.Text;
 using System.Windows.Forms;
-using System.IO;
 using System.Runtime.InteropServices; 
 using WeifenLuo.WinFormsUI.Docking;
-using WorldEditorFramework;
+using WorldEditor.SceneModule;
 
-namespace WorldEditor
+namespace WorldEditor.Window
 {
     public partial class FormMain : Form
     {
-        private MWorldEditor mWorldEditor;  // 主操作接口
-
-        private SceneForm mSceneForm;       // 主窗口
-        private OperateForm mOperateForm;   // 操作窗口
+        // 场景编辑器模块
+        SceneModule.Module.SceneModule mSceneModule;
 
         public FormMain()
         {
             InitializeComponent();
 
-            // 新建窗口对象
-            mOperateForm = new OperateForm();
-            mSceneForm = new SceneForm();
+            // 
+            mSceneModule = SceneModule.Module.SceneModule.Instance;
         }
 
         // 系统更新回调函数
@@ -40,8 +36,7 @@ namespace WorldEditor
                     // 窗口可见,且非最小化
                     //
                     // 更新操作接口
-                    if (mWorldEditor != null)
-                        mWorldEditor.Update();
+                    mSceneModule.Update();
                 }
 
                 // 如果消息队列为空,则循环
@@ -50,7 +45,7 @@ namespace WorldEditor
 
                 // 休眠
                 System.Threading.Thread.Sleep(1);
-            } 
+            }
             while (bIdle);
         }
 
@@ -60,23 +55,6 @@ namespace WorldEditor
         //*****************************************************************************************
         private void FormMain_Load(object sender, EventArgs e)
         {
-            // 加载配置界面
-            String szConfigFile = Path.Combine(Path.GetDirectoryName(Application.ExecutablePath), "WorldEditor.DockPanel.config");
-            if (File.Exists(szConfigFile))
-            {
-                DeserializeDockContent mDeserializeDockContent = new DeserializeDockContent(GetDockContentFromPersistString);
-                this.dockPanelMain.LoadFromXml(szConfigFile, mDeserializeDockContent);
-            }
-            else
-            {
-                this.mOperateForm.Show(this.dockPanelMain, DockState.DockRight);
-                this.mSceneForm.Show(this.dockPanelMain, DockState.DockLeft);
-            }
-
-            // 初始化操作接口
-            this.mWorldEditor = new MWorldEditor();
-            this.mWorldEditor.Initialize(this.mSceneForm.Handle);
-
             // 向应用程序注册更新回调函数
             //  
             // 实现自动Update有两种方式:
@@ -86,29 +64,19 @@ namespace WorldEditor
             Application.Idle += new EventHandler(this.FormMain_Idle);
 
             // 向应用程序注册消息过滤器(用于捕捉输入消息)
-            Application.AddMessageFilter(new InputMessageFilter(this.mWorldEditor));
+            Application.AddMessageFilter(new InputMessageFilter(this.mSceneModule));
+
+            //
+            mSceneModule.Initialize(this.dockPanelMain);
         }
 
         private void FormMain_FormClosing(object sender, FormClosingEventArgs e)
         {
-            // 保存配置界面
-            String szConfigFile = Path.Combine(Path.GetDirectoryName(Application.ExecutablePath), "WorldEditor.DockPanel.config");
-            this.dockPanelMain.SaveAsXml(szConfigFile);
+            //
+            mSceneModule.Destroy(this.dockPanelMain);
         }
         //*****************************************************************************************
         // @}
-
-
-        // 用于DockPanel的布局保存
-        private IDockContent GetDockContentFromPersistString(string szPersist)
-        {
-            if (typeof(SceneForm).ToString() == szPersist)
-                return mSceneForm;
-            else if (typeof(OperateForm).ToString() == szPersist)
-                return mOperateForm;
-            else
-                return null;
-        }
 
 
         // @{
@@ -122,10 +90,10 @@ namespace WorldEditor
 
         private void saveToolStripMenuItem_Click(object sender, EventArgs e)
         {
-            if (mWorldEditor != null)
-            {
-                mWorldEditor.SaveScene();
-            }
+            //if (mWorldEditor != null)
+            //{
+            //    mWorldEditor.SaveScene();
+            //}
         }
         //*****************************************************************************************
         // @}

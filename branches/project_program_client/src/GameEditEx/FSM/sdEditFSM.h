@@ -29,6 +29,9 @@ namespace GameEditEx
 		// @{
 		virtual void OnKeyDown(WPARAM wParam, LPARAM lParam);
 		virtual void OnKeyUp(WPARAM wParam, LPARAM lParam);
+		virtual void OnMouseEnter(){};
+		virtual void OnMouseLeave(){};
+		virtual void OnMouseHover(){};
 		virtual void OnMouseWheel(WPARAM wParam, LPARAM lParam);
 		virtual void OnMouseMove(WPARAM wParam, LPARAM lParam);
 		virtual void OnLeftButtonDown(WPARAM wParam, LPARAM lParam);

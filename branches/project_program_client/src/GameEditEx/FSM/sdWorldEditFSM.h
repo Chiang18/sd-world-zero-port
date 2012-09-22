@@ -12,6 +12,9 @@
 #include <sdEditFSM.h>
 #include <sdEventArg.h>
 
+#include "sdEditHelper.h"
+#include "sdEditTerrainHelper.h"
+
 namespace GameEditEx
 {
 	// 世界编辑状态机
@@ -25,6 +28,10 @@ namespace GameEditEx
 		virtual bool Initialize();
 		virtual void Destroy();
 
+		// 属性访问
+		sdEditHelper* GetEditHelper() const { return m_pkEditHelper;}
+		sdEditTerrainHelper* GetEditTerrainHelper() const { return m_pkEditTerrainHelper;}
+
 	protected:
 		// 事件处理,用于与Event绑定
 		// @{
@@ -35,6 +42,10 @@ namespace GameEditEx
 		virtual bool OnEditModeTerrainDeform(const GameCore::stEventArg& kArgs);
 		virtual bool OnEditModeTerrainSurface(const GameCore::stEventArg& kArgs);
 		// @}
+
+	protected:
+		sdEditHelperPtr			m_pkEditHelper;
+		sdEditTerrainHelperPtr	m_pkEditTerrainHelper;
 	};
 }
 #endif
