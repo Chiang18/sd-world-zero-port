@@ -1,4 +1,4 @@
-﻿namespace WorldEditor
+﻿namespace WorldEditor.Window
 {
     partial class FormMain
     {
@@ -53,7 +53,7 @@
             this.ToolStripMenuItemHelp});
             this.menuStrip.Location = new System.Drawing.Point(0, 0);
             this.menuStrip.Name = "menuStrip";
-            this.menuStrip.Size = new System.Drawing.Size(651, 24);
+            this.menuStrip.Size = new System.Drawing.Size(992, 24);
             this.menuStrip.TabIndex = 0;
             this.menuStrip.Text = "主菜单";
             // 
@@ -109,15 +109,15 @@
             // 
             this.toolStripMain.Location = new System.Drawing.Point(0, 24);
             this.toolStripMain.Name = "toolStripMain";
-            this.toolStripMain.Size = new System.Drawing.Size(651, 25);
+            this.toolStripMain.Size = new System.Drawing.Size(992, 25);
             this.toolStripMain.TabIndex = 1;
             this.toolStripMain.Text = "主工具栏";
             // 
             // statusStripMain
             // 
-            this.statusStripMain.Location = new System.Drawing.Point(0, 463);
+            this.statusStripMain.Location = new System.Drawing.Point(0, 744);
             this.statusStripMain.Name = "statusStripMain";
-            this.statusStripMain.Size = new System.Drawing.Size(651, 22);
+            this.statusStripMain.Size = new System.Drawing.Size(992, 22);
             this.statusStripMain.TabIndex = 2;
             this.statusStripMain.Text = "statusStrip1";
             // 
@@ -127,7 +127,7 @@
             this.dockPanelMain.Dock = System.Windows.Forms.DockStyle.Fill;
             this.dockPanelMain.Location = new System.Drawing.Point(0, 49);
             this.dockPanelMain.Name = "dockPanelMain";
-            this.dockPanelMain.Size = new System.Drawing.Size(651, 414);
+            this.dockPanelMain.Size = new System.Drawing.Size(992, 695);
             this.dockPanelMain.TabIndex = 3;
             // 
             // timerMain
@@ -138,11 +138,12 @@
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 12F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.ClientSize = new System.Drawing.Size(651, 485);
+            this.ClientSize = new System.Drawing.Size(992, 766);
             this.Controls.Add(this.dockPanelMain);
-            this.Controls.Add(this.statusStripMain);
             this.Controls.Add(this.toolStripMain);
             this.Controls.Add(this.menuStrip);
+            this.Controls.Add(this.statusStripMain);
+            this.IsMdiContainer = true;
             this.MainMenuStrip = this.menuStrip;
             this.Name = "FormMain";
             this.Text = "世界编辑器";
@@ -160,15 +161,15 @@
         private System.Windows.Forms.MenuStrip menuStrip;
         private System.Windows.Forms.ToolStrip toolStripMain;
         private System.Windows.Forms.ToolStripMenuItem ToolStripMenuItemFile;
+        private System.Windows.Forms.ToolStripMenuItem newToolStripMenuItem;
+        private System.Windows.Forms.ToolStripMenuItem openToolStripMenuItem;
+        private System.Windows.Forms.ToolStripMenuItem saveToolStripMenuItem;
         private System.Windows.Forms.ToolStripMenuItem ToolStripMenuItemEdit;
         private System.Windows.Forms.ToolStripMenuItem ToolStripMenuItemView;
         private System.Windows.Forms.ToolStripMenuItem ToolStripMenuItemHelp;
         private System.Windows.Forms.StatusStrip statusStripMain;
         private WeifenLuo.WinFormsUI.Docking.DockPanel dockPanelMain;
         private System.Windows.Forms.Timer timerMain;
-        private System.Windows.Forms.ToolStripMenuItem newToolStripMenuItem;
-        private System.Windows.Forms.ToolStripMenuItem openToolStripMenuItem;
-        private System.Windows.Forms.ToolStripMenuItem saveToolStripMenuItem;
     }
 }
 

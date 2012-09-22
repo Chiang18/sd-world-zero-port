@@ -1,6 +1,6 @@
-﻿namespace WorldEditor
+﻿namespace WorldEditor.SceneModule.Window
 {
-    partial class SceneForm
+    partial class SettingForm
     {
         /// <summary>
         /// Required designer variable.
@@ -28,25 +28,9 @@
         /// </summary>
         private void InitializeComponent()
         {
-            this.SuspendLayout();
-            // 
-            // SceneForm
-            // 
-            this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 12F);
+            this.components = new System.ComponentModel.Container();
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.BackColor = System.Drawing.SystemColors.ActiveBorder;
-            this.ClientSize = new System.Drawing.Size(433, 321);
-            this.ControlBox = false;
-            this.FormBorderStyle = System.Windows.Forms.FormBorderStyle.None;
-            this.MaximizeBox = false;
-            this.MinimizeBox = false;
-            this.Name = "SceneForm";
-            this.ShowIcon = false;
-            this.ShowInTaskbar = false;
-            this.TabText = "SceneForm";
-            this.Text = "SceneForm";
-            this.ResumeLayout(false);
-
+            this.Text = "SettingForm";
         }
 
         #endregion

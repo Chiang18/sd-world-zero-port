@@ -35,6 +35,12 @@ namespace GameEditEx
 		// Ðéº¯Êý¼Ì³Ð
 		void UpdateShape();
 
+		// ÊôÐÔ
+		void SetInnerRadius(float fInnerRadius) { m_fInnerRadius = fInnerRadius;}
+		void SetOuterRadius(float fOuterRadius) { m_fOuterRadius = fOuterRadius;}
+		float GetInnerRadius() const { return m_fInnerRadius;}
+		float GetOuterRadius() const { return m_fOuterRadius;}
+
 	protected:
 		void CreateInnerCircle();
 		void CreateOutterCirlce();

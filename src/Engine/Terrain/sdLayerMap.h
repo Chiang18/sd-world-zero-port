@@ -21,6 +21,7 @@ public:
 
 	//
 	const std::string&	GetName() const { return m_szName;}
+	void				SetName(const std::string& szName) {m_szName = szName;}
 
 	const std::string&	GetDiffuseMapPath() const { return m_szDiffuseMap;}
 	void				SetDiffuseMapPath(const std::string& szName);

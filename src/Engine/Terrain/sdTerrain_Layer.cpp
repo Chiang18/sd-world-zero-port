@@ -6,6 +6,27 @@ using namespace RenderSystem;
 
 uint sdTerrain::ms_uiMaxLayerCount = 48;
 //-------------------------------------------------------------------------------------------------
+sdLayerMap* sdTerrain::GetLayerMap(uint uiIndex)
+{
+	if (uiIndex >= m_kLayerMapVec.size())
+		return NULL;
+
+	return m_kLayerMapVec[uiIndex];
+}
+//-------------------------------------------------------------------------------------------------
+sdLayerMap* sdTerrain::GetLayerMap(const char* szName)
+{
+	LayerMapVecItr itr_layer = m_kLayerMapVec.begin();
+	LayerMapVecItr itr_layer_end = m_kLayerMapVec.end();
+	for (; itr_layer != itr_layer_end; ++itr_layer)
+	{
+		if ((*itr_layer)->GetName() == szName)
+			return *itr_layer;
+	}
+
+	return NULL;
+}
+//-------------------------------------------------------------------------------------------------
 bool sdTerrain::AppendLayer(sdLayerMap* pkLayerMap)
 {
 	NIASSERT(pkLayerMap);
@@ -80,11 +101,6 @@ void sdTerrain::UpdateBlendMap(float fCenterX, float fCenterY, float fRadius)
 	if (!m_bEnableEditMaterial)
 		return;
 
-	// 脏标记没有被设置则直接返回
-	if (!m_bDirtyLayerMapVec)
-		return;
-	m_bDirtyLayerMapVec = false;
-
 	NIASSERT(m_pkDynamicBlendMap);
 	NIASSERT(m_pkDynamicTileMap);
 
@@ -104,15 +120,15 @@ void sdTerrain::UpdateBlendMap(float fCenterX, float fCenterY, float fRadius)
 	float fBEndX	= (fEndX - m_kOrigin.x) / fTotalScale;
 	float fBEndY	= (fEndY - m_kOrigin.y) / fTotalScale;
 
-	if (fBStartX >= (float)m_uiBlendTexSize)	return;
-	if (fBStartY >= (float)m_uiBlendTexSize)	return;
-	if (fBEndX >= (float)m_uiBlendTexSize)	return;
-	if (fBEndY >= (float)m_uiBlendTexSize)	return;
+	if (fBStartX > (float)m_uiBlendTexSize)	return;
+	if (fBStartY > (float)m_uiBlendTexSize)	return;
+	if (fBEndX < 0.0f)	return;
+	if (fBEndY < 0.0f)	return;
  
-	uint uiBStartX	= (uint)min(floor(fBStartX), 0.0f);
-	uint uiBStartY	= (uint)min(floor(fBStartY), 0.0f);
-	uint uiBEndX	= (uint)max(floor(fBEndX), m_uiBlendTexSize);
-	uint uiBEndY	= (uint)max(floor(fBEndY), m_uiBlendTexSize);
+	uint uiBStartX	= (uint)max(floor(fBStartX), 0.0f);
+	uint uiBStartY	= (uint)max(floor(fBStartY), 0.0f);
+	uint uiBEndX	= (uint)min(floor(fBEndX), m_uiBlendTexSize);
+	uint uiBEndY	= (uint)min(floor(fBEndY), m_uiBlendTexSize);
 
 	// 转换到TexTile像素坐标系(左闭右开)
 	uint uiStartTileX	= uiBStartX / m_uiTexTileSize;	// 向下取整
@@ -257,7 +273,7 @@ void sdTerrain::UpdateBlendMap(float fCenterX, float fCenterY, float fRadius)
 						float fWeight = 0.0f;
 						uint uiVisLayer = kVisLayers[uiLayer];
 
-						fWeight = kWeights[uiBlendY * m_uiTexTileSize + uiBlendX + uiVisLayer];
+						fWeight = kWeights[(uiBlendY * uiTexTileSizeEx + uiBlendX) * uiNumLayers + uiVisLayer];
 						//fWeight += kWeights[kFilterMap.uiIdx[0] + uiVisLayer] * kFilterMap.fWeight[0];
 						//fWeight += kWeights[kFilterMap.uiIdx[1] + uiVisLayer] * kFilterMap.fWeight[1];
 						//fWeight += kWeights[kFilterMap.uiIdx[2] + uiVisLayer] * kFilterMap.fWeight[2];

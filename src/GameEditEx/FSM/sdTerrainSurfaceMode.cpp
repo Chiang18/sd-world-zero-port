@@ -42,10 +42,13 @@ bool sdTerrainSurfaceMode::Initialize()
 
 	sdDualCircleMeshPtr pkDualCircleMesh = NiNew sdDualCircleMesh;
 	NIASSERT(pkDualCircleMesh);
-	pkMap->GetDebugNode()->AttachChild((NiAVObject*)(sdDualCircleMesh*)pkDualCircleMesh);
+	pkDualCircleMesh->SetOuterRadius(10.0f);
+	pkDualCircleMesh->SetInnerRadius(10.0f);
 
 	sdDualCircleShapePtr pkDualCircleShape = NiNew sdDualCircleShape;
 	NIASSERT(pkDualCircleShape);
+	pkDualCircleShape->SetOuterRadius(10.0f);
+	pkDualCircleShape->SetInnerRadius(10.0f);
 
 	sdTerrainSurfaceLayerBrushPtr pkTerrainSurfaceLayerBrush = NiNew sdTerrainSurfaceLayerBrush;
 	NIASSERT(pkTerrainSurfaceLayerBrush);
@@ -60,6 +63,38 @@ bool sdTerrainSurfaceMode::Initialize()
 void sdTerrainSurfaceMode::Destroy()
 {
 	m_pkEditBrush = 0;
+}
+//-------------------------------------------------------------------------------------------------
+void sdTerrainSurfaceMode::Enter()
+{
+	__super::Enter();
+
+	//
+	sdRenderSystem* pkRenderSystem = sdRenderSystem::InstancePtr();
+	NIASSERT(pkRenderSystem);
+
+	sdMap* pkMap = pkRenderSystem->GetMap();
+	NIASSERT(pkMap);
+
+	//
+	if (m_pkEditBrush)
+		pkMap->GetDebugNode()->AttachChild(m_pkEditBrush->GetBrushShape());
+}
+//-------------------------------------------------------------------------------------------------
+void sdTerrainSurfaceMode::Leave()
+{
+	__super::Leave();
+
+	//
+	sdRenderSystem* pkRenderSystem = sdRenderSystem::InstancePtr();
+	NIASSERT(pkRenderSystem);
+
+	sdMap* pkMap = pkRenderSystem->GetMap();
+	NIASSERT(pkMap);
+
+	//
+	if (m_pkEditBrush)
+		pkMap->GetDebugNode()->DetachChild(m_pkEditBrush->GetBrushShape());
 }
 //-------------------------------------------------------------------------------------------------
 int sdTerrainSurfaceMode::Update()

@@ -70,31 +70,16 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="Form\OperateForm.cs">
+    <Compile Include="Window\FormMain.cs">
       <SubType>Form</SubType>
     </Compile>
-    <Compile Include="Form\OperateForm.Designer.cs">
-      <DependentUpon>OperateForm.cs</DependentUpon>
-    </Compile>
-    <Compile Include="Form\SceneForm.cs">
-      <SubType>Form</SubType>
-    </Compile>
-    <Compile Include="Form\SceneForm.Designer.cs">
-      <DependentUpon>SceneForm.cs</DependentUpon>
-    </Compile>
-    <Compile Include="Form\FormMain.cs">
-      <SubType>Form</SubType>
-    </Compile>
-    <Compile Include="Form\FormMain.Designer.cs">
+    <Compile Include="Window\FormMain.Designer.cs">
       <DependentUpon>FormMain.cs</DependentUpon>
     </Compile>
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
-    <EmbeddedResource Include="Form\FormMain.resx">
+    <EmbeddedResource Include="Window\FormMain.resx">
       <DependentUpon>FormMain.cs</DependentUpon>
-    </EmbeddedResource>
-    <EmbeddedResource Include="Form\SceneForm.resx">
-      <DependentUpon>SceneForm.cs</DependentUpon>
     </EmbeddedResource>
     <EmbeddedResource Include="Properties\Resources.resx">
       <Generator>ResXFileCodeGenerator</Generator>
@@ -117,6 +102,12 @@
     </Compile>
     <Compile Include="Utility\InputMessageFilter.cs" />
     <Compile Include="Utility\NativeMethod.cs" />
+    <Compile Include="Window\SplashForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Window\SplashForm.Designer.cs">
+      <DependentUpon>SplashForm.cs</DependentUpon>
+    </Compile>
   </ItemGroup>
   <ItemGroup>
     <BootstrapperPackage Include="Microsoft.Net.Client.3.5">
@@ -151,9 +142,21 @@
     </BootstrapperPackage>
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="..\WorldEditor.Base\WorldEditor.Base.csproj">
+      <Project>{EEBB2BD1-295D-4860-B66B-D5B6FC551309}</Project>
+      <Name>WorldEditor.Base</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\WorldEditor.Common\WorldEditor.Common.csproj">
+      <Project>{12FF30C7-2BC6-4654-AEF0-3A086C4A42C6}</Project>
+      <Name>WorldEditor.Common</Name>
+    </ProjectReference>
     <ProjectReference Include="..\WorldEditor.Framework\WorldEditor.Framework.vcproj">
       <Project>{4D38AA87-1783-4AB6-ACB1-0632A19BD31C}</Project>
       <Name>WorldEditor.Framework</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\WorldEditor.SceneModule\WorldEditor.SceneModule.csproj">
+      <Project>{E5FA8D31-3992-4D8E-B275-4755B4CCA02A}</Project>
+      <Name>WorldEditor.SceneModule</Name>
     </ProjectReference>
   </ItemGroup>
   <ItemGroup>
@@ -161,6 +164,7 @@
     <Folder Include="Dialog\" />
     <Folder Include="Module\" />
     <Folder Include="Resource\" />
+    <Folder Include="Widget\" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 

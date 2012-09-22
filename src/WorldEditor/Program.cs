@@ -18,7 +18,7 @@ namespace WorldEditor
             //Application.SetCompatibleTextRenderingDefault(false);
 
             // 新建主窗口,运行
-            Application.Run(new FormMain());
+            Application.Run(new WorldEditor.Window.FormMain());
         }
     }
 }
