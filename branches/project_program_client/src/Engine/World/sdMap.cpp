@@ -38,7 +38,7 @@ bool sdMap::CreateScene()
 
 	sdLayerMap* pkLayerMap = NiNew sdLayerMap("Default", 
 		"E:\\project_game\\edata\\world0\\texture\\terrain\\ice_broken.dds",
-		"E:\\project_game\\edata\\world0\\texture\\terrain\\ice_broken_ddn.dds");
+		"E:\\project_game\\edata\\world0\\texture\\terrain\\ice_broken_ddn.dds", 10.0);
 	m_kTerrain.AppendLayer(pkLayerMap);
 
 	pkLayerMap = NiNew sdLayerMap("Default1", 
@@ -67,9 +67,38 @@ bool sdMap::CreateScene()
 	m_kTerrain.AppendLayer(pkLayerMap);
 	
 	m_kTerrain.UpdateBlendMap(0, 0, 10000);
+	m_kTerrain.RepackMaps();
 	//*************************************************
 
-	// 更新一次节点
+	// 灯光
+	// @{
+	m_pkAmbientLight = NiNew sdLight(sdLight::E_LT_AMBIENT);
+	NIASSERT(m_pkAmbientLight);
+	m_pkAmbientLight->SetAmbientColor(NiColor::BLACK);
+	m_pkAmbientLight->SetDiffuseColor(NiColor::BLACK);
+
+	m_pkMainLight = NiNew sdLight(sdLight::E_LT_DIR);
+	NIASSERT(m_pkMainLight);
+
+	NiMatrix3 kRotation;
+	kRotation.FromEulerAnglesXYZ(0, -NI_PI/4.0f, -NI_PI/4.0f);
+	m_pkMainLight->SetRotate(kRotation);
+	m_pkMainLight->SetAmbientColor(NiColor::BLACK);
+	m_pkMainLight->SetDiffuseColor(NiColor::WHITE);
+	m_pkMainLight->SetSpecularColor(NiColor::BLACK);
+	m_pkMainLight->SetDimmer(1.0f);
+	m_pkMainLight->Update(0.0f);
+
+	m_pkAssistantLight = NiNew sdLight(sdLight::E_LT_DIR);
+	NIASSERT(m_pkAssistantLight);
+	m_pkAssistantLight->SetAmbientColor(NiColor::BLACK);
+	m_pkAssistantLight->SetDiffuseColor(NiColor::BLACK);
+	m_pkAssistantLight->SetSpecularColor(NiColor::BLACK);
+	m_pkAssistantLight->SetDimmer(1.0f);
+	m_pkAssistantLight->Update(0.0f);
+	// @}
+
+	// 更新Debug节点
 	m_spDebugNode->Update(0.0f);
 
 
@@ -77,6 +106,21 @@ bool sdMap::CreateScene()
 	// 
 	m_kRenderParams.Reset();
 	m_kRenderParams.EnableChannel(sdRenderParams::E_TERRAIN, sdRenderParams::E_NORMALMAP, false);
+
+
+	return true;
+}
+//-------------------------------------------------------------------------------------------------
+bool sdMap::AddEntity(sdEntity* pkEntity)
+{
+	if (NULL == pkEntity)
+		return false;
+
+	return true;
+}
+//-------------------------------------------------------------------------------------------------
+bool sdMap::RemoveEntity(sdEntity* pkEntity)
+{
 
 
 	return true;

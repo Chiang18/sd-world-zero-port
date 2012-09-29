@@ -57,7 +57,8 @@ VS_OUTPUT VS_Main(VS_INPUT kInput)
 	kOutput.vUVFarClipWorldPos = vUVFarClipWorldPos.xyz;
 	
 	// 当前点对应远裁剪面上的点的观察坐标
-	// (替换掉w分量是为了避免计算误差累积?)
+	//	1.需要g_mView的平移变换,所以要恢复float4
+	// 	2.替换掉w分量是避免计算误差累积
 	kOutput.vUVFarClipViewPos  = mul(float4(vUVFarClipWorldPos.xyz, 1.0), g_mView).xyz;
 	
 	return kOutput;
@@ -85,18 +86,20 @@ float4 PS_Main_BaseNormal(VS_OUTPUT kInput) : COLOR0
 	// 计算当前点的地形相对UV(注意,这里没有偏移半像素,因为BaseNormalMap是Linear采样的)
 	float2 vUVSet = vWorldPos.xy * g_vRecipTerrainSize.xy;
 	
-	// 根据UV采样NormalMa
+	// 根据UV采样NormalMap
 	float4 vBaseNormalTex 	= tex2D(sdBaseNormalSampler, vUVSet);
 	
 	// 解出世界空间法线
 	float3 vWorldNormal;
 	vWorldNormal.xy	= vBaseNormalTex.xy * 2.0 - 1.0;
-	vWorldNormal.z 	= sqrt(dot(float3(1.0, vBaseNormalTex.xy), float3(1.0, -vBaseNormalTex.xy)));
+	vWorldNormal.z 	= sqrt(dot(float3(1.0, vWorldNormal.xy), float3(1.0, -vWorldNormal.xy)));
 	
 	// 变换Normal到观察空间
-	float3 vViewNormal = mul(float4(vWorldNormal.xyz, 0.0), g_mView).xyz;
+	// 	1.需要乘以逆转置矩阵,
+	//	2.ViewMatrix旋转部分是正交矩阵,平移部分不是,我们只需要旋转变换
+	//	3.g_mView与g_mInvViewT旋转部分应该是一样的
+	float3 vViewNormal = mul(vWorldNormal.xyz, g_mView);
 	// @}
-	
 	
 	// 输出打包的法线和深度
 	return float4(vPackedDepth, PackNormal(vViewNormal));
@@ -129,13 +132,13 @@ float4 PS_Main_Far_BaseNormal(VS_OUTPUT kInput) : COLOR0
 	// 解出世界空间法线
 	float3 vWorldNormal;
 	vWorldNormal.xy	= vBaseNormalTex.xy * 2.0 - 1.0;
-	vWorldNormal.z 	= sqrt(dot(float3(1.0, vBaseNormalTex.xy), float3(1.0, -vBaseNormalTex.xy)));
+	vWorldNormal.z 	= sqrt(dot(float3(1.0, vWorldNormal.xy), float3(1.0, -vWorldNormal.xy)));
 	
-	// 变换Normal到观察空间
-	float3 vViewNormal = mul(float4(vWorldNormal.xyz, 0.0), g_mView).xyz;
+	// 变换Normal到观察空间(注意需要乘以逆转置矩阵,不过ViewMatrix旋转部分是正交矩阵,平移部分不是)
+	float3 vViewNormal = mul(vWorldNormal.xyz, g_mInvViewT);
 	// @}
-	
-	
+
+
 	// 输出打包的法线和深度
 	return float4(vPackedDepth, PackNormal(vViewNormal));
 }
@@ -164,7 +167,7 @@ float4 PS_Main_Near_BaseNormalAndNormalMap(VS_OUTPUT kInput) : COLOR0
 	// 解出世界空间法线
 	float3 vWorldNormal;
 	vWorldNormal.xy	= vBaseNormalTex.xy * 2.0 - 1.0;
-	vWorldNormal.z 	= sqrt(dot(float3(1.0, vBaseNormalTex.xy), float3(1.0, -vBaseNormalTex.xy)));
+	vWorldNormal.z 	= sqrt(dot(float3(1.0, vWorldNormal.xy), float3(1.0, -vWorldNormal.xy)));
 	
 	// 解出倾斜情况
 	float3 vPlanarWeight;
@@ -179,7 +182,7 @@ float4 PS_Main_Near_BaseNormalAndNormalMap(VS_OUTPUT kInput) : COLOR0
 	float3 vIndices = tex2D(sdTileSampler, vUVSet).xyz * 255.0;
 	// @}
 	
-	
+
 	// BlendMap
 	// @{
 	// 计算新的UV(不解,大概是为了在Tile边缘进行融合)
@@ -219,8 +222,8 @@ float4 PS_Main_Near_BaseNormalAndNormalMap(VS_OUTPUT kInput) : COLOR0
 	
 	// 计算图集UV
 	float4 vUVSetTable;
-	vUVSetTable.xyz = saturate(vIndices.bgr * g_fAtlasIdScale + g_fAtlasIdOffset);
-	vUVSetTable.w	= saturate(max(vLodLevel.x, vLodLevel.y) * g_fAtlasLevelScale + g_fAtlasLevelOffset);
+	vUVSetTable.xyz = saturate(vIndices.bgr * g_fNormalAtlasIdScale + g_fNormalAtlasIdOffset);
+	vUVSetTable.w	= saturate(max(vLodLevel.x, vLodLevel.y) * g_fNormalAtlasLevelScale + g_fNormalAtlasLevelOffset);
 	
 	// 贴图混合
 	float3 vNormal = SamplerAtlasMap(sdNormalAtlasSampler, sdAtlasTableSampler, vUVSetTable.xw, vUVSet2) * vBlendTex.b +

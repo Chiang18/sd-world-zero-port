@@ -8,6 +8,10 @@
 #include <sdMatrix4.h>
 
 //
+#include "sdMap.h"
+#include "sdLight.h"
+
+//
 using namespace Base::Math;
 
 namespace RenderSystem
@@ -170,6 +174,9 @@ void sdRenderPath_DX9::PrepareShaderConstants()
 	sdRenderDevice* pkRenderDevice = sdRenderDevice_DX9::InstancePtr();
 	NIASSERT(pkRenderDevice);
 
+	uint uiWidth = pkRenderDevice->GetDefaultRenderTargetGroup()->GetWidth(0);
+	uint uiHeight = pkRenderDevice->GetDefaultRenderTargetGroup()->GetHeight(0);
+
 	// 相机
 	// @{
 	// 相机姿态
@@ -231,20 +238,7 @@ void sdRenderPath_DX9::PrepareShaderConstants()
 	bool bAmbientLight	= m_kRenderParams.IsEnableChannel(sdRenderParams::E_BUILDING, sdRenderParams::E_AMBIENTLIGHT);
 	bool bLocalLight	= m_kRenderParams.IsEnableChannel(sdRenderParams::E_BUILDING, sdRenderParams::E_LOCALLIGHT);
 
-	NiColor kTerrainAmbientColor(0.0f, 0.0f, 0.0f);
-	NiColor kSkyAmbientColor(0.0f, 0.0f, 0.0f);
-
-	sdVector3 kMainLightDir(0.0f, 0.0f, -1.0f);
-	NiColor kMainLightColor(1.0f, 1.0f, 1.0f);
-	NiColor kMainLightAmbient(0.0f, 0.0f, 0.0f);
-
-	sdVector3 kAssistLightDir(1.0f, -1.0f, -1.0f);
-	NiColor kAssistLightColor(0.0f, 0.0f, 0.0f);
-	NiColor kAssistLightAmbient(0.0f, 0.0f, 0.0f);
-
-	NiPoint4 kLightFactor(1.0f, 1.0f, 1.0f, 1.0f);
-
-	// 观察矩阵的旋转矩阵
+	// 观察矩阵的旋转矩阵(D3D观察坐标系,向右为X,向上为Y,向前为Z)
 	sdMatrix3 kViewRotationMatrix(
 		kCamRight.x, kCamUp.x, kCamDir.x,
 		kCamRight.y, kCamUp.y, kCamDir.y,
@@ -253,10 +247,21 @@ void sdRenderPath_DX9::PrepareShaderConstants()
 	// 主光
 	if (bMainLight)
 	{
+		sdLight* pkMainLight = m_pkCurMap->GetMainLight();
+		NIASSERT(pkMainLight);
+
+		NiDirectionalLight* pkMainGBLight = (NiDirectionalLight*)pkMainLight->GetGBLight();
+		NIASSERT(pkMainGBLight);
+
+		const NiPoint3& kDir = pkMainGBLight->GetWorldDirection();
+		//sdVector3 kMainLightDir(kDir.x, kDir.y, kDir.z);
+		sdVector3 kMainLightDir(-1, 1, -1);
 		sdVector3 kMainLightViewDir = kMainLightDir * kViewRotationMatrix;
 		kMainLightViewDir.Normalise();
-
 		pkRenderDevice->SetGlobalShaderConstant("g_vMainLightDir", sizeof(kMainLightViewDir), &kMainLightViewDir);
+		
+		NiColor kMainLightColor = pkMainGBLight->GetDiffuseColor() * pkMainGBLight->GetDimmer();
+		NiColor kMainLightAmbient = pkMainGBLight->GetAmbientColor() * pkMainGBLight->GetDimmer();
 		pkRenderDevice->SetGlobalShaderConstant("g_vMainLightColor", sizeof(kMainLightColor), &kMainLightColor);
 		pkRenderDevice->SetGlobalShaderConstant("g_vMainLightAmbientColor", sizeof(kMainLightAmbient), &kMainLightAmbient);
 	}
@@ -264,10 +269,20 @@ void sdRenderPath_DX9::PrepareShaderConstants()
 	// 辅助光
 	if (bAssistLight)
 	{
+		sdLight* pkAssistLight = m_pkCurMap->GetAssistantLight();
+		NIASSERT(pkAssistLight);
+
+		NiDirectionalLight* pkAssistGBLight = (NiDirectionalLight*)pkAssistLight->GetGBLight();
+		NIASSERT(pkAssistGBLight);
+
+		const NiPoint3& kDir = pkAssistGBLight->GetWorldDirection();
+		sdVector3 kAssistLightDir(kDir.x, kDir.y, kDir.z);
 		sdVector3 kAssistLightViewDir = kAssistLightDir * kViewRotationMatrix;
 		kAssistLightViewDir.Normalise();
-
 		pkRenderDevice->SetGlobalShaderConstant("g_vAssistLightDir", sizeof(kAssistLightViewDir), &kAssistLightViewDir);
+		
+		NiColor kAssistLightColor = pkAssistGBLight->GetDiffuseColor() * pkAssistGBLight->GetDimmer();
+		NiColor kAssistLightAmbient = pkAssistGBLight->GetAmbientColor() * pkAssistGBLight->GetDimmer();	
 		pkRenderDevice->SetGlobalShaderConstant("g_vAssistLightColor", sizeof(kAssistLightColor), &kAssistLightColor);
 		pkRenderDevice->SetGlobalShaderConstant("g_vAssistLightAmbientColor", sizeof(kAssistLightAmbient), &kAssistLightAmbient);
 	}
@@ -275,11 +290,20 @@ void sdRenderPath_DX9::PrepareShaderConstants()
 	// 环境光
 	if (bAmbientLight)
 	{
-		 pkRenderDevice->SetGlobalShaderConstant("g_vTerraimAmbientColor", sizeof(kTerrainAmbientColor), &kTerrainAmbientColor);
-		 pkRenderDevice->SetGlobalShaderConstant("g_vSkyAmbientColor", sizeof(kSkyAmbientColor), &kSkyAmbientColor);
+		sdLight* pkAmbientLight = m_pkCurMap->GetAmbientLight();
+		NIASSERT(pkAmbientLight);
+
+		NiAmbientLight* pkAssistGBLight = (NiAmbientLight*)pkAmbientLight->GetGBLight();
+		NIASSERT(pkAssistGBLight);
+
+		NiColor kTerrainAmbientColor = pkAssistGBLight->GetDiffuseColor() * pkAssistGBLight->GetDimmer();
+		NiColor kSkyAmbientColor = pkAssistGBLight->GetAmbientColor() * pkAssistGBLight->GetDimmer();
+		pkRenderDevice->SetGlobalShaderConstant("g_vTerraimAmbientColor", sizeof(kTerrainAmbientColor), &kTerrainAmbientColor);
+		pkRenderDevice->SetGlobalShaderConstant("g_vSkyAmbientColor", sizeof(kSkyAmbientColor), &kSkyAmbientColor);
 	}
 
 	//
+	NiPoint4 kLightFactor(1.0f, 1.0f, 1.0f, 1.0f);
 	pkRenderDevice->SetGlobalShaderConstant("g_vLightFactor", sizeof(kLightFactor), &kLightFactor);
 	// }@
 
@@ -293,6 +317,24 @@ void sdRenderPath_DX9::PrepareShaderConstants()
 	pkRenderDevice->SetGlobalShaderConstant("g_vTerrainDiffuseMaterial", sizeof(m_kTerrainParams.diffuseMaterial), &(m_kTerrainParams.diffuseMaterial.m_fX));
 	pkRenderDevice->SetGlobalShaderConstant("g_vTerrainSpecularMaterial", sizeof(m_kTerrainParams.specularMaterial), &(m_kTerrainParams.specularMaterial.m_fX));
 	pkRenderDevice->SetGlobalShaderConstant("g_fTerrainShiness", sizeof(m_kTerrainParams.shiness), &(m_kTerrainParams.shiness));
+	
+	// 地形DiffuseAtlas/NormalAtlas信息
+	pkRenderDevice->SetGlobalShaderConstant("g_vDiffuseAtlasTableParam", sizeof(m_kTerrainParams.diffuseAtlasTableParam), &(m_kTerrainParams.diffuseAtlasTableParam));
+	pkRenderDevice->SetGlobalShaderConstant("g_vNormalAtlasTableParam", sizeof(m_kTerrainParams.normalAtlasTableParam), &(m_kTerrainParams.normalAtlasTableParam));
+	
+	// 屏幕每个像素对应的世界空间中远裁剪面的尺寸(从双曲面近似到平面)
+	sdVector2 kFarPlanePixelSize;
+	if (kCamFrustum.m_bOrtho)
+	{
+		kFarPlanePixelSize.m_fX = (kCamFrustum.m_fRight - kCamFrustum.m_fLeft) / (float)uiWidth;
+		kFarPlanePixelSize.m_fY = (kCamFrustum.m_fTop - kCamFrustum.m_fBottom) / (float)uiHeight;
+	}
+	else
+	{
+		kFarPlanePixelSize.m_fX = (kCamFrustum.m_fRight - kCamFrustum.m_fLeft) * kCamFrustum.m_fFar / (float)uiWidth;
+		kFarPlanePixelSize.m_fY = (kCamFrustum.m_fTop - kCamFrustum.m_fBottom) * kCamFrustum.m_fFar / (float)uiHeight;
+	}
+	pkRenderDevice->SetGlobalShaderConstant("g_vFarPixelSize", sizeof(kFarPlanePixelSize), &kFarPlanePixelSize);
 	// @}
 
 
@@ -308,9 +350,26 @@ void sdRenderPath_DX9::PrepareShaderConstants()
 
 	// @}
 
+	// @{
 	//
 	NiPoint4 kNormalScale(1.0f, 1.0f, 1.0f, 1.0f);
 	pkRenderDevice->SetGlobalShaderConstant("g_vNormalScale", sizeof(kNormalScale), &kNormalScale);
+
+	// 编辑器状态下的一些默认值
+	sdVector3 kVertexColorMask = sdVector3::ZERO;
+	sdVector3 kDiffuseMask = sdVector3::ZERO;
+	float fGlossMapMask = 0.0f;
+	float fLightMapMask = 0.0f;
+	
+	if (!m_kRenderParams.IsEnableChannel(sdRenderParams::E_BUILDING, sdRenderParams::E_DIFFUSEMAP))	kDiffuseMask = sdVector3::UNIT_SCALE;
+	if (!m_kRenderParams.IsEnableChannel(sdRenderParams::E_BUILDING, sdRenderParams::E_GLOSSMAP))	fGlossMapMask = 1.0f;
+	if (!m_kRenderParams.IsEnableChannel(sdRenderParams::E_BUILDING, sdRenderParams::E_LIGHTMAP))	fLightMapMask = 1.0f;
+
+	pkRenderDevice->SetGlobalShaderConstant("g_vVertexColorMask", sizeof(kVertexColorMask), &kVertexColorMask);
+	pkRenderDevice->SetGlobalShaderConstant("g_vDiffuseMapMask", sizeof(kDiffuseMask), &kDiffuseMask);
+	pkRenderDevice->SetGlobalShaderConstant("g_fGlossMapMask", sizeof(fGlossMapMask), &fGlossMapMask);
+	pkRenderDevice->SetGlobalShaderConstant("g_fLightMapMask", sizeof(fLightMapMask), &fLightMapMask);
+	// @}
 }
 //-------------------------------------------------------------------------------------------------
 void sdRenderPath_DX9::DrawEarlyZPass()

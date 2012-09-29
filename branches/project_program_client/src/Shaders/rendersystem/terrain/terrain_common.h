@@ -3,7 +3,7 @@
 //---------------------------------------------------------
 // 作者:		
 // 创建:		2012-08-04
-// 最后修改:
+// 最后修改:	2012-09-25
 //*************************************************************************************************
 #ifndef _TERRAIN_COMMON_H__
 #define _TERRAIN_COMMON_H__
@@ -17,8 +17,11 @@ float4	a_vTerrainQuadParam 	: ATTRIBUTE;
 #define	a_fQuadScale			a_vTerrainQuadParam[2]
 #define	a_fQuadMorphFactor		a_vTerrainQuadParam[3]
 
-// 地形整体大小的倒数(用于计算地形点UV坐标)
+// 地形大小及其倒数(用于计算地形点UV坐标)
 float2	g_vRecipTerrainSize		: GLOBAL;
+
+//
+//float4	g_vRecipUVRepeats[3]	: GLOBAL;
 
 // 地形近与远平面的分界面
 float	g_fTerrainFarStart		: GLOBAL;
@@ -31,18 +34,35 @@ float3 	g_vTerrainDiffuseMaterial	: GLOBAL;
 float3 	g_vTerrainSpecularMaterial	: GLOBAL;
 float	g_fTerrainShiness			: GLOBAL;
 
-// 地形贴图图集信息(Diffuse贴图集和Normal贴图集是对应的)
-float4	g_vAtlasTableParam		: GLOBAL;
-#define g_fAtlasIdScale			g_vAtlasTableParam.x
-#define g_fAtlasIdOffset		g_vAtlasTableParam.y
-#define g_fAtlasLevelScale		g_vAtlasTableParam.z
-#define g_fAtlasLevelOffset		g_vAtlasTableParam.w
+// Diffuse贴图集信息
+float4	g_vDiffuseAtlasTableParam	: GLOBAL;
+#define g_fDiffuseAtlasIdScale		g_vDiffuseAtlasTableParam.x
+#define g_fDiffuseAtlasIdOffset		g_vDiffuseAtlasTableParam.y
+#define g_fDiffuseAtlasLevelScale	g_vDiffuseAtlasTableParam.z
+#define g_fDiffuseAtlasLevelOffset	g_vDiffuseAtlasTableParam.w
+
+// Normal贴图集信息
+float4	g_vNormalAtlasTableParam	: GLOBAL;
+#define g_fNormalAtlasIdScale		g_vNormalAtlasTableParam.x
+#define g_fNormalAtlasIdOffset		g_vNormalAtlasTableParam.y
+#define g_fNormalAtlasLevelScale	g_vNormalAtlasTableParam.z
+#define g_fNormalAtlasLevelOffset	g_vNormalAtlasTableParam.w
+
+// 调试参数
+//float2 	g_vTerrainDebugParams		: GLOBAL;
+//#define g_fTerrainShowInvisibleLayers	g_vTerrainDebugParams.x
+//#define g_fTerrainShowTileGrid		g_vTerrainDebugParams.x
 
 //*****************************************************************************
 // 图集采样(用于Diffuse图集和Normal图集)
 //*****************************************************************************
 float4 SamplerAtlasMap(sampler kAtlasMap, sampler kAtlasTable, float2 vTableUV, float2 vTerrainUV)
 {
+	// AtlasTable的像素信息:
+	//	.x	LayerMap相对于地形的缩放
+	//	.y 	(不清楚)
+	//	.zw	分别是XY方向LayerMap对PackedMap的相对位置(已经修正半像素偏移)
+	//
 	// 采样图集查找表
 	float4 vTileInfo = tex2D(kAtlasTable, vTableUV);
 	

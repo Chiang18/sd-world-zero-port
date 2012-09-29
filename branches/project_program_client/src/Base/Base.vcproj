@@ -253,14 +253,6 @@
 					>
 				</File>
 				<File
-					RelativePath=".\FileFormat\sdLuaFile.cpp"
-					>
-				</File>
-				<File
-					RelativePath=".\FileFormat\sdLuaFile.h"
-					>
-				</File>
-				<File
 					RelativePath=".\FileFormat\sdXmlFile.cpp"
 					>
 				</File>

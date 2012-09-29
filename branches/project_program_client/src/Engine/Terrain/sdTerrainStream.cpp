@@ -171,3 +171,155 @@ bool sdTerrainStream::SaveBlendMap(NiTexture* spBlendMap, const char *szSceneFul
 	return true;
 }
 //-------------------------------------------------------------------------------------------------
+bool sdTerrainStream::SaveDiffuseAtlasMap(NiTexture* spDiffuseMap, const char* szSceneFullPath)
+{
+	NIASSERT(spDiffuseMap);;
+	NIASSERT(szSceneFullPath);
+
+	// 构建文件夹路径
+	char szBuffer[MAX_PATH];
+	memset(szBuffer, 0, MAX_PATH * sizeof(char));
+	strcpy(szBuffer, szSceneFullPath);
+	strcat(szBuffer, "\\");
+	strcat(szBuffer, TERRAIN_DIRECTORY);
+
+	// 确定路径存在
+	sdFileUtil::ConfimDir(szBuffer);
+
+
+	// 保存
+	// @{
+	// 路径
+	char szRawFullPath[MAX_PATH];
+	strcpy(szRawFullPath, szBuffer);
+	strcat(szRawFullPath, "\\");
+	strcat(szRawFullPath, TERRAIN_DIFFUSE_ATLASMAP_FILENAME);
+
+	// 获取D3D纹理
+	NiDX9TextureData* spDX9TextureData = (NiDX9TextureData*)spDiffuseMap->GetRendererData();
+	NIASSERT(spDX9TextureData);
+
+	LPDIRECT3DBASETEXTURE9 spD3DBaseTexture = (LPDIRECT3DBASETEXTURE9)spDX9TextureData->GetD3DTexture();
+	NIASSERT(spD3DBaseTexture);
+
+	// 保存D3D纹理
+	D3DXSaveTextureToFile(szRawFullPath, D3DXIFF_DDS, spD3DBaseTexture, NULL);
+	// @}
+
+	return true;
+}
+//-------------------------------------------------------------------------------------------------
+bool sdTerrainStream::SaveDiffuseAtlasTableMap(NiTexture* spDiffuseTableMap, const char* szSceneFullPath)
+{
+	NIASSERT(spDiffuseTableMap);;
+	NIASSERT(szSceneFullPath);
+
+	// 构建文件夹路径
+	char szBuffer[MAX_PATH];
+	memset(szBuffer, 0, MAX_PATH * sizeof(char));
+	strcpy(szBuffer, szSceneFullPath);
+	strcat(szBuffer, "\\");
+	strcat(szBuffer, TERRAIN_DIRECTORY);
+
+	// 确定路径存在
+	sdFileUtil::ConfimDir(szBuffer);
+
+
+	// 保存
+	// @{
+	// 路径
+	char szRawFullPath[MAX_PATH];
+	strcpy(szRawFullPath, szBuffer);
+	strcat(szRawFullPath, "\\");
+	strcat(szRawFullPath, TERRAIN_DIFFUSE_ATLASTABLE_FILENAME);
+
+	// 获取D3D纹理
+	NiDX9TextureData* spDX9TextureData = (NiDX9TextureData*)spDiffuseTableMap->GetRendererData();
+	NIASSERT(spDX9TextureData);
+
+	LPDIRECT3DBASETEXTURE9 spD3DBaseTexture = (LPDIRECT3DBASETEXTURE9)spDX9TextureData->GetD3DTexture();
+	NIASSERT(spD3DBaseTexture);
+
+	// 保存D3D纹理
+	D3DXSaveTextureToFile(szRawFullPath, D3DXIFF_DDS, spD3DBaseTexture, NULL);
+	// @}
+
+	return true;
+}
+//-------------------------------------------------------------------------------------------------
+bool sdTerrainStream::SaveNormalAtlasMap(NiTexture* spNormalMap, const char* szSceneFullPath)
+{
+	NIASSERT(spNormalMap);;
+	NIASSERT(szSceneFullPath);
+
+	// 构建文件夹路径
+	char szBuffer[MAX_PATH];
+	memset(szBuffer, 0, MAX_PATH * sizeof(char));
+	strcpy(szBuffer, szSceneFullPath);
+	strcat(szBuffer, "\\");
+	strcat(szBuffer, TERRAIN_DIRECTORY);
+
+	// 确定路径存在
+	sdFileUtil::ConfimDir(szBuffer);
+
+
+	// 保存
+	// @{
+	// 路径
+	char szRawFullPath[MAX_PATH];
+	strcpy(szRawFullPath, szBuffer);
+	strcat(szRawFullPath, "\\");
+	strcat(szRawFullPath, TERRAIN_NORMAL_ATLASMAP_FILENAME);
+
+	// 获取D3D纹理
+	NiDX9TextureData* spDX9TextureData = (NiDX9TextureData*)spNormalMap->GetRendererData();
+	NIASSERT(spDX9TextureData);
+
+	LPDIRECT3DBASETEXTURE9 spD3DBaseTexture = (LPDIRECT3DBASETEXTURE9)spDX9TextureData->GetD3DTexture();
+	NIASSERT(spD3DBaseTexture);
+
+	// 保存D3D纹理
+	D3DXSaveTextureToFile(szRawFullPath, D3DXIFF_DDS, spD3DBaseTexture, NULL);
+	// @}
+
+	return true;
+}
+//-------------------------------------------------------------------------------------------------
+bool sdTerrainStream::SaveNormalAtlasTableMap(NiTexture* spNormalTableMap, const char* szSceneFullPath)
+{
+	NIASSERT(spNormalTableMap);;
+	NIASSERT(szSceneFullPath);
+
+	// 构建文件夹路径
+	char szBuffer[MAX_PATH];
+	memset(szBuffer, 0, MAX_PATH * sizeof(char));
+	strcpy(szBuffer, szSceneFullPath);
+	strcat(szBuffer, "\\");
+	strcat(szBuffer, TERRAIN_DIRECTORY);
+
+	// 确定路径存在
+	sdFileUtil::ConfimDir(szBuffer);
+
+
+	// 保存
+	// @{
+	// 路径
+	char szRawFullPath[MAX_PATH];
+	strcpy(szRawFullPath, szBuffer);
+	strcat(szRawFullPath, "\\");
+	strcat(szRawFullPath, TERRAIN_NORMAL_ATLASTABLE_FILENAME);
+
+	// 获取D3D纹理
+	NiDX9TextureData* spDX9TextureData = (NiDX9TextureData*)spNormalTableMap->GetRendererData();
+	NIASSERT(spDX9TextureData);
+
+	LPDIRECT3DBASETEXTURE9 spD3DBaseTexture = (LPDIRECT3DBASETEXTURE9)spDX9TextureData->GetD3DTexture();
+	NIASSERT(spD3DBaseTexture);
+
+	// 保存D3D纹理
+	D3DXSaveTextureToFile(szRawFullPath, D3DXIFF_DDS, spD3DBaseTexture, NULL);
+	// @}
+
+	return true;
+}
+//-------------------------------------------------------------------------------------------------

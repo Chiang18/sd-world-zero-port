@@ -90,10 +90,10 @@ namespace WorldEditor.Window
 
         private void saveToolStripMenuItem_Click(object sender, EventArgs e)
         {
-            //if (mWorldEditor != null)
-            //{
-            //    mWorldEditor.SaveScene();
-            //}
+            if (mSceneModule != null)
+            {
+                mSceneModule.WorldEditor.SaveScene();
+            }
         }
         //*****************************************************************************************
         // @}

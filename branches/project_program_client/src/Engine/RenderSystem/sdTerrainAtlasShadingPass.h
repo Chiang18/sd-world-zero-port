@@ -43,8 +43,15 @@ namespace RenderSystem
 		uint	m_uiStencilMask;
 	
 		// 材质
+		NiMaterialPtr	m_spSimpleShadingMaterial;	
 		NiMaterialPtr	m_spPlanarShadingMaterial;
 		NiMaterialPtr	m_spSeamShadingMaterial;
+		NiMaterialPtr	m_spOrthoShadingMaterial;	// 正射投影时的着色材质
+
+		//NiMaterialPtr	m_spDebugSimpleShadingMaterial;	
+		//NiMaterialPtr	m_spDebugPlanarShadingMaterial;
+		//NiMaterialPtr	m_spDebugSeamShadingMaterial;
+		//NiMaterialPtr	m_spDebugOrthoShadingMaterial;
 
 		// 着色输入纹理
 		NiRenderedTexturePtr	m_spLightTexture;

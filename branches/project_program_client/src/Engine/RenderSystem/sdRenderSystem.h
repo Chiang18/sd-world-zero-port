@@ -11,6 +11,7 @@
 #include <sdSingleton.h>
 #include <sdVector2.h>
 #include <sdVector3.h>
+#include <sdVector4.h>
 #include <NiMemObject.h>
 #include "sdTypes.h"
 
@@ -154,13 +155,35 @@ namespace RenderSystem
 
 		NiTexture*	diffuseAtlasMap;		// 整个地形漫反射贴图集
 		NiTexture*	diffuseAtlasTableMap;	// 整个地形漫反射贴图查找表
+		Base::Math::sdVector4 diffuseAtlasTableParam;
 		
 		NiTexture*	normalAtlasMap;			// 整个地形漫反射贴图集
 		NiTexture*	normalAtlasTableMap;	// 整个地形漫反射贴图查找表
+		Base::Math::sdVector4 normalAtlasTableParam;
 		// @}
 
 		// 
-		
+		float	terrainFarStart;		// 地形的"近处"与"远处"部分的分界距离
+		float	normalScale;	
+
+		// 各向异性过滤,Anisotropic filter setting
+		//	0:		means linear filter
+		//	>=1:	means max anisotropic
+		uint	diffuseAnisotropic;
+		uint	normalAnisotropic;
+
+		// LOD偏置, Mipmap lod bias setting(不宜与各向异性过滤共同使用)
+		float	diffuseLodBias;
+		float	normalLodBias;
+
+		// 开关信息
+		bool	useTriplanar;	// 是否使用立方体纹理来平滑法线
+		bool	useSpecular;	// 是否使用高光
+
+		// 调试信息
+		bool	showInvisiableLayers;
+		bool	showTileGrid;
+		bool	showWireframe;
 	};
 
 	// 渲染系统基础接口

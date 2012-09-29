@@ -138,8 +138,8 @@ float4 PS_Main_Planar(VS_OUTPUT kInput) : COLOR0
 	float fLodLevel = log2(2.0 * length( kInput.vUVFarClipViewPos) / 768.0 / max(sqrt(dot(vWorldViewVector, vWorldNormal)), 0.25));
 	
 	// º∆À„ÕººØUV
-	float4 vUVSetTableU = saturate(vIndices.bgra * g_fAtlasIdScale + g_fAtlasIdOffset);
-	float vUVSetTableV	= saturate(fLodLevel * g_fAtlasLevelScale + g_fAtlasLevelOffset);
+	float4 vUVSetTableU = saturate(vIndices.bgra * g_fNormalAtlasIdScale + g_fNormalAtlasIdOffset);
+	float vUVSetTableV	= saturate(fLodLevel * g_fNormalAtlasLevelScale + g_fNormalAtlasLevelOffset);
 	
 	// Ã˘ÕºªÏ∫œ
 	float4 vDiffuseGloss = SamplerAtlasMap(sdDiffuseAtlasSampler, sdAtlasTableSampler, float2(vUVSetTableU.x, vUVSetTableV), vUVSet2) * vBlendTex.b +

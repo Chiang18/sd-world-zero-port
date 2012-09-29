@@ -64,6 +64,10 @@ bool sdRenderSystem_DX9::Initialize()
 	const char* apcShaderDirectories[1] = { szShaderPath.c_str()};
 
 	m_pkRenderDevice->SetupShaderSystem(apcProgramDirectories, 1, apcShaderDirectories, 1);
+
+	// Shader的预定义宏
+	//spRender->AddGlobalMacro("_SD_GAME", "1");
+	spRender->AddGlobalMacro("_SD_EDITOR", 1);
 	// @}
 
 	// 创建sd渲染路径

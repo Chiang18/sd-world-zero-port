@@ -141,10 +141,10 @@ bool sdTerrain::CreateScene(uint uiTerrainSize, uint uiBlendTexSize)
 
 	m_kRenderParams.terrainSize = sdVector2ui(m_uiTerrainSize, m_uiTerrainSize);
 
-	m_kRenderParams.ambientMaterial	 = sdVector3(0.5f, 0, 0);
-	m_kRenderParams.diffuseMaterial	 = sdVector3(0, 0.5f, 0);
-	m_kRenderParams.specularMaterial = sdVector3(0, 0, 0.5f);
-	m_kRenderParams.shiness			 = 1.0f;
+	m_kRenderParams.ambientMaterial	 = sdVector3(0, 0, 0);
+	m_kRenderParams.diffuseMaterial	 = sdVector3(1.0f, 1.0f, 1.0f);
+	m_kRenderParams.specularMaterial = sdVector3(0, 0, 0);
+	m_kRenderParams.shiness			 = 0.0f;
 
 	m_kRenderParams.baseNormalMap = m_pkNormalMap->GetGBTexture();
 	m_kRenderParams.tileMap		= m_spTileMap;
@@ -162,6 +162,10 @@ bool sdTerrain::SaveScene(const std::string& szSceneFullPath)
 	// ±£´æ
 	sdTerrainStream::SaveHeightMap(m_pkHeightMap, szSceneFullPath.c_str());
 	sdTerrainStream::SaveBlendMap(m_spBlendMap, szSceneFullPath.c_str());
+	sdTerrainStream::SaveDiffuseAtlasMap(m_spDiffuseAtlasMap, szSceneFullPath.c_str());
+	sdTerrainStream::SaveDiffuseAtlasTableMap(m_spDiffuseAtlasTable, szSceneFullPath.c_str());
+	sdTerrainStream::SaveNormalAtlasMap(m_spNormalAtlasMap, szSceneFullPath.c_str());
+	sdTerrainStream::SaveNormalAtlasTableMap(m_spNormalAtlasTable, szSceneFullPath.c_str());
 
 	return true;
 }

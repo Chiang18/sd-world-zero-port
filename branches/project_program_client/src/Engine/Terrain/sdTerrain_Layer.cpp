@@ -266,7 +266,7 @@ void sdTerrain::UpdateBlendMap(float fCenterX, float fCenterY, float fRadius)
 				for (uint uiBlendX = 0; uiBlendX < m_uiTexTileSize; ++uiBlendX)
 				{
 					// 遍历可见图层,取出各层权重信息,适当进行混合并保存
-					uchar ucTempWeights[4] = { 0, 0, 0, 0};
+					uchar ucTempWeights[4] = { 0, 0, 0, 255};
 					stFilterMap& kFilterMap = m_kTileFilterMapVec[uiBlendY * m_uiTexTileSize + uiBlendX];
 					for (uint uiLayer = 0; uiLayer < kVisLayers.size(); ++uiLayer)
 					{
@@ -309,12 +309,14 @@ void sdTerrain::RepackMaps()
 	// 设置AtlasTexture的输入图层信息
 	LayerMapVecItr itr_layer = m_kLayerMapVec.begin();
 	LayerMapVecItr itr_layer_end = m_kLayerMapVec.end();
-	for (; itr_layer != itr_layer_end; ++itr_layer)
+	for (int i = 0; itr_layer != itr_layer_end; ++itr_layer, ++i)
 	{
 		sdLayerMap* pkLayerMap = *itr_layer;
 		NIASSERT(pkLayerMap);
 
 		// 
+		m_pkDiffuseAtlas->SetTexture(i, pkLayerMap->GetDiffuseMap());
+		m_pkNormalAtlas->SetTexture(i, pkLayerMap->GetNormalMap());
 	}
 
 	// 更新AtlasTexture
@@ -322,12 +324,41 @@ void sdTerrain::RepackMaps()
 	if (m_pkNormalAtlas)	m_pkNormalAtlas->Update();
 
 	// 更新TerrainMaterial
+	// @{
 	if (m_pkDiffuseAtlas)
 	{
-		//m_kRenderParams.diffuseAtlasMap = m_pkDiffuseAtlas->GetA
+		m_spDiffuseAtlasMap = m_pkDiffuseAtlas->GetGBTexture();
+		m_spDiffuseAtlasTable = m_pkDiffuseAtlas->GetGBTextureTable();
+
+		m_kRenderParams.diffuseAtlasMap = m_pkDiffuseAtlas->GetGBTexture();
+		m_kRenderParams.diffuseAtlasTableMap = m_pkDiffuseAtlas->GetGBTextureTable();
+
+		sdVector2 kTexIdToU = sdVector2::ZERO;
+		sdVector2 kLevelToV = sdVector2::ZERO;
+		m_pkDiffuseAtlas->GetAtlasTableParam(kTexIdToU, kLevelToV);
+		m_kRenderParams.diffuseAtlasTableParam.m_fX = kTexIdToU.m_fX;
+		m_kRenderParams.diffuseAtlasTableParam.m_fY = kTexIdToU.m_fY;
+		m_kRenderParams.diffuseAtlasTableParam.m_fZ = kLevelToV.m_fX;
+		m_kRenderParams.diffuseAtlasTableParam.m_fW = kLevelToV.m_fY;
 	}
 
+	if (m_pkNormalAtlas)
+	{
+		m_kRenderParams.normalAtlasMap = m_pkNormalAtlas->GetGBTexture();
+		m_kRenderParams.normalAtlasTableMap = m_pkNormalAtlas->GetGBTextureTable();
 
+		m_spNormalAtlasMap = m_pkNormalAtlas->GetGBTexture();
+		m_spNormalAtlasTable = m_pkNormalAtlas->GetGBTextureTable();
+
+		sdVector2 kTexIdToU = sdVector2::ZERO;
+		sdVector2 kLevelToV = sdVector2::ZERO;
+		m_pkNormalAtlas->GetAtlasTableParam(kTexIdToU, kLevelToV);
+		m_kRenderParams.normalAtlasTableParam.m_fX = kTexIdToU.m_fX;
+		m_kRenderParams.normalAtlasTableParam.m_fY = kTexIdToU.m_fY;
+		m_kRenderParams.normalAtlasTableParam.m_fZ = kLevelToV.m_fX;
+		m_kRenderParams.normalAtlasTableParam.m_fW = kLevelToV.m_fY;
+	}
+	// @}
 }
 //-------------------------------------------------------------------------------------------------
 uint sdTerrain::GetWeights(uint uiX, uint uiY, uchar* pucWeights)

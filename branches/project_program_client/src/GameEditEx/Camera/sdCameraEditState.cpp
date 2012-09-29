@@ -146,6 +146,10 @@ int sdEditFreeCameraState::Update()
 
 		// Ó¦ÓÃÐý×ª
 		spCamera->SetRotate(kRotation);
+
+		//
+		m_iLastX = m_iX;
+		m_iLastY = m_iY;
 	}
 	// @}
 

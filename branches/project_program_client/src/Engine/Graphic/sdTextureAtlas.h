@@ -12,6 +12,8 @@
 #include "sdTexture.h"
 #include "sdSurfaceAtlas.h"
 
+#include <sdVector2.h>
+
 namespace RenderSystem
 {
 	//
@@ -23,11 +25,32 @@ namespace RenderSystem
 	// 关于生成的图集:
 	//	1.从右下角开始
 	//	2.从Mipmap0开始,从大到小
-	//	3.
 	// 
 	// 关于生成的图集的目录纹理:
-	//	1.每一列代表一张纹理信息
-	//	2.从上到下是各层LOD信息
+	//	1.每一行代表一层LOD
+	//	2.每一列代表一张纹理信息,从上到下是各层LOD信息
+	//
+	// 以下来自WZ,仅供阅读参考,实际已有变动:
+	// @{
+	// 关于Mipmap的计算:
+	//	lodLevel = max(log2(tan(fov.xy / 2.0) * 2.0 * distance / uvRepeat * texSize / screenSize.xy / max(dot(V, N), 0.001)))
+	//			 = max(log2(tan(fov.xy / 2.0) * 2.0 * distance / screenSize.xy / max(dot(V, N), 0.001)) * (texSize / uvRepeat))
+	//			 = max(log2(tan(fov.xy / 2.0) * 2.0 * distance / screenSize.xy / max(dot(V, N), 0.001))) + log2(texSize / uvRepeat)
+	//				
+	//	lodFactor = max(log2(tan(fov.xy / 2.0) * 2.0 * distance / screenSize.xy / max(dot(V, N), 0.001)));
+	//	lodOffset = log2(texSize / uvRepeat)
+	//	lodBias   = 0.0
+	//	lodLevel  = lodFactor + lodOffset + lodBias;
+	//
+	//	lodFactor独立于texture,可以在shader被计算出来
+	//	lodOffset与texture相关,需要传递到shader
+	//	lodBias是固定偏置,需要传递到shader
+	//
+	// 实际上,我们仅仅使0~6级的mipmap,
+	//	1.映射[0,6]到[0.0, 1.0], 对应table texture的v坐标
+	//	2.映射texture id到[0.0 1.0], 对应table texture的u坐标
+	//
+	// @}
 	class sdTextureAtlas : public sdTexture
 	{
 	public:
@@ -46,10 +69,23 @@ namespace RenderSystem
 		// 向任意位置添加和删除纹理
 		uint	InsertTexture(uint uiIndex, NiTexture* spTexture, float fUVRepeat = 1.0f, float fMipmapBias = 0.0f,  uint uiNumLevel = 0);
 		bool	RemoveTexture(uint uiIndex);
+
+		// 图层属性操作
+		NiTexture*	GetTextute(uint uiIndex);
+		void		SetTexture(uint uiIndex, NiTexture* spTexture);
+
+		float		GetUVRepeat(uint uiIndex);
+		void		SetUVRepeat(uint uiIndex, float fUVRepeat);
+
+		float		GetMipmapBias(uint uiIndex);
+		void		SetMipmapBias(uint uiIndex, float fMipmapBias);
 		// @}
 
 		// 属性访问
+		NiTexture*	GetGBTexture() const { return m_spAtlasTexture;}
+		NiTexture*	GetGBTextureTable() const { return m_spAtlasTable;}
 
+		void	GetAtlasTableParam(Base::Math::sdVector2& kTexIdToU, Base::Math::sdVector2& kLevelToV);
 		
 	protected:
 		//
