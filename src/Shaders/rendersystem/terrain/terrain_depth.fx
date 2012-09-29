@@ -47,6 +47,12 @@ float4	PS_Main(VS_OUTPUT kInput) : COLOR0
 {
 	// 归一化到[0,1]
 	return float4(PackDepth(kInput.fDepth / g_fCameraFarClip), 0.0f, 0.0f);
+	
+	//*************************
+	// 测试线性深度
+	//float fDepth = kInput.fDepth / g_fCameraFarClip;
+	//return float4(fDepth, fDepth, fDepth, 0);
+	//*************************	
 }
 
 //---------------------------------------------------------------------------------------

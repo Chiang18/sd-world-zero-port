@@ -10,8 +10,29 @@
 #define _COMMON_FUNCTION_H__
 
 //*****************************************************************************
-// 深度压缩/法线压缩
+// 深度压缩
 //*****************************************************************************
+float2 PackDepth(float depth)
+{
+	float depth_int, depth_frac;
+	depth_frac = modf(sqrt(depth) * 256.0f, depth_int);
+	return float2(depth_int / 255.0f, depth_frac);
+}
+//-----------------------------------------------------------------------------
+float UnpackDepth(float2 enc)
+{
+	float depth = dot(enc.xy, float2(255.0f, 1.0f)) * (1.0f / 256.0f);
+	depth = depth * depth;
+	return depth;
+}
+
+//*****************************************************************************
+// 法线压缩
+// 参考
+//*****************************************************************************
+//-----------------------------------------------------------------------------
+// Spheremap Transform, WorldZero做法
+//-----------------------------------------------------------------------------
 float2 PackNormal(float3 normal)
 {
 	float f = sqrt(dot(float2(-normal.z, 1.0f), float2(8.0f, 8.0f)));
@@ -27,20 +48,20 @@ float3 UnpackNormal(float2 enc)
 	return normal;
 }
 //-----------------------------------------------------------------------------
-float2 PackDepth(float depth)
+// Spheremap Transform, Crytek采用
+//-----------------------------------------------------------------------------
+float2 PackNormal_Crytek(float3 normal)
 {
-	float depth_int, depth_frac;
-	depth_frac = modf(sqrt(depth) * 256.0f, depth_int);
-	return float2(depth_int / 255.0f, depth_frac);
+   return normalize(normal.xy) * sqrt(normal.z * 0.5 + 0.5);
 }
 //-----------------------------------------------------------------------------
-float UnpackDepth(float2 enc)
+float3 UnpackNormal_Crytek(float2 enc)
 {
-	float depth = dot(enc.xy, float2(255.0f, 1.0f)) * (1.0f / 256.0f);
-	depth = depth * depth;
-	return depth;
+   float3 normal;
+   normal.z = dot(enc, enc) * 2 - 1;
+   normal.xy = normalize(enc) * sqrt(1 - normal.z * normal.z);
+   return normal;
 }
-
 
 //*****************************************************************************
 // 颜色空间
@@ -95,7 +116,7 @@ void TransformSkinnedPosition(float3 vPosition,
 void AccumLighting(float3 V, float3 N, float fShiness, float fLightMap, float4 vLocalLight, out float3 vDiffuseLight, out float3 vSpecularLight)
 {
 	// 
-	fLightMap = saturate(1.0f + g_fMainLightLightMapFactor * (fLightMap - 1.0f));
+	fLightMap = 1;//saturate(1.0f + g_fMainLightLightMapFactor * (fLightMap - 1.0f));
 	
 	// 计算并合成全局主光光照(奇怪的计算算法)
 	// @{
@@ -108,7 +129,6 @@ void AccumLighting(float3 V, float3 N, float fShiness, float fLightMap, float4 v
 	vDiffuseLight 	= lerp(g_vMainLightAmbientColor, g_vMainLightColor, NL * fLightMap);
 	vSpecularLight	= vDiffuseLight * pow(VR, fShiness);
 	// @}
-	
 	
 	// 计算并合成全局辅助光光照(奇怪的计算算法)
 	// @{

@@ -183,11 +183,13 @@ float4		g_vNormalScale				: GLOBAL;
 #define 	g_fRoadNormalScale			(g_vNormalScale.w)
 
 // 
-float4		g_vDiffuseMapSize			: GLOBAL;
+float4 	g_vDiffuseMapSize			: GLOBAL;
+
+// 编辑器状态下
 float3		g_vVertexColorMask			: GLOBAL;
-float3		g_vDiffuseMapMask			: GLOBAL;
-float		g_fLightMapMask				: GLOBAL;
-float		g_fGlossMapMask				: GLOBAL;
+float3		g_vDiffuseMapMask			: GLOBAL;	// 编辑器状态下,最低DiffuseMap亮度
+float		g_fLightMapMask				: GLOBAL;	// 编辑器状态下,最低LightMap亮度
+float		g_fGlossMapMask				: GLOBAL;	// 编辑器状态下,最低GlossMap亮度
 
 // 纹理变换
 float4x4	g_mBaseMapTextureTransform		: TexTransformBase;

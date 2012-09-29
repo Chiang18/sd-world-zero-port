@@ -436,6 +436,18 @@
 					RelativePath=".\Entity\sdEntity.inl"
 					>
 				</File>
+				<File
+					RelativePath=".\Entity\sdLight.cpp"
+					>
+				</File>
+				<File
+					RelativePath=".\Entity\sdLight.h"
+					>
+				</File>
+				<File
+					RelativePath=".\Entity\sdLight.inl"
+					>
+				</File>
 			</Filter>
 			<Filter
 				Name="Doodads"
@@ -546,6 +558,10 @@
 				</File>
 				<File
 					RelativePath=".\World\sdMap.h"
+					>
+				</File>
+				<File
+					RelativePath=".\World\sdMap.inl"
 					>
 				</File>
 				<File

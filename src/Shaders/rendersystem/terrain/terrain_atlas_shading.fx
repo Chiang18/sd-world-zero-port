@@ -15,7 +15,7 @@ SD_POINT_CLAMP_SAMPLE(1, sdGeomSampler, 			sdGeomBuf, 			false);		// ÆÁÄ»Éî¶ÈÓë·
 SD_POINT_CLAMP_SAMPLE(2, sdLightSampler, 			sdLightBuf, 		false);		// ÆÁÄ»¾Ö²¿¹âÕÕ»º´æ
 SD_LINEAR_WRAP_SAMPLE(3, sdBaseNormalSampler, 		sdBaseNormalTex, 	false);		// µØĞÎ»ù±¾·¨ÏßÌùÍ¼
 SD_POINT_CLAMP_SAMPLE(4, sdTileSampler,				sdTileTex,			false);		// µØĞÎTileMap
-SD_LINEAR_WRAP_SAMPLE(5, sdBlendSampler,			sdBlendTex,			false);		// µØĞÎ»ìºÏÈ¨ÖØÌùÍ¼
+SD_LINEAR_WRAP_SAMPLE(5, sdBlendSampler,			sdBlendTex,			false);		// µØĞÎBlendMap
 SD_POINT_CLAMP_SAMPLE(6, sdAtlasTableSampler,		sdAtlasTableTex,	false);		// µØĞÎÂş·´ÉäÌùÍ¼²éÑ¯±í
 SD_LINEAR_CLAMP_SAMPLE(7, sdDiffuseAtlasSampler,	sdDiffuseAtlasTex,	false);		// µØĞÎÂş·´ÉäÌùÍ¼Í¼¼¯
 
@@ -24,7 +24,7 @@ SD_LINEAR_CLAMP_SAMPLE(7, sdDiffuseAtlasSampler,	sdDiffuseAtlasTex,	false);		// 
 //---------------------------------------------------------------------------------------
 struct VS_INPUT
 {
-	float3	vPos			: POSITION0;	// ÆÁÄ»¾ØĞÎ¶¥µã
+	float3	vPos			: POSITION0;	// ÆÁÄ»¾ØĞÎ¶¥µã×ø±ê
 	float2	vUVSet0			: TEXCOORD0;	// ÆÁÄ»¾ØĞÎ¶¥µãÎÆÀí×ø±ê
 };
 
@@ -76,8 +76,7 @@ float4 PS_Main_Planar(VS_OUTPUT kInput) : COLOR0
 	float4 vGeoTex = tex2D(sdGeomSampler, kInput.vUVSetScreenTex);
 	float fDepth = UnpackDepth(vGeoTex.xy);
 	
-	// ·´ËãÊÀ½ç×ø±ê
-	// (¸ù¾İÏßĞÔÉî¶È,¶ÔÏà»úÎ»ÖÃºÍÔ¶Æ½Ãæ¶ÔÓ¦µãÎ»ÖÃ½øĞĞ²åÖµ)
+	// ·´ËãÊÀ½ç×ø±ê(¸ù¾İÏßĞÔÉî¶È,¶ÔÏà»úÎ»ÖÃºÍÔ¶Æ½Ãæ¶ÔÓ¦µãÎ»ÖÃ½øĞĞ²åÖµ)
 	float3 vWorldPos = lerp(g_vViewPos, kInput.vUVFarClipWorldPos, fDepth);
 	
 	// ¼ÆËãµ±Ç°µãµÄµØĞÎÏà¶ÔUV(×¢Òâ,ÕâÀïÃ»ÓĞÆ«ÒÆ°ëÏñËØ)
@@ -92,20 +91,20 @@ float4 PS_Main_Planar(VS_OUTPUT kInput) : COLOR0
 	// ½â³öÇãĞ±Çé¿ö,³¬¹ıÒ»¶¨½Ç¶ÈµÄ²»½øĞĞ×ÅÉ«
 	float3 vPlanarWeight;
 	vPlanarWeight.xy 	= vBaseNormalTex.zw;
-	vPlanarWeight.z 	= saturate(1.0 - vBaseNormalTex.z - vBaseNormalTex.w);
+	vPlanarWeight.z 	= saturate(1.0 - vPlanarWeight.x - vPlanarWeight.y);
 
-	clip(1.5 - dot(sign(vPlanarWeight), 1));
+	//clip(1.5 - dot(sign(vPlanarWeight), 1));
 	
-	// ½â³öÊÀ½ç¿Õ¼ä·¨Ïß(x,y,z)
+	// ½â³öÊÀ½ç¿Õ¼ä·¨Ïß
 	float3 vWorldNormal;
 	vWorldNormal.xy	= vBaseNormalTex.xy * 2.0 - 1.0;
-	vWorldNormal.z 	= sqrt(dot(float3(1.0, vBaseNormalTex.xy), float3(1.0, -vBaseNormalTex.xy)));
+	vWorldNormal.z 	= sqrt(dot(float3(1.0, vWorldNormal.xy), float3(1.0, -vWorldNormal.xy)));
 	// @}
 	
 	
 	// TileMap
 	// @{
-	// ¸ù¾İUV²ÉÑùTileMap,
+	// ¸ù¾İUV²ÉÑùTileMap(ÕâÀï´Ó[0,1]»Ö¸´µ½[0,255]µÄÍ¼²ãË÷ÒıÇø¼ä)
 	float3 vIndices = tex2D(sdTileSampler, vUVSet).xyz * 255.0;
 	// @} 
 	
@@ -131,34 +130,41 @@ float4 PS_Main_Planar(VS_OUTPUT kInput) : COLOR0
 	
 	// ÌùÍ¼»ìºÏ
 	// @{
-	// ²ÉÑùÁ¢·½ÌåÎÆÀí
-	float4 vPlanarVec = texCUBE(sdPlanarTableSampler, vWorldNormal.xzy) * 255 - 1;
-	
+	// ²ÉÑùÁ¢·½ÌåÎÆÀí(GB×ø±êÏµÓëD3D×ø±êÏµYZÖá»¥»»)
+	//float4 vPlanarVec = texCUBE(sdPlanarTableSampler, vWorldNormal.xzy) * 255 - 1;
+	//
 	// ¼ÆËãĞÂµÄµØĞÎUV
-	float2 vUVSet2 = float2(dot(vWorldPos.xy, vPlanarVec.xy), dot(vWorldPos.yz, vPlanarVec.zw));
+	//float2 vUVSet2 = float2(dot(vWorldPos.xy, vPlanarVec.xy), dot(vWorldPos.yz, vPlanarVec.zw));
 	
-	// ¼ÆËãµ±Ç°ÏñËØµ½¹Û²ìµãÊ¸Á¿
+	float2 vUVSet2 = float2(vWorldPos.x, vWorldPos.y);
+	
+	// ¼ÆËãµ±Ç°ÏñËØµ½¹Û²ìµãµÄÊ¸Á¿
 	float3 vWorldViewVector = normalize(g_vViewPos - kInput.vUVFarClipWorldPos);
 	
-	// ¼ÆËãµ±Ç°ÏñËØÓ¦È¡LOD(ÕâÀï²»½â,ÓĞ´ı½øÒ»²½¹Ø×¢)
+	// ¼ÆËãµ±Ç°ÏñËØÓ¦È¡LOD(ÏÈ¼ÆËãµÄÊÇµ±Ç°Pixel¶ÔÓ¦µÄÊÀ½ç¿Õ¼äPixelµÄ³ß´ç,È»ºó¶Ô2È¡¶ÔÊıµÃµ½LOD)
+	//	g_vFarPixelSize				ÏñËØÔÚ´¹Ö±Ô¶Æ½ÃæÉÏµÄ¶ÔÓ¦³ß´ç(½üËÆ³ß´ç,ÕæÊµÔ¶Æ½ÃæÊÇÒ»¸öÍÖÇòÃæµÄÒ»²¿·Ö)
+	//	g_vFarPixelSize * fDepth	ÏñËØÔÚµ±Ç°¾àÀëÏÂµÄ´¹Ö±Æ½ÃæÉÏµÄ¶ÔÓ¦³ß´ç
+	//	dot(vWorldViewVector, vWorldNormal)	µ±Ç°ÏñËØÏà¶ÔÍ¶Ó°·½Î»µÄ½Ç¶È,¼´ÓëÍ¶Ó°·½ÏòµÄ¼Ğ½ÇÓàÏÒÖµ
 	float2 vLodLevel = log2(g_vFarPixelSize * fDepth / max(dot(vWorldViewVector, vWorldNormal), 0.25));
 	
 	// ¼ÆËãÍ¼¼¯UV
+	//	.xyz ·Ö±ğÊÇ3¸öLayerµÄid¼ÆËãµÃµ½µÄÎÆÀíU×ø±ê 	LayerId * (1.0f / uiWidth) + (0.5f / uiWidth)
+	//	.w	 ÊÇÏñËØµÄlodĞÅÏ¢¼ÆËãµÃµ½µÄÎÆÀíV×ø±ê	 	PixelLod * (1.0f / uiHeight) + (-iMinLodFactor / (float)uiHeight)
 	float4 vUVSetTable;
-	vUVSetTable.xyz = saturate(vIndices.bgr * g_fAtlasIdScale + g_fAtlasIdOffset);
-	vUVSetTable.w	= saturate(max(vLodLevel.x, vLodLevel.y) * g_fAtlasLevelScale + g_fAtlasLevelOffset);
+	vUVSetTable.xyz = saturate(vIndices.bgr * g_fDiffuseAtlasIdScale + g_fDiffuseAtlasIdOffset);
+	vUVSetTable.w	= saturate(max(vLodLevel.x, vLodLevel.y) * g_fDiffuseAtlasLevelScale + g_fDiffuseAtlasLevelOffset);
 	
 	// ÌùÍ¼»ìºÏ
 	float4 vDiffuseGloss = SamplerAtlasMap(sdDiffuseAtlasSampler, sdAtlasTableSampler, vUVSetTable.xw, vUVSet2) * vBlendTex.b +
-							SamplerAtlasMap(sdDiffuseAtlasSampler, sdAtlasTableSampler, vUVSetTable.yw, vUVSet2) * vBlendTex.g +
-							SamplerAtlasMap(sdDiffuseAtlasSampler, sdAtlasTableSampler, vUVSetTable.zw, vUVSet2) * vBlendTex.r;
+		SamplerAtlasMap(sdDiffuseAtlasSampler, sdAtlasTableSampler, vUVSetTable.yw, vUVSet2) * vBlendTex.g +
+		SamplerAtlasMap(sdDiffuseAtlasSampler, sdAtlasTableSampler, vUVSetTable.zw, vUVSet2) * vBlendTex.r;
 	
 #ifdef _SD_EDITOR
-	vDiffuseGloss = max(vDiffuseGloss, float4(g_vDiffuseMapMask,g_fGlossMapMask));
+	vDiffuseGloss = max(vDiffuseGloss, float4(g_vDiffuseMapMask, g_fGlossMapMask));
 #endif
 	// @}
-	
-	
+
+
 	// ¼ÆËã×îÖÕÑÕÉ«
 	// @{
 	// ²ÉÑùLightBuffer
@@ -172,23 +178,81 @@ float4 PS_Main_Planar(VS_OUTPUT kInput) : COLOR0
 	float3 vDiffuseLight;
 	float3 vSpeculatLight;
 	AccumLighting(vViewVector, vViewNormal, g_fTerrainShiness, vBlendTex.a, vLightTex, vDiffuseLight, vSpeculatLight);
-	
+
 	// ºÏ³É×îÖÕÑÕÉ«
 	float3 vColor = vDiffuseLight  * vDiffuseGloss.rgb * g_vTerrainDiffuseMaterial +
 					vSpeculatLight * vDiffuseGloss.a   * g_vTerrainSpecularMaterial;	
 	// @}
-	
+
 	//return float4(vColor, 0);
+
+	//*************************
+	//return float4(vDiffuseLight.rgb, 0);
 	
+	// ²âÊÔµØĞÎÎÆÀí×ø±ê
+	//return float4(vUVSet.xy, 0, 0);
+
+	//if (vUVSet.x < 0.0 || vUVSet.x > 0.0 || vUVSet.y < 0.0 || vUVSet.y > 0.0)		
+	//	return	float4(1,0,0,0);
+	//else
+	//	return float4(0,1,0,0);
+
 	
-	//*****************************
-	float3 vDiffuseLightTemp;
-	float3 vSpeculatLightTemp;
-	AccumLighting(vViewVector, vViewNormal, g_fTerrainShiness, 1.0f, float4(0,0,0,0), vDiffuseLightTemp, vSpeculatLightTemp);
+	// ²âÊÔ·¨Ïß
+	//return float4(vBaseNormalTex.xy,1,0);
+	//return float4((vWorldNormal + 1) * 0.5,0);
+	//return float4((vViewNormal + 1) * 0.5,0);
 	
-	//return float4(vDiffuseLightTemp, 0);
-	return vBlendTex;
-	//*****************************
+	//if (vWorldNormal.z > 0.99)
+	//return float4(1,0,0,0);
+	//else
+	//return float4(0,1,0,0);
+	
+	// ²âÊÔ¹âÕÕ1
+	//float NL = dot(vWorldNormal, -g_vMainLightDir);
+	//float NL = dot(mul(vWorldNormal, g_mView), -mul(g_vMainLightDir, g_mView));
+	//float NL = dot(mul(vWorldNormal, g_mView), -g_vMainLightDir);
+	//float NL = dot(mul(vViewNormal, g_mView), -g_vMainLightDir);
+	//float NL = dot(vViewNormal, -g_vMainLightDir);
+	//float NL = dot(mul(float3(0,0,1), g_mView), -g_vMainLightDir);
+	//return float4(NL, NL, NL,0);
+
+	// ²âÊÔ¹âÕÕ2
+	//float3 vDiffuseLightTemp;
+	//float3 vSpeculatLightTemp;
+	//AccumLighting(vViewVector, vViewNormal, 0, 1, float4(0,0,0,0), vDiffuseLightTemp, vSpeculatLightTemp);
+	//return float4(vDiffuseLightTemp.xyz, 0);
+	
+	// ²âÊÔLODÑ¡È¡Çé¿ö
+	//if (vLodLevel.x > -1.f)
+	//	return float4(0,0,0,0);
+	//else if (vLodLevel.x > -2.f)
+	//	return float4(0.5,0.5,0.5,0);
+	//else if (vLodLevel.x > -4.f)
+	//	return float4(0,0,1,0);	
+	//else if (vLodLevel.x > -6.f)
+	//	return float4(0,1,0,0);	
+	//else if (vLodLevel.x > -8.f)
+	//	return float4(1,0,0,0);	
+	//else
+	//	return float4(1,1,1,0);	
+	
+	// ²âÊÔ´ÓLODµ½V×ø±ê×ª»»Çé¿ö
+	//if (vUVSetTable.w < 1.0 / 32.0)
+	//	return float4(1,1,1,0);
+	//else if (vUVSetTable.w < 2.0 / 32.0)
+	//	return float4(1,0,0,0);
+	//else if (vUVSetTable.w < 3.0 / 32.0)
+	//	return float4(0,1,0,0);	
+	//else if (vUVSetTable.w < 4.0 / 32.0)
+	//	return float4(0,0,1,0);	
+	//else if (vUVSetTable.w < 5.0 / 32.0)
+	//	return float4(0.7,0.7,0.7,0);	
+	//else if (vUVSetTable.w < 6.0 / 32.0)
+	//	return float4(0.4,0.4,0.4,0);	
+	//else
+	//	return float4(0,0,0,0);	
+	//*************************
 };
 //---------------------------------------------------------------------------------------
 // ¶¸ÇÍµØÇø×ÅÉ«
@@ -221,7 +285,7 @@ float4 PS_Main_Seam(VS_OUTPUT kInput) : COLOR0
 	// ½â³öÊÀ½ç¿Õ¼ä·¨Ïß(x,y,z)
 	float3 vWorldNormal;
 	vWorldNormal.xy	= vBaseNormalTex.xy * 2.0 - 1.0;
-	vWorldNormal.z 	= sqrt(dot(float3(1.0, vBaseNormalTex.xy), float3(1.0, -vBaseNormalTex.xy)));
+	vWorldNormal.z 	= sqrt(dot(float3(1.0, vWorldNormal.xy), float3(1.0, -vWorldNormal.xy)));
 	// @}
 	
 	
@@ -267,8 +331,8 @@ float4 PS_Main_Seam(VS_OUTPUT kInput) : COLOR0
 	
 	// ¼ÆËãÍ¼¼¯UV
 	float4 vUVSetTable;
-	vUVSetTable.xyz = saturate(vIndices.bgr * g_fAtlasIdScale + g_fAtlasIdOffset);
-	vUVSetTable.w	= saturate(max(vLodLevel.x, vLodLevel.y) * g_fAtlasLevelScale + g_fAtlasLevelOffset);
+	vUVSetTable.xyz = saturate(vIndices.bgr * g_fDiffuseAtlasIdScale + g_fDiffuseAtlasIdOffset);
+	vUVSetTable.w	= saturate(max(vLodLevel.x, vLodLevel.y) * g_fDiffuseAtlasLevelScale + g_fDiffuseAtlasLevelOffset);
 	
 	// ÌùÍ¼»ìºÏ
 	float4 vDiffuseGloss = SamplerAtlasMap_Planar(sdDiffuseAtlasSampler, sdAtlasTableSampler, vUVSetTable.xw, vTerrainUV_XY, vTerrainUV_YZ, vTerrainUV_XZ, vPlanarWeight) * vBlendTex.b +

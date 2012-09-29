@@ -7,6 +7,8 @@
 #include "NiDX9Direct3DTexture.h"
 #include "NiDX9Direct3DTextureData.h"
 
+using namespace Base::Math;
+
 namespace RenderSystem
 {
 
@@ -288,6 +290,82 @@ bool sdTextureAtlas::RemoveTexture(uint uiIndex)
 	return true;
 }
 //-------------------------------------------------------------------------------------------------
+NiTexture* sdTextureAtlas::GetTextute(uint uiIndex)
+{
+	if (uiIndex >= m_kTextureInfoVec.size())
+		return NULL;
+
+	return m_kTextureInfoVec[uiIndex]->spTexture;
+}
+//-------------------------------------------------------------------------------------------------
+void sdTextureAtlas::SetTexture(uint uiIndex, NiTexture *spTexture)
+{
+	if (uiIndex >= m_kTextureInfoVec.size())
+		return;
+
+	stTextureInfo* pkTextureInfo = m_kTextureInfoVec[uiIndex];
+	if (pkTextureInfo->spTexture == spTexture)
+		return;
+
+	float fOldUVRepeat = pkTextureInfo->fUVRepeat;
+	float fOldMipmapBias = pkTextureInfo->fMipmapBias;
+	if (InsertTexture(uiIndex, spTexture, fOldUVRepeat, fOldMipmapBias) == -1)
+		return;
+	RemoveTexture(uiIndex + 1);
+}
+//-------------------------------------------------------------------------------------------------
+float sdTextureAtlas::GetUVRepeat(uint uiIndex)
+{
+	if (uiIndex >= m_kTextureInfoVec.size())
+		return 1.0f;
+
+	return m_kTextureInfoVec[uiIndex]->fUVRepeat;
+}
+//-------------------------------------------------------------------------------------------------
+void sdTextureAtlas::SetUVRepeat(uint uiIndex, float fUVRepeat)
+{
+	if (uiIndex >= m_kTextureInfoVec.size())
+		return;
+
+	stTextureInfo* pkTextureInfo = m_kTextureInfoVec[uiIndex];
+	if (pkTextureInfo->fUVRepeat == fUVRepeat)
+		return;
+
+	pkTextureInfo->fUVRepeat = fUVRepeat;
+
+	m_bAtlasTableDirty = true;
+}
+//-------------------------------------------------------------------------------------------------
+float sdTextureAtlas::GetMipmapBias(uint uiIndex)
+{
+	if (uiIndex >= m_kTextureInfoVec.size())
+		return 0.0f;
+
+	return m_kTextureInfoVec[uiIndex]->fMipmapBias;
+}
+//-------------------------------------------------------------------------------------------------
+void sdTextureAtlas::SetMipmapBias(uint uiIndex, float fMipmapBias)
+{
+	if (uiIndex >= m_kTextureInfoVec.size())
+		return;
+
+	stTextureInfo* pkTextureInfo = m_kTextureInfoVec[uiIndex];
+	if (pkTextureInfo->fMipmapBias == fMipmapBias)
+		return;
+
+	pkTextureInfo->fMipmapBias = fMipmapBias;
+
+	m_bAtlasTableDirty = true;
+}
+//-------------------------------------------------------------------------------------------------
+void sdTextureAtlas::GetAtlasTableParam(sdVector2& kTexIdToU, sdVector2& kLevelToV)
+{
+	kTexIdToU.m_fX = m_kTableInfo.vTexId2U[0];
+	kTexIdToU.m_fY = m_kTableInfo.vTexId2U[1];
+	kLevelToV.m_fX = m_kTableInfo.vLevel2V[0];
+	kLevelToV.m_fY = m_kTableInfo.vLevel2V[1];
+}
+//-------------------------------------------------------------------------------------------------
 bool sdTextureAtlas::Update()
 {
 	// 如果输入AltasTexture,和输入AtlasTexture有变动,则更新之
@@ -308,6 +386,7 @@ bool sdTextureAtlas::UpdateAtlasAndTable()
 		return true;
 
 	// 如果当前输入AtlasTexture被更新了, 重新插入所有Mipmap到SurfaceAtlas
+	// @{
 	if (m_bAtlasDirty)
 	{
 		// 计算更新之后应该使用的纹理尺寸
@@ -399,6 +478,9 @@ bool sdTextureAtlas::UpdateAtlasAndTable()
 			spLevelInfo->uiTop	= uiTop;
 			spLevelInfo->uiTileIndex = m_pkSurfaceAtlas->AllocTile(uiLeft, uiTop, spLevelInfo->uiSize, spLevelInfo->uiSize);
 			m_pkSurfaceAtlas->BindSourceSurfaceToTile(spLevelInfo->uiTileIndex, spLevelInfo->spD3DSurface, 0, 0);
+		
+			//
+			uiCurTotalAllocatedPixels += spLevelInfo->uiSize * spLevelInfo->uiSize;
 		}
 
 		// 为重复的Texture的所有Level填充Index
@@ -422,9 +504,12 @@ bool sdTextureAtlas::UpdateAtlasAndTable()
 		//
 		m_bAtlasDirty = false;
 		m_bAtlasTextureDirty = true;
-	}	
+	}
+	// @}
+
 
 	// 如果输入AtlasTable被更新了
+	// @{
 	if (m_bAtlasTableDirty)
 	{
 		int iMinLodOffset = 1000;
@@ -444,17 +529,15 @@ bool sdTextureAtlas::UpdateAtlasAndTable()
 
 		// 
 		int iMaxMipmapLod = 6;
-		int iMinLodFactor = 0;
-		int iMaxLodFactor = iMaxMipmapLod;
-
-		iMinLodFactor = 0 - iMaxLodFactor;
-		iMaxLodFactor = iMaxMipmapLod - iMinLodFactor;
+		int iMinLodFactor = 0 - iMaxLodOffset;
+		int iMaxLodFactor = iMaxMipmapLod - iMinLodOffset;
 
 		//
 		m_kTableInfo.uiTextureCount = m_kTextureInfoVec.size();
 		m_kTableInfo.uiLevelCount = iMaxMipmapLod;
+
 	
-		// 计算AtlasTable纹理尺寸,检查当前AtlasTable尺寸,不匹配则销毁重新创建之
+		// 计算AtlasTable纹理尺寸(向上取power(2,n)),检查当前AtlasTable尺寸,不匹配则销毁重新创建之
 		uint uiWidth = Base::Math::sdMath::Power2_Ceil(m_kTableInfo.uiTextureCount);
 		uint uiHeight = Base::Math::sdMath::Power2_Ceil(iMaxLodFactor - iMinLodFactor + 1) * 4;
 		if (uiWidth != m_kTableInfo.uiWidth || uiHeight != m_kTableInfo.uiHeight)
@@ -465,7 +548,7 @@ bool sdTextureAtlas::UpdateAtlasAndTable()
 			m_kTableInfo.uiHeight = uiHeight;
 		}
 
-		// (用于Shader计算时使用)
+		// 用于Shader计算时使用:
 		m_kTableInfo.vTexId2U[0] = 1.0f / uiWidth;
 		m_kTableInfo.vTexId2U[1] = 0.5f / uiWidth;
 		m_kTableInfo.vLevel2V[0] = 1.0f / uiHeight;
@@ -475,6 +558,7 @@ bool sdTextureAtlas::UpdateAtlasAndTable()
 		m_bAtlasTableDirty = false;
 		m_bAtlasTableTextureDirty = true;
 	}
+	// @}
 
 	return true;
 }
@@ -485,13 +569,14 @@ bool sdTextureAtlas::UpdateRenderTexture()
 	if (m_spRenderer->IsDeviceLost())
 		return true;
 
+
 	// AtlasTexture处理
 	// @{
 	// 输入纹理列表为空则直接返回
 	if (0 == m_uiTotalPixels || m_kTextureInfoVec.empty())
 		return true;
 
-	// 输出AtlasTexture的D3D纹理不为空,且非脏状态直接返回
+	// 输出AtlasTexture的D3D纹理非空,且非脏状态直接返回
 	if (!m_bAtlasTextureDirty && NULL != m_spD3DAtlasTexture)
 		return true;
 
@@ -505,6 +590,7 @@ bool sdTextureAtlas::UpdateRenderTexture()
 	// 进行拼接处理输出到AtlasTexture
 	m_pkSurfaceAtlas->UpdateTargetSurface();
 	// @}
+
 
 	// AtlasTable处理
 	// @{
@@ -530,18 +616,18 @@ bool sdTextureAtlas::UpdateRenderTexture()
 		float* pfDataPixel = pfDataLine;
 		for (uint x = 0; x < m_kTableInfo.uiWidth; ++x)
 		{
-			// 获取当前纹理(为了power(2,n)对齐引起的超出部分使用最后一页)
+			// 获取当前纹理(每行为了power(2,n)对齐引起的超出部分的像素使用最后一层纹理)
 			stTextureInfo* pkTexInfo = m_kTextureInfoVec[min(x, m_kTableInfo.uiTextureCount -1)];
 
 			// 计算当前LOD
 			float fLodOffset = log(pkTexInfo->kLevelInfoVec[0].uiSize / pkTexInfo->fUVRepeat) / log(2.0f);
 			float fLodFactor = (((float)y) / m_kTableInfo.uiHeight - m_kTableInfo.vLevel2V[1]) / m_kTableInfo.vLevel2V[0];
 			int iLevel = (int)(fLodFactor + fLodOffset + pkTexInfo->fMipmapBias);
-			uint uiLevel = NiClamp(iLevel, 0, pkTexInfo->kLevelInfoVec.size());
+			uint uiLevel = NiClamp(iLevel, 0, pkTexInfo->kLevelInfoVec.size() - 1);
 
 			// 提取Tile的信息并保存
 			stLevelInfo* pkLevel = &pkTexInfo->kLevelInfoVec[uiLevel];
-			NIASSERT(-1 == pkLevel->uiTileIndex);
+			NIASSERT(-1 != pkLevel->uiTileIndex);
 
 			pfDataPixel[0] = 1.0f / pkTexInfo->fUVRepeat;
 			pfDataPixel[1] = ((float)pkLevel->uiSize - 1.0f) / (float)m_pkSurfaceAtlas->GetWidth();
@@ -552,8 +638,8 @@ bool sdTextureAtlas::UpdateRenderTexture()
 			pfDataPixel += 4;
 		}
 
-		// 下一行
-		pfDataLine += kLockedRect.Pitch;
+		// 下一行(每个float是4个字节)
+		pfDataLine += (kLockedRect.Pitch / 4);
 	}
 
 	m_spD3DAtlasTable->UnlockRect(0);
@@ -565,25 +651,30 @@ bool sdTextureAtlas::UpdateRenderTexture()
 //-------------------------------------------------------------------------------------------------
 bool sdTextureAtlas::CreateAtlasTexture()
 {
-	if (!m_spD3DAtlasTexture)
+	if (m_spD3DAtlasTexture)
 		return false;
 
-	// 创建AtlasTexture的D3D,并清空
-	HRESULT hr = m_spD3DDevice->CreateTexture(m_uiAtlasSize, m_uiAtlasSize, 1, D3DUSAGE_DYNAMIC, m_eFormat, D3DPOOL_DEFAULT, &m_spD3DAtlasTexture, 0);
+	// 创建AtlasTexture的D3DTexture
+	HRESULT hr = m_spD3DDevice->CreateTexture(m_uiAtlasSize, m_uiAtlasSize, 1, 0, m_eFormat, D3DPOOL_MANAGED, &m_spD3DAtlasTexture, 0);
 	if (FAILED(hr))
 		return false;
 
-	D3DLOCKED_RECT kLockedRect;
-	m_spD3DAtlasTexture->LockRect(0, &kLockedRect, NULL, 0);
-	ZeroMemory(kLockedRect.pBits, m_uiAtlasSize * m_uiAtlasSize);
-	m_spD3DAtlasTexture->UnlockRect(0);
+	// 清空D3DTexture
+	//D3DLOCKED_RECT kLockedRect;
+	//m_spD3DAtlasTexture->LockRect(0, &kLockedRect, NULL, 0);
+	//ZeroMemory(kLockedRect.pBits, m_uiAtlasSize * m_uiAtlasSize);	// 貌似这里Size不对
+	//m_spD3DAtlasTexture->UnlockRect(0);
 
-	// 绑定到AtlasTexture
+	// 包装D3DTexture到GBTexture
 	NiDX9Direct3DTextureData::Create((NiDX9Direct3DTexture*)(NiTexture*)m_spAtlasTexture, m_spRenderer, m_spD3DAtlasTexture);
 
-	// 绑定到AtlasSurface
+	// 获取D3DSurface
 	IDirect3DSurface9* spD3DAtlasSurface;
-	m_spD3DAtlasTexture->GetSurfaceLevel(0, &spD3DAtlasSurface);
+	hr = m_spD3DAtlasTexture->GetSurfaceLevel(0, &spD3DAtlasSurface);
+	if (FAILED(hr))
+		return false;
+
+	// 绑定D3DSurface到AtlasSurface
 	if (!m_pkSurfaceAtlas->BindTargetSurface(spD3DAtlasSurface))
 		return false;
 
@@ -613,7 +704,7 @@ void sdTextureAtlas::DestroyAtlasTexture()
 //-------------------------------------------------------------------------------------------------
 bool sdTextureAtlas::CreateAtlasTableTexture()
 {
-	if (!m_spD3DAtlasTable)
+	if (m_spD3DAtlasTable)
 		return false;
 
 	// 创建AtlasTable的D3D

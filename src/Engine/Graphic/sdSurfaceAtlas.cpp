@@ -164,13 +164,13 @@ bool sdSurfaceAtlas::BindTargetSurface(IDirect3DSurface9* pSurface)
 	// 参数检查
 	// @{
 	// 检查TargetSurface有效性
-	if(NULL == m_pkTargetSurface)
+	if(NULL == pSurface)
 		return false;
 
 	// 检查TargetSurface的属性(必须是内存纹理,必须与指定格式相同,必须与指定大小相同)
 	D3DSURFACE_DESC kDesc;
-	HRESULT hr = m_pkTargetSurface->GetDesc(&kDesc);
-	if (D3D_OK != hr || D3DPOOL_SYSTEMMEM != kDesc.Pool || m_eFormat != kDesc.Format || kDesc.Width != m_uiWidth || kDesc.Height != m_uiHeight)
+	HRESULT hr = pSurface->GetDesc(&kDesc);
+	if (D3D_OK != hr || m_eFormat != kDesc.Format || kDesc.Width != m_uiWidth || kDesc.Height != m_uiHeight)
 		return false;
 	// @}
 

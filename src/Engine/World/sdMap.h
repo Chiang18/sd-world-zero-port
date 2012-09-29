@@ -10,6 +10,7 @@
 #define _SD_ENGINE_MAP_H__
 #include "sdGameObject.h"
 #include "sdTerrain.h"
+#include "sdLight.h"
 
 // 渲染系统
 #include "sdRenderSystem.h"
@@ -34,6 +35,10 @@ public:
 	NiAVObjectPtr	m_pkRoot;
 	//**********************
 
+	// Entity操作
+	bool	AddEntity(sdEntity* pkEntity);
+	bool	RemoveEntity(sdEntity* pkEntity);
+
 	// 属性访问
 	// @{
 	// 
@@ -41,6 +46,11 @@ public:
 
 	//
 	NiNode*	GetDebugNode() const { return m_spDebugNode;}
+
+	// 灯光
+	sdLight* GetAmbientLight() const;
+	sdLight* GetMainLight() const;
+	sdLight* GetAssistantLight() const;
 
 	// 渲染参数
 	const RenderSystem::sdRenderParams& GetRenderParams() const { return m_kRenderParams;};
@@ -56,6 +66,12 @@ protected:
 	// 地形系统
 	sdTerrain	m_kTerrain;
 
+	// 场景灯光
+	sdLightPtr	m_pkAmbientLight;
+	sdLightPtr	m_pkMainLight;
+	sdLightPtr	m_pkAssistantLight;
+
+
 	// 调试根节点
 	NiNodePtr	m_spDebugNode;
 
@@ -65,4 +81,5 @@ protected:
 	RenderSystem::sdPostProcessParams	m_kPostProcessParams;
 };
 NiSmartPointer(sdMap);
+#include "sdMap.inl"
 #endif

@@ -14,7 +14,7 @@
 // 前置声明
 class sdHeightMap;
 
-// 地表法线图
+// 地表法线图,与HeightMap密度相同
 class sdNormalMap : public NiRefObject
 {
 public:

@@ -24,9 +24,13 @@ public:
 	// (这里使用D3DX来处理,WZ原始方式是自己手工处理)
 	static bool SaveBlendMap(NiTexture* spBlendMap, const char* szSceneFullPath);
 
+	// 加载和保存漫反射贴图集与漫反射贴图集索引
+	static bool SaveDiffuseAtlasMap(NiTexture* spDiffuseMap, const char* szSceneFullPath);
+	static bool SaveDiffuseAtlasTableMap(NiTexture* spDiffuseTableMap, const char* szSceneFullPath);
 
-	// 加载和保存混合贴图索引
-
+	// 加载和保存混合贴图与混合贴图索引
+	static bool SaveNormalAtlasMap(NiTexture* spNormalMap, const char* szSceneFullPath);
+	static bool SaveNormalAtlasTableMap(NiTexture* spNormalTableMap, const char* szSceneFullPath);
 };
 NiSmartPointer(sdTerrainStream);
 #endif

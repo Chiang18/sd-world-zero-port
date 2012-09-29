@@ -203,7 +203,7 @@ protected:
 
 	// 根据当前视锥体与分辨率计算出来的Error与Distance之间的转换率,用于控制LOD的切换
 	// (多级切换,延迟切换,一般是一个数组,这里有待参考CryEngine)
-	//float	m_fError2Distance;	
+	float	m_fError2Distance;	
 
 protected:
 	// Tile进行权重混合时的过滤器(用于编辑器,材质编辑)

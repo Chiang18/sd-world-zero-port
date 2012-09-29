@@ -74,8 +74,10 @@ void sdTerrainAtlasShadingPass::Destroy()
 	m_uiStencilMask = 0;
 	m_spLightTexture = 0;
 	m_spGeomTexture = 0;
+	m_spSimpleShadingMaterial = 0;
 	m_spPlanarShadingMaterial = 0;
 	m_spSeamShadingMaterial = 0;
+	m_spOrthoShadingMaterial = 0;
 
 	m_bInitialized = false;
 }
@@ -107,19 +109,19 @@ void sdTerrainAtlasShadingPass::SetTerrainParams(const sdTerrainParams& kTerrain
 	}
 
 	// µØ±íDiffuseMap
-	//spShaderMap = m_spTexturingProp->GetShaderMap(6);
-	//NIASSERT(spShaderMap);
-	//if (spShaderMap->GetTexture() != kTerrainParams.diffuseAtlasTableMap)
-	//{
-	//	spShaderMap->SetTexture(kTerrainParams.diffuseAtlasTableMap);
-	//}
+	spShaderMap = m_spTexturingProp->GetShaderMap(6);
+	NIASSERT(spShaderMap);
+	if (spShaderMap->GetTexture() != kTerrainParams.diffuseAtlasTableMap)
+	{
+		spShaderMap->SetTexture(kTerrainParams.diffuseAtlasTableMap);
+	}
 
-	//spShaderMap = m_spTexturingProp->GetShaderMap(7);
-	//NIASSERT(spShaderMap);
-	//if (spShaderMap->GetTexture() != kTerrainParams.diffuseAtlasMap)
-	//{
-	//	spShaderMap->SetTexture(kTerrainParams.diffuseAtlasMap);
-	//}
+	spShaderMap = m_spTexturingProp->GetShaderMap(7);
+	NIASSERT(spShaderMap);
+	if (spShaderMap->GetTexture() != kTerrainParams.diffuseAtlasMap)
+	{
+		spShaderMap->SetTexture(kTerrainParams.diffuseAtlasMap);
+	}
 }
 //-------------------------------------------------------------------------------------------------
 void sdTerrainAtlasShadingPass::Draw()
