@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 
-namespace WorldEditor.Base.Interface
+namespace WorldEditor.Base.Interfaces
 {
     // 编辑模块接口
     interface IModule

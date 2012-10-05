@@ -9,6 +9,7 @@
 #ifndef _SD_GAMEEDITEX_EDITTERRAINHELPER_H__
 #define _SD_GAMEEDITEX_EDITTERRAINHELPER_H__
 #include "sdGameEditEx.h"
+#include "sdTerrainDeformMode.h"
 #include "sdTerrainSurfaceMode.h"
 
 //
@@ -32,7 +33,23 @@ namespace GameEditEx
 
 		// 地形高度编辑
 		// @{
+		// 笔刷类型(sdEditBrush::EBrushType)
+		uint	GetDeformBrushType();
+		void	SetActiveDeformBrush(uint uiBrush);
 
+		void	SetDeformBrushVisible(bool bVisible);
+
+		float	GetDeformBrushOutterRadius();
+		void	SetDeformBrushOutterRadius(float fRadius);
+
+		float	GetDeformBrushInnerRadius();
+		void	SetDeformBrushInnerRadius(float fRadius);
+
+		float	GetDeformBrushHardness();
+		void	SetDeformBrushHardness(float fHardness);
+
+		float	GetDeformBrushHeight();
+		void	SetDeformBrushHeight(float fHeight);
 		// @}
 
 		// 地形纹理编辑
@@ -78,5 +95,6 @@ namespace GameEditEx
 		sdTerrainSurfaceMode*	m_pkTerrainSurfaceMode;
 	};
 	NiSmartPointer(sdEditTerrainHelper);
+#include "sdEditTerrainHelper.inl"
 }
 #endif

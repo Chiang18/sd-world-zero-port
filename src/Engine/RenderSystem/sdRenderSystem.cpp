@@ -1,6 +1,8 @@
 #include "stdafx.h"
 #include "sdRenderSystem.h"
 
+using namespace Base::Math;
+
 namespace RenderSystem
 {
 
@@ -9,8 +11,10 @@ void sdRenderParams::Reset()
 {
 	diffuseAnisotropicOffset = 0;
 	normalAnisotropicOffset = 0;
+
 	diffuseLodBiasOffset = 0.0f;
 	normalLodBiasOffset = 0.0f;
+
 	normalScaleOffset = 0.0f;
 
 	buildingChannelMask = 0xffffffff;
@@ -91,7 +95,40 @@ void sdPostProcessParams::Reset()
 //-------------------------------------------------------------------------------------------------
 void sdTerrainParams::Reset()
 {
-	
+	terrainSize = 1024;
+	blendMapSize = 1024;
+	tileMapSize = 512;
+
+	ambientMaterial = sdVector3::UNIT_SCALE;
+	diffuseMaterial = sdVector3::UNIT_SCALE;
+	specularMaterial = sdVector3::UNIT_SCALE;
+	shiness = 32.f;
+
+	baseNormalMap = NULL;
+	blendMap = NULL;
+	tileMap = NULL;
+
+	diffuseAtlasMap = NULL;
+	diffuseAtlasTableMap = NULL;
+
+	normalAtlasMap = NULL;
+	normalAtlasTableMap = NULL;
+
+	terrainFarStart = 64.f;
+	normalScale = 1.f;
+
+	diffuseAnisotropic = 0;
+	normalAnisotropic = 0;
+
+	diffuseLodBias = 0.f;
+	normalLodBias = 0.f;
+
+	useTriplanar = false;
+	useSpecular = true;
+
+	showInvisiableLayers = false;
+	showTileGrid = false;
+	showWireframe = false;
 }
 //-------------------------------------------------------------------------------------------------
 sdRenderSystem::sdRenderSystem()

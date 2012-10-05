@@ -37,18 +37,18 @@ bool sdMap::CreateScene()
 	m_kTerrain.CreateScene(512,1024);
 
 	sdLayerMap* pkLayerMap = NiNew sdLayerMap("Default", 
-		"E:\\project_game\\edata\\world0\\texture\\terrain\\ice_broken.dds",
-		"E:\\project_game\\edata\\world0\\texture\\terrain\\ice_broken_ddn.dds", 10.0);
+		"E:\\project_game\\edata\\world0\\texture\\terrain\\road_soil_small_pepples.dds",
+		"E:\\project_game\\edata\\world0\\texture\\terrain\\road_soil_small_pepples_ddn.dds", 10.0);
 	m_kTerrain.AppendLayer(pkLayerMap);
 
 	pkLayerMap = NiNew sdLayerMap("Default1", 
-		"E:\\project_game\\edata\\world0\\texture\\terrain\\road_soil_small_pepples.dds",
-		"E:\\project_game\\edata\\world0\\texture\\terrain\\road_soil_small_pepples_ddn.dds");
+		"E:\\project_game\\edata\\world0\\texture\\terrain\\plains_ferns_green.dds",
+		"E:\\project_game\\edata\\world0\\texture\\terrain\\plains_ferns_green_ddn.dds");
 	m_kTerrain.AppendLayer(pkLayerMap);
 
 	pkLayerMap = NiNew sdLayerMap("Default2", 
-		"E:\\project_game\\edata\\world0\\texture\\terrain\\plains_ferns_green.dds",
-		"E:\\project_game\\edata\\world0\\texture\\terrain\\plains_ferns_green_ddn.dds");
+		"E:\\project_game\\edata\\world0\\texture\\terrain\\ground_mossy.dds",
+		"E:\\project_game\\edata\\world0\\texture\\terrain\\ground_mossy_ddn.dds");
 	m_kTerrain.AppendLayer(pkLayerMap);
 
 	pkLayerMap = NiNew sdLayerMap("Default3", 
@@ -74,7 +74,7 @@ bool sdMap::CreateScene()
 	// @{
 	m_pkAmbientLight = NiNew sdLight(sdLight::E_LT_AMBIENT);
 	NIASSERT(m_pkAmbientLight);
-	m_pkAmbientLight->SetAmbientColor(NiColor::BLACK);
+	m_pkAmbientLight->SetAmbientColor(NiColor(0.5f, 0.5f, 0.5f));
 	m_pkAmbientLight->SetDiffuseColor(NiColor::BLACK);
 
 	m_pkMainLight = NiNew sdLight(sdLight::E_LT_DIR);
@@ -105,7 +105,7 @@ bool sdMap::CreateScene()
 
 	// 
 	m_kRenderParams.Reset();
-	m_kRenderParams.EnableChannel(sdRenderParams::E_TERRAIN, sdRenderParams::E_NORMALMAP, false);
+	//m_kRenderParams.EnableChannel(sdRenderParams::E_TERRAIN, sdRenderParams::E_NORMALMAP, false);
 
 
 	return true;

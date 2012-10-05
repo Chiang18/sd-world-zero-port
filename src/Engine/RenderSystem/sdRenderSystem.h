@@ -20,10 +20,11 @@ class sdMap;
 
 namespace RenderSystem
 {
-	// 渲染参数
+	// 渲染参数,控制渲染策略与渲染质量
 	class sdRenderParams : public NiMemObject
 	{
 	public:
+		// 渲染通道,
 		enum eShadingChannel
 		{
 			E_DIFFUSEMAP			= 0,
@@ -31,7 +32,7 @@ namespace RenderSystem
 			E_GLOSSMAP				= 2,
 			E_LIGHTMAP				= 3,
 			E_AOMAP					= 4,
-			E_FILTERMAP				= E_AOMAP,
+			E_FILTERMAP				= E_AOMAP,	///< for light and projector use
 			E_GLOWMAP				= 5,
 			E_DETAILNORMALMAP		= 6,
 			E_ENVIRONMENTMAP		= 7,
@@ -50,16 +51,16 @@ namespace RenderSystem
 			NUM_SHADING_CHANNELS	= NUM_MAP_CHANNELS + NUM_LIGHTING_CHINNELS + NUM_LIGHT_CHINNELS,
 		};
 
-		// 物件类型,用于渲染系统识别，且采取不同的渲染策略
+		// 物件类型
 		enum eGameObjectType
 		{
 			E_BUILDING				= 0,	// 普通静态物件,例如建筑
 			E_ACTOR					= 1,	// 动态物件,带骨骼动画
 			E_TREELEAF				= 2,	// 地表灌木
 			E_EFFECT				= 3,
-			E_TERRAIN				= 4,
+			E_TERRAIN				= 4,	// 地形
 			E_WEAPON				= 5,
-			E_WATER					= 6,
+			E_WATER					= 6,	// 水
 			E_GODRAY				= 7,
 			E_FOG					= 8,
 			NUM_GAMEOBJECT_TYPE		= 9
@@ -73,16 +74,23 @@ namespace RenderSystem
 		bool IsEnableChannel(eGameObjectType eObjectType, eShadingChannel eChannel);
 
 	public:
+		// 整体各向异性过滤
 		int				diffuseAnisotropicOffset;
 		int				normalAnisotropicOffset;
+
+		// 整体LOD偏移
 		float			diffuseLodBiasOffset;
 		float			normalLodBiasOffset;
+
+		// 整体NormalMap强度缩放
 		float			normalScaleOffset;
 
+		// 渲染通道掩码
 		unsigned int	buildingChannelMask;
 		unsigned int	actorChannelMask;
 		unsigned int	terrainChannelMask;
 
+		//
 		bool			densityMode;
 		float			densityMinThreshold;
 		float			densityMaxThreshold;
@@ -119,14 +127,31 @@ namespace RenderSystem
 		void Reset();
 
 	public:
-		float dofStart;
-		float dofEnd;
-		float dofSkyDepth;
-		float dofBlurWidth;
+		// AA参数
+		bool	enableMLAA;
+
+		// ColorCorrection参数
+		bool	enableColorCorrection;
+
+		// Dof参数
+		bool	enableDof;
+		float	dofStart;
+		float	dofEnd;
+		float	dofSkyDepth;
+		float	dofBlurWidth;
+
+		// GodRay参数
+		bool	enableGodRay;
+
+		// HDR参数
+		bool	enableHDR;
+
+		// SSAO参数
+		bool	enableSSAO;
 	};
 	NiSmartPointer(sdPostProcessParams);
 
-	// 地形绘制参数
+	// 地形参数
 	class sdTerrainParams : public NiRefObject
 	{
 	public:
@@ -134,10 +159,12 @@ namespace RenderSystem
 		void Reset();
 
 	public:
-		// 地形总体尺寸
-		Base::Math::sdVector2ui terrainSize;
+		// 尺寸
+		uint terrainSize;	// HeightMap Size,NormalMap Size
+		uint blendMapSize;	// BlendMap Size
+		uint tileMapSize;	// TileMap Size
 
-		// 地形材质信息
+		// 地形材质信息,Material info
 		// @{
 		Base::Math::sdVector3	ambientMaterial;
 		Base::Math::sdVector3	diffuseMaterial;
@@ -145,11 +172,9 @@ namespace RenderSystem
 		float					shiness;
 		// @}
 
-		// 地形纹理信息
+		// 地形纹理信息,Texture info
 		// @{
-		NiTexture*	baseLightMap;			// 整个地表的光照贴图
 		NiTexture*	baseNormalMap;			// 整个地表的法线贴图
-
 		NiTexture*	blendMap;				// 整个地表的纹理混合贴图
 		NiTexture*	tileMap;				// 整个地表的纹理混合贴图查找表
 
@@ -164,7 +189,7 @@ namespace RenderSystem
 
 		// 
 		float	terrainFarStart;		// 地形的"近处"与"远处"部分的分界距离
-		float	normalScale;	
+		float	normalScale;			// 地形NormalMap的法线缩放
 
 		// 各向异性过滤,Anisotropic filter setting
 		//	0:		means linear filter
@@ -172,15 +197,17 @@ namespace RenderSystem
 		uint	diffuseAnisotropic;
 		uint	normalAnisotropic;
 
-		// LOD偏置, Mipmap lod bias setting(不宜与各向异性过滤共同使用)
+		// LOD偏置, Mipmap lod bias setting
+		// \remark Using it with anisotropic filter won't help visual quality 
+		//		but hurt terrain rendering performance.)
 		float	diffuseLodBias;
 		float	normalLodBias;
 
-		// 开关信息
-		bool	useTriplanar;	// 是否使用立方体纹理来平滑法线
+		// 材质LOD信息,Material LOD info
+		bool	useTriplanar;	// 是否使用立方体纹理
 		bool	useSpecular;	// 是否使用高光
 
-		// 调试信息
+		// 调试信息,Debug params
 		bool	showInvisiableLayers;
 		bool	showTileGrid;
 		bool	showWireframe;
@@ -200,11 +227,11 @@ namespace RenderSystem
 		// 缺省Mesh
 		enum eDefaultMesh
 		{
-			E_SCREEN_QUAD,
-			E_UNIT_CUBE,
-			E_UNIT_SPHERE,
-			E_UNIT_CONE,
-			E_UNIT_PYRAMID,
+			E_SCREEN_QUAD,	///< LeftTop: coord(-1,1), uv(0,0); RightBottom:  coord(1,-1), uv(1,1)
+			E_UNIT_CUBE,	///< Center: coord(0,0,0); Size Length 1.f
+			E_UNIT_SPHERE,	///< Center: coord(0,0,0); Radius: 0.5f
+			E_UNIT_CONE,	///< Center: top point(0,0,0), bottom center(1,0,0), bottom radius: 1.f
+			E_UNIT_PYRAMID,	///< Center: top point(0,0,0), bottom center(1,0,0), bottom side length: 2.f
 			NUM_DEFAULT_MESHES,
 		};
 

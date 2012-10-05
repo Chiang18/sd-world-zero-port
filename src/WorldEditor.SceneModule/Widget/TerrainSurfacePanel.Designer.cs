@@ -1,6 +1,6 @@
 ﻿namespace WorldEditor.SceneModule.Widget
 {
-    partial class TerrainSurfaceWidget
+    partial class TerrainSurfacePanel
     {
         /// <summary> 
         /// Required designer variable.

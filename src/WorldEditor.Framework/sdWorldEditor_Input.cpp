@@ -4,7 +4,7 @@
 
 using namespace GameEditEx;
 //-------------------------------------------------------------------------------------------------
-void sdWorldEditor::WndProc(int iMsg, WPARAM wParam, LPARAM lParam)
+void sdWorldEditor::WndProc(int iMsg, HWND hWnd, WPARAM wParam, LPARAM lParam)
 {
 	// 
 	sdEditCameraState* pkCurEditCamState = (sdEditCameraState*)m_kCameraFSM.GetState();
@@ -29,14 +29,17 @@ void sdWorldEditor::WndProc(int iMsg, WPARAM wParam, LPARAM lParam)
 	}
 	else if (iMsg >= WM_MOUSEFIRST && iMsg <= WM_MOUSELAST)
 	{
-		// 鼠标输入
-		switch (iMsg)
+		if (WM_MOUSEWHEEL == iMsg)
 		{
-			case WM_MOUSEWHEEL:		
-				m_kWorldEditFSM.OnMouseWheel(wParam, lParam);	
-				pkCurEditCamState->OnMouseWheel(wParam, lParam);
-				break;
-
+			// 处理鼠标滚轮消息
+			m_kWorldEditFSM.OnMouseWheel(wParam, lParam);	
+			pkCurEditCamState->OnMouseWheel(wParam, lParam);
+		}
+		else
+		{
+			// 鼠标输入
+			switch (iMsg)
+			{
 			case WM_MOUSEMOVE:		
 				m_kWorldEditFSM.OnMouseMove(wParam, lParam);	
 				pkCurEditCamState->OnMouseMove(wParam, lParam);
@@ -79,7 +82,19 @@ void sdWorldEditor::WndProc(int iMsg, WPARAM wParam, LPARAM lParam)
 			case WM_MBUTTONDBLCLK:	
 				m_kWorldEditFSM.OnMiddleButtonDBClick(wParam, lParam);	
 				break;	
+			}
 		}
+	}
+	else
+	{
+		//// 鼠标切换窗口
+		//switch (iMsg)
+		//{
+		//case WM_MOUSELEAVE:	
+		//	break;
+		//case WM_MOUSEHOVER:		
+		//	break;	
+		//}
 	}
 }
 //-------------------------------------------------------------------------------------------------

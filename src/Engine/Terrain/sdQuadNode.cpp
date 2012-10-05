@@ -10,19 +10,23 @@ sdQuadNode::sdQuadNode()
 , m_uiSpacing(1)
 , m_fError(0.0f)
 , m_fAccumError(0.0f)
+, m_uiOriginX(0)
+, m_uiOriginY(0)
 {
 
 }
 //-------------------------------------------------------------------------------------------------
 sdQuadNode::~sdQuadNode()
 {
-	
+	m_pkQuadMesh = 0;
+	m_pkQuadNodeChild[E_LT_CHILD] = 0;
+	m_pkQuadNodeChild[E_LB_CHILD] = 0;
+	m_pkQuadNodeChild[E_RT_CHILD] = 0;
+	m_pkQuadNodeChild[E_RB_CHILD] = 0;
 }
 //-------------------------------------------------------------------------------------------------
 bool sdQuadNode::Build(Base::Math::sdVector4ui& kRect, sdQuadNode* pkParent)
 {
-	using namespace Base::Math;
-
 	//
 	sdTerrain* pkTerrain = sdTerrain::InstancePtr();
 	NIASSERT(pkTerrain);
@@ -31,8 +35,8 @@ bool sdQuadNode::Build(Base::Math::sdVector4ui& kRect, sdQuadNode* pkParent)
 	m_pkQuadNodePar = pkParent;
 
 	// 起始点
-	m_kOrigin.m_kX	= kRect.m_kX;
-	m_kOrigin.m_kY	= kRect.m_kY;
+	m_uiOriginX	= kRect.m_kX;
+	m_uiOriginY	= kRect.m_kY;
 
 	// 递归处理子节点(注意是先递归,再处理节点)
 	// @{
@@ -89,7 +93,6 @@ bool sdQuadNode::Build(Base::Math::sdVector4ui& kRect, sdQuadNode* pkParent)
 		m_fAccumError = max(m_pkQuadNodeChild[E_RB_CHILD]->GetAccumError(), m_fAccumError);
 		m_fAccumError += m_fError;
 
-
 		// 节点包围盒(从下往上合并)
 		CalcBound(m_kAABB);
 		m_kAABB.Merge(m_pkQuadNodeChild[E_LT_CHILD]->GetBound());
@@ -121,7 +124,7 @@ bool sdQuadNode::Build(Base::Math::sdVector4ui& kRect, sdQuadNode* pkParent)
 	if (m_uiLevel < uiMeshLevel)
 	{
 		// 构建当前Node的Mesh
-		m_pkQuadMesh = NiNew sdQuadMesh(m_kOrigin.m_kX, m_kOrigin.m_kY, m_uiSpacing, uiTileSize, m_fError);
+		m_pkQuadMesh = NiNew sdQuadMesh(m_uiOriginX, m_uiOriginY, m_uiSpacing, uiTileSize, m_fError);
 		NIASSERT(m_pkQuadMesh);
 	}
 
@@ -130,7 +133,21 @@ bool sdQuadNode::Build(Base::Math::sdVector4ui& kRect, sdQuadNode* pkParent)
 //-------------------------------------------------------------------------------------------------
 void sdQuadNode::Destroy()
 {
+	m_pkQuadMesh = 0;
+	if (!IsLeaf())
+	{
+		m_pkQuadNodeChild[E_LT_CHILD]->Destroy();
+		m_pkQuadNodeChild[E_LT_CHILD] = 0;
 
+		m_pkQuadNodeChild[E_LB_CHILD]->Destroy();
+		m_pkQuadNodeChild[E_LB_CHILD] = 0;
+
+		m_pkQuadNodeChild[E_RT_CHILD]->Destroy();
+		m_pkQuadNodeChild[E_RT_CHILD] = 0;
+
+		m_pkQuadNodeChild[E_RB_CHILD]->Destroy();
+		m_pkQuadNodeChild[E_RB_CHILD] = 0;
+	}
 }
 //-------------------------------------------------------------------------------------------------
 void sdQuadNode::UpdateGeometry(float fCenterX, float fCenterY, float fRadius)
@@ -221,8 +238,6 @@ void sdQuadNode::UpdateGeometry(float fCenterX, float fCenterY, float fRadius)
 //-------------------------------------------------------------------------------------------------
 void sdQuadNode::Cull(const NiCamera& kCamera, NiFrustumPlanes& kFrustumPlanes, std::vector<NiMesh*>& kMeshVec)
 {
-	using namespace Base::Math;
-
 	// 
 	sdTerrain* pkTerrain = sdTerrain::InstancePtr();
 	NIASSERT(pkTerrain);
@@ -230,10 +245,10 @@ void sdQuadNode::Cull(const NiCamera& kCamera, NiFrustumPlanes& kFrustumPlanes, 
 	// 对当前节点进行裁剪,检测
 	//	1.是否可见
 	//	2.是否继续向下遍历
-
-
-
-	// 包围盒
+	//		(1)向下裁剪
+	//		(2)不向下裁剪		
+	//
+	// 包围球
 	sdVector3 kCenter, kHalfSize;
 	m_kAABB.GetCenter(kCenter);
 	m_kAABB.GetSize(kHalfSize);
@@ -241,7 +256,7 @@ void sdQuadNode::Cull(const NiCamera& kCamera, NiFrustumPlanes& kFrustumPlanes, 
 	NiPoint3 kTCenter(kCenter.m_fX, kCenter.m_fY, kCenter.m_fZ);
 	NiPoint3 kTHalfSize(kHalfSize.m_fX, kHalfSize.m_fY, kHalfSize.m_fZ);
 
-	// 相机裁剪(参考自Ogre)
+	// 1.相机裁剪(参考自Ogre)
 	//
 	// 依次用视形体各个面进行裁剪,只有均不在各个面的背面才有可能可见
 	// (考虑找一些更严密的AABB与Frustum求交算法)
@@ -285,25 +300,43 @@ void sdQuadNode::Cull(const NiCamera& kCamera, NiFrustumPlanes& kFrustumPlanes, 
 	// @}
 
 
-	// 度量是否需要进一步向下遍历
+	// 2.度量是否需要进一步向下遍历
 	// @{
 	bool bShouldSubdivide = false;
 	if (bVisible)
 	{
-		if (!pkTerrain->GetEnableLOD() || m_uiLevel < pkTerrain->GetMeshLevel())
+		if (!pkTerrain->GetEnableLOD() || m_uiLevel >= pkTerrain->GetMeshLevel())
 		{
-			// 1.地形禁用LOD
-			// 2.当前层级没有生成Mesh
+			// 向下裁剪的原因:
+			//	1.地形禁用LOD
+			//	2.当前层级没有生成Mesh
 			bShouldSubdivide = true;
 		}
 		else
 		{
-			// 1.计算节点包围盒到视点的距离
-			// 2.根据节点累积误差计算允许观察距离
-			// 3.比较两个距离确定是否细分
-			//********************
-			bShouldSubdivide = true;
-			//********************
+			// 继续判断:
+			//	1.计算节点包围盒到视点的最近距离
+			//	2.根据节点对下一级误差误差计算允许观察距离
+			//	3.比较两个距离确定是否细分
+			//
+			// 1
+			NiPoint3 kDistance;
+			const NiPoint3& kCamPos = kCamera.GetWorldTranslate();
+			const sdVector3& kAABBMinPos = m_kAABB.GetMinimum();
+			const sdVector3& kAABBMaxPos = m_kAABB.GetMaximum();
+			kDistance.x = min(min(kCamPos.x - kAABBMinPos.m_fX, kAABBMaxPos.m_fX - kCamPos.x), 0);
+			kDistance.y = min(min(kCamPos.y - kAABBMinPos.m_fY, kAABBMaxPos.m_fY - kCamPos.y), 0);
+			kDistance.z = min(min(kCamPos.z - kAABBMinPos.m_fZ, kAABBMaxPos.m_fZ - kCamPos.z), 0);
+			float fSqlDistance = kDistance.SqrLength();
+
+			// 2
+			float fMinDistance = m_fError * pkTerrain->GetErrorToDistance();
+
+			// 3
+			if (fSqlDistance < fMinDistance * fMinDistance)
+				bShouldSubdivide = true;
+			else
+				bShouldSubdivide = false;
 		}
 	}
 	// @}
@@ -327,21 +360,20 @@ void sdQuadNode::Cull(const NiCamera& kCamera, NiFrustumPlanes& kFrustumPlanes, 
 				// 中间节点,依照从近到远的次序依次处理子节点
 				//
 				// 计算子节点中心到观察点距离
-				float vfDistance[NUM_CHILD_TYPE] =  { 0 };
-
+				float vfDistance[NUM_CHILDREN] =  { 0 };
 				sdVector3 kCamPosition(kCamera.GetWorldTranslate().x, kCamera.GetWorldTranslate().y, kCamera.GetWorldTranslate().z);
-				for (int i = 0; i < NUM_CHILD_TYPE; ++i)
+				for (int i = 0; i < NUM_CHILDREN; ++i)
 				{
 					vfDistance[i] = (m_pkQuadNodeChild[i]->GetBound().GetCenter() - kCamPosition).SquaredLength();
 				}
 
 				// 每次取出距离数组中最小值的Node处理, 并将其距离置为无穷大
-				for (int i = 0; i < NUM_CHILD_TYPE; ++i)
+				for (int i = 0; i < NUM_CHILDREN; ++i)
 				{
 					float fMinDistance = vfDistance[0];
 					int iMinChild = 0;
 
-					for (int j = 1; j < NUM_CHILD_TYPE; ++j)
+					for (int j = 1; j < NUM_CHILDREN; ++j)
 					{
 						if (vfDistance[j] < fMinDistance)
 						{
@@ -352,8 +384,7 @@ void sdQuadNode::Cull(const NiCamera& kCamera, NiFrustumPlanes& kFrustumPlanes, 
 					vfDistance[iMinChild] = sdMath::POS_INFINITY;
 
 					m_pkQuadNodeChild[iMinChild]->Cull(kCamera, kFrustumPlanes, kMeshVec);
-				}
-				
+				}	
 			}
 		}
 		else
@@ -380,8 +411,8 @@ float sdQuadNode::CalcError()
 
 	float fError = 0.0f;
 	uint uiSize = pkTerrain->GetTileSize();
-	uint uiStartX = m_kOrigin.m_kX;
-	uint uiStartY = m_kOrigin.m_kY;
+	uint uiStartX = m_uiOriginX;
+	uint uiStartY = m_uiOriginY;
 	uint uiSpacing = m_uiSpacing;
 	for (uint uiY = 0; uiY <= uiSize; ++uiY)
 	{
@@ -409,8 +440,8 @@ void sdQuadNode::CalcBound(Base::Math::sdAxisAlignedBox& kAABB)
 
 
 	uint uiSize = pkTerrain->GetTileSize();
-	uint uiStartX = m_kOrigin.m_kX;
-	uint uiStartY = m_kOrigin.m_kY;
+	uint uiStartX = m_uiOriginY;
+	uint uiStartY = m_uiOriginY;
 	uint uiSpacing = m_uiSpacing;
 
 	//
@@ -435,11 +466,11 @@ void sdQuadNode::CalcBound(Base::Math::sdAxisAlignedBox& kAABB)
 		uiStartY += uiSpacing;
 	}
 
-	kAABB.SetMinimumX((float)m_kOrigin.m_kX);
-	kAABB.SetMinimumY((float)m_kOrigin.m_kY);
+	kAABB.SetMinimumX((float)m_uiOriginX);
+	kAABB.SetMinimumY((float)m_uiOriginY);
 	kAABB.SetMinimumZ(fMinHeight);
-	kAABB.SetMaximumX((float)(m_kOrigin.m_kX + uiSize * uiSpacing));
-	kAABB.SetMaximumY((float)(m_kOrigin.m_kY + uiSize * uiSpacing));
+	kAABB.SetMaximumX((float)(m_uiOriginX + uiSize * uiSpacing));
+	kAABB.SetMaximumY((float)(m_uiOriginY + uiSize * uiSpacing));
 	kAABB.SetMaximumZ(fMaxHeight);
 }
 //-------------------------------------------------------------------------------------------------

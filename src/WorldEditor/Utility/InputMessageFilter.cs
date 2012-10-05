@@ -17,6 +17,7 @@ namespace WorldEditor
     //      IMessageFilter
     //  2.窗体对象的第一个响应函数是对象中的 
     //      protected override void WndProc(ref System.Windows.Forms.Message e)
+    //      protected override bool ProcessCmdKey(ref Message msg, Keys keyData,Control control)
     //  3.它再根据消息的类型调用默认的消息响应函数,如
     //      protected override void OnMouseDown(MouseEventArgs e)
     //  4.默认的响应函数然后根据对象的事件字段(如this.MouseDown )中的函数指针列表，
@@ -49,7 +50,11 @@ namespace WorldEditor
 
         public bool PreFilterMessage(ref Message m)
         {
-            mSceneModule.WndProc(ref m);
+            // 消息拦截
+            //mSceneModule.WndProc(ref m);
+
+            // 处理热键
+
             return false;
         }
     }

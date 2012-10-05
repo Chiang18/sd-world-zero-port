@@ -47,27 +47,29 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Common\Win32API.cs" />
+    <Compile Include="Common\Win32Enum.cs" />
+    <Compile Include="Common\Win32Struct.cs" />
     <Compile Include="CustomWidget\CollapseBoxWidget.cs">
       <SubType>Component</SubType>
     </Compile>
     <Compile Include="CustomWidget\CollapseBoxWidget.Designer.cs">
       <DependentUpon>CollapseBoxWidget.cs</DependentUpon>
     </Compile>
-    <Compile Include="CustomWidget\TrackerBar.cs">
+    <Compile Include="CustomWidget\TrackerBarWidget.cs">
       <SubType>UserControl</SubType>
     </Compile>
-    <Compile Include="CustomWidget\TrackerBar.Designer.cs">
-      <DependentUpon>TrackerBar.cs</DependentUpon>
+    <Compile Include="CustomWidget\TrackerBarWidget.Designer.cs">
+      <DependentUpon>TrackerBarWidget.cs</DependentUpon>
     </Compile>
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
   <ItemGroup>
-    <EmbeddedResource Include="CustomWidget\TrackerBar.resx">
-      <DependentUpon>TrackerBar.cs</DependentUpon>
+    <EmbeddedResource Include="CustomWidget\TrackerBarWidget.resx">
+      <DependentUpon>TrackerBarWidget.cs</DependentUpon>
     </EmbeddedResource>
   </ItemGroup>
   <ItemGroup>
-    <Folder Include="Common\" />
     <Folder Include="Data\" />
     <Folder Include="Event\" />
     <Folder Include="Modules\" />

@@ -42,16 +42,31 @@ bool sdTerrainDeformMode::Initialize()
 
 	sdDualCircleMeshPtr pkDualCircleMesh = NiNew sdDualCircleMesh;
 	NIASSERT(pkDualCircleMesh);
+	pkDualCircleMesh->SetOuterRadius(5.0f);
+	pkDualCircleMesh->SetInnerRadius(10.0f);
 
 	sdDualCircleShapePtr pkDualCircleShape = NiNew sdDualCircleShape;
 	NIASSERT(pkDualCircleShape);
+	pkDualCircleShape->SetOuterRadius(5.0f);
+	pkDualCircleShape->SetInnerRadius(10.0f);
 
+	// 
 	sdTerrainDeformPoolBrushPtr pkTerrainDeformPoolBrush = NiNew sdTerrainDeformPoolBrush;
 	NIASSERT(pkTerrainDeformPoolBrush);
 	pkTerrainDeformPoolBrush->SetBrushShape((sdDualCircleMesh*)pkDualCircleMesh);
 	pkTerrainDeformPoolBrush->SetEditShape((sdDualCircleShape*)pkDualCircleShape);
 
-	m_pkActiveBrush = pkTerrainDeformPoolBrush;
+	sdTerrainDeformSmoothBrushPtr pkTerrainDeformSmoothBrush = NiNew sdTerrainDeformSmoothBrush;
+	NIASSERT(pkTerrainDeformSmoothBrush);
+	pkTerrainDeformSmoothBrush->SetBrushShape((sdDualCircleMesh*)pkDualCircleMesh);
+	pkTerrainDeformSmoothBrush->SetEditShape((sdDualCircleShape*)pkDualCircleShape);
+
+	//
+	m_pkkEditBrushArray[sdEditBrush::E_BRUSH_PULL] = pkTerrainDeformPoolBrush;
+	m_pkkEditBrushArray[sdEditBrush::E_BRUSH_SMOOTH] = pkTerrainDeformSmoothBrush;
+	
+	// ³õÊ¼×´Ì¬
+	//SetActiveDeformBrush(sdEditBrush::E_BRUSH_PULL);
 
 	return true;
 }
@@ -68,7 +83,11 @@ void sdTerrainDeformMode::Destroy()
 	m_pkActiveBrush = 0;
 	for (int i = 0; i < sdEditBrush::NUM_BRUSHES; ++i)
 	{
-		m_pkkEditBrushArray[i] = 0;
+		if (m_pkkEditBrushArray[i])
+		{
+			pkMap->GetDebugNode()->AttachChild(m_pkkEditBrushArray[i]->GetBrushShape());
+			m_pkkEditBrushArray[i] = 0;
+		}
 	}
 }
 //-------------------------------------------------------------------------------------------------
@@ -106,6 +125,9 @@ void sdTerrainDeformMode::Leave()
 //-------------------------------------------------------------------------------------------------
 int sdTerrainDeformMode::Update()
 {
+	if (!m_pkActiveBrush)
+		return __super::Update();;
+
 	// ¼ÆËãÆÁÄ»ÉäÏß
 	// @{
 	// »ñÈ¡ÆÁÄ»³ß´ç
@@ -149,19 +171,18 @@ int sdTerrainDeformMode::Update()
 		sdTerrain* pkTerrain = sdTerrain::InstancePtr();
 		NIASSERT(pkTerrain);
 
+		sdBrushShape* pkBrushShape = m_pkActiveBrush->GetBrushShape();
+		NIASSERT(pkBrushShape);
+
 		sdVector3 kIntersect;
 		if (pkTerrain->Pick(kRay, kIntersect))	
-		{
-			sdBrushShape* pkBrushShape = m_pkActiveBrush->GetBrushShape();
-			NIASSERT(pkBrushShape);
-
 			pkBrushShape->SetTranslate(kIntersect.m_fX, kIntersect.m_fY, 0);
-			pkBrushShape->Update(0.0f);
-			pkBrushShape->UpdateShape();
-		}
+
+		pkBrushShape->Update(0.0f);
+		pkBrushShape->UpdateShape();
 	}
 
-	return __super::Update();;
+	return __super::Update();
 }
 //-------------------------------------------------------------------------------------------------
 void sdTerrainDeformMode::OnLeftButtonDown(WPARAM wParam, LPARAM lParam)
@@ -189,6 +210,27 @@ void sdTerrainDeformMode::OnMouseMove(WPARAM wParam, LPARAM lParam)
 	// ÌáÈ¡Êó±êÆÁÄ»Î»ÖÃ
 	m_kMousePos.x = (int)(short)LOWORD(lParam);
 	m_kMousePos.y = (int)(short)HIWORD(lParam);
+}
+//-------------------------------------------------------------------------------------------------
+void sdTerrainDeformMode::SetActiveDeformBrush(sdEditBrush::EBrushType eType)
+{
+	NIASSERT(eType > sdEditBrush::E_BRUSH_INVALID);
+	NIASSERT(eType < sdEditBrush::E_BRUSH_LAYER);
+
+	//
+	sdRenderSystem* pkRenderSystem = sdRenderSystem::InstancePtr();
+	NIASSERT(pkRenderSystem);
+
+	sdMap* pkMap = pkRenderSystem->GetMap();
+	NIASSERT(pkMap);
+
+	// Òþ²Ø¾É±ÊË¢
+	if (m_pkActiveBrush && m_pkActiveBrush->GetType() != eType)
+		pkMap->GetDebugNode()->DetachChild(m_pkActiveBrush->GetBrushShape());
+
+	// ¹Ò½ÓÐÂ±ÊË¢
+	m_pkActiveBrush = m_pkkEditBrushArray[eType];
+	pkMap->GetDebugNode()->AttachChild(m_pkActiveBrush->GetBrushShape());
 }
 //-------------------------------------------------------------------------------------------------
 }

@@ -33,6 +33,24 @@ namespace GameEditEx
 		virtual void OnLeftButtonDown(WPARAM wParam, LPARAM lParam);
 		virtual void OnLeftButtonUp(WPARAM wParam, LPARAM lParam);
 
+		// 属性访问与设置
+		sdEditBrush::EBrushType	GetBrushType();
+		void	SetActiveDeformBrush(sdEditBrush::EBrushType eType);
+
+		void	SetShowBrush(bool bShow);
+
+		float	GetOutterRadius();
+		void	SetOutterRadius(float fRadius);
+
+		float	GetInnerRadius();
+		void	SetInnerRadius(float fRadius);
+
+		float	GetHardness();
+		void	SetHardness(float fHardness);
+
+		float	GetHeight();
+		void	SetHeight(float fHeight);
+
 	protected:
 		// 鼠标状态
 		bool	m_bLeftButtonDown;
@@ -42,5 +60,6 @@ namespace GameEditEx
 		sdEditBrushPtr m_pkkEditBrushArray[sdEditBrush::NUM_BRUSHES];
 		sdEditBrushPtr m_pkActiveBrush;
 	};
+#include "sdTerrainDeformMode.inl"
 }
 #endif

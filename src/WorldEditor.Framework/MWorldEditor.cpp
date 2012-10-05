@@ -43,7 +43,7 @@ namespace WorldEditorFramework
 	//-----------------------------------------------------------------------------
 	void MWorldEditor::WndProc(System::Windows::Forms::Message% msg)
 	{
-		m_pkWorldEditor->WndProc(msg.Msg, msg.WParam.ToInt32(), msg.LParam.ToInt32());
+		m_pkWorldEditor->WndProc(msg.Msg, (HWND)(msg.HWnd.ToPointer()), msg.WParam.ToInt32(), msg.LParam.ToInt32());
 	}
 	//-----------------------------------------------------------------------------
 }

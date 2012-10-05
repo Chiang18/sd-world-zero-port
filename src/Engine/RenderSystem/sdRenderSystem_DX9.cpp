@@ -66,8 +66,16 @@ bool sdRenderSystem_DX9::Initialize()
 	m_pkRenderDevice->SetupShaderSystem(apcProgramDirectories, 1, apcShaderDirectories, 1);
 
 	// Shader的预定义宏
+#ifdef _DEBUG
+	spRender->SetShaderCreationFlags("fx", D3DXSHADER_DEBUG);
+	spRender->AddGlobalMacro("_DEBUG", "1");
+#else
+	spRender->SetShaderCreationFlags("fx", D3DXSHADER_OPTIMIZATION_LEVEL3);
+	spRender->AddGlobalMacro("_RELEASE", "1");
+#endif
+
 	//spRender->AddGlobalMacro("_SD_GAME", "1");
-	spRender->AddGlobalMacro("_SD_EDITOR", 1);
+	spRender->AddGlobalMacro("_SD_EDITOR", "1");
 	// @}
 
 	// 创建sd渲染路径

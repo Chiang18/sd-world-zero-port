@@ -30,7 +30,7 @@ public:
 	void				SetNormalMapPath(const std::string& szName);
 
 	NiTexture*	GetDiffuseMap() { return m_pkDiffuseMap ? m_pkDiffuseMap->GetGBTexture() : NULL;}
-	NiTexture*	GetNormalMap() { return m_pkNormalMap ? m_pkDiffuseMap->GetGBTexture() : NULL;}
+	NiTexture*	GetNormalMap() { return m_pkNormalMap ? m_pkNormalMap->GetGBTexture() : NULL;}
 
 	float	GetRepeatSize() const { return m_fRepeatSize;}
 	void	SetRepeatSize(float fRepeatSize) { m_fRepeatSize = fRepeatSize; }

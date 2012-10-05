@@ -17,7 +17,7 @@ SD_LINEAR_WRAP_SAMPLE(3, sdBaseNormalSampler, 		sdBaseNormalTex, 	false);		// 地
 SD_POINT_CLAMP_SAMPLE(4, sdTileSampler,				sdTileTex,			false);		// 地形TileMap
 SD_LINEAR_WRAP_SAMPLE(5, sdBlendSampler,			sdBlendTex,			false);		// 地形BlendMap
 SD_POINT_CLAMP_SAMPLE(6, sdAtlasTableSampler,		sdAtlasTableTex,	false);		// 地形漫反射贴图查询表
-SD_LINEAR_CLAMP_SAMPLE(7, sdDiffuseAtlasSampler,	sdDiffuseAtlasTex,	false);		// 地形漫反射贴图图集
+SD_LINEAR_WRAP_SAMPLE(7, sdDiffuseAtlasSampler,		sdDiffuseAtlasTex,	false);		// 地形漫反射贴图图集
 
 //---------------------------------------------------------------------------------------
 // 顶点着色器输入数据流
@@ -80,7 +80,7 @@ float4 PS_Main_Planar(VS_OUTPUT kInput) : COLOR0
 	float3 vWorldPos = lerp(g_vViewPos, kInput.vUVFarClipWorldPos, fDepth);
 	
 	// 计算当前点的地形相对UV(注意,这里没有偏移半像素)
-	float2 vUVSet = vWorldPos.xy * g_vRecipTerrainSize.xy;
+	float2 vUVSet = vWorldPos.xy * float2(g_fRecipTerrainSize, g_fRecipTerrainSize);
 	
 	
 	// NormalMap
@@ -93,7 +93,7 @@ float4 PS_Main_Planar(VS_OUTPUT kInput) : COLOR0
 	vPlanarWeight.xy 	= vBaseNormalTex.zw;
 	vPlanarWeight.z 	= saturate(1.0 - vPlanarWeight.x - vPlanarWeight.y);
 
-	//clip(1.5 - dot(sign(vPlanarWeight), 1));
+	clip(1.5 - dot(sign(vPlanarWeight), 1));
 	
 	// 解出世界空间法线
 	float3 vWorldNormal;
@@ -112,8 +112,8 @@ float4 PS_Main_Planar(VS_OUTPUT kInput) : COLOR0
 	// BlendMap
 	// @{
 	// 计算新的UV(不解,大概是为了在Tile边缘进行融合)
-	//float2 tileCenterOffset = frac(vUVSet * (2048.0 / 4.0)) - 0.5;
-	//vUVSet -= tileCenterOffset * (1.0 / 2048.0);
+	float2 tileCenterOffset = frac(vUVSet * g_fTileMapSize) - 0.5;
+	float2 vUVSet2 = vUVSet - tileCenterOffset * g_fRecipBlendMapSize;
 	
 	// 根据UV采样BlendMap
 	float4 vBlendTex = tex2D(sdBlendSampler, vUVSet);
@@ -130,14 +130,11 @@ float4 PS_Main_Planar(VS_OUTPUT kInput) : COLOR0
 	
 	// 贴图混合
 	// @{
-	// 采样立方体纹理(GB坐标系与D3D坐标系YZ轴互换)
-	//float4 vPlanarVec = texCUBE(sdPlanarTableSampler, vWorldNormal.xzy) * 255 - 1;
-	//
-	// 计算新的地形UV
-	//float2 vUVSet2 = float2(dot(vWorldPos.xy, vPlanarVec.xy), dot(vWorldPos.yz, vPlanarVec.zw));
-	
-	float2 vUVSet2 = float2(vWorldPos.x, vWorldPos.y);
-	
+	// 采样立方体纹理,计算新的地形UV(GB坐标系与D3D坐标系YZ轴互换)
+	//float2 vUVSet3 = float2(vWorldPos.x, -vWorldPos.y);
+	float4 vPlanarVec = texCUBE(sdPlanarTableSampler, vWorldNormal.xzy) * 255 - 1; 
+	float2 vUVSet3 = float2(dot(vWorldPos.xy, vPlanarVec.xy), dot(vWorldPos.yz, vPlanarVec.zw));
+
 	// 计算当前像素到观察点的矢量
 	float3 vWorldViewVector = normalize(g_vViewPos - kInput.vUVFarClipWorldPos);
 	
@@ -155,9 +152,9 @@ float4 PS_Main_Planar(VS_OUTPUT kInput) : COLOR0
 	vUVSetTable.w	= saturate(max(vLodLevel.x, vLodLevel.y) * g_fDiffuseAtlasLevelScale + g_fDiffuseAtlasLevelOffset);
 	
 	// 贴图混合
-	float4 vDiffuseGloss = SamplerAtlasMap(sdDiffuseAtlasSampler, sdAtlasTableSampler, vUVSetTable.xw, vUVSet2) * vBlendTex.b +
-		SamplerAtlasMap(sdDiffuseAtlasSampler, sdAtlasTableSampler, vUVSetTable.yw, vUVSet2) * vBlendTex.g +
-		SamplerAtlasMap(sdDiffuseAtlasSampler, sdAtlasTableSampler, vUVSetTable.zw, vUVSet2) * vBlendTex.r;
+	float4 vDiffuseGloss = SamplerAtlasMap(sdDiffuseAtlasSampler, sdAtlasTableSampler, vUVSetTable.xw, vUVSet3) * vBlendTex.b +
+		SamplerAtlasMap(sdDiffuseAtlasSampler, sdAtlasTableSampler, vUVSetTable.yw, vUVSet3) * vBlendTex.g +
+		SamplerAtlasMap(sdDiffuseAtlasSampler, sdAtlasTableSampler, vUVSetTable.zw, vUVSet3) * vBlendTex.r;
 	
 #ifdef _SD_EDITOR
 	vDiffuseGloss = max(vDiffuseGloss, float4(g_vDiffuseMapMask, g_fGlossMapMask));
@@ -184,19 +181,16 @@ float4 PS_Main_Planar(VS_OUTPUT kInput) : COLOR0
 					vSpeculatLight * vDiffuseGloss.a   * g_vTerrainSpecularMaterial;	
 	// @}
 
-	//return float4(vColor, 0);
+	return float4(vColor, 0);
 
 	//*************************
 	//return float4(vDiffuseLight.rgb, 0);
 	
+	// 测试平坦与陡峭地区的分割
+	//return float4(0,1,0,0);
+	
 	// 测试地形纹理坐标
 	//return float4(vUVSet.xy, 0, 0);
-
-	//if (vUVSet.x < 0.0 || vUVSet.x > 0.0 || vUVSet.y < 0.0 || vUVSet.y > 0.0)		
-	//	return	float4(1,0,0,0);
-	//else
-	//	return float4(0,1,0,0);
-
 	
 	// 测试法线
 	//return float4(vBaseNormalTex.xy,1,0);
@@ -267,7 +261,7 @@ float4 PS_Main_Seam(VS_OUTPUT kInput) : COLOR0
 	float3 vWorldPos = lerp(g_vViewPos, kInput.vUVFarClipWorldPos, fDepth);
 	
 	// 计算当前点的地形相对UV(注意,这里没有偏移半像素)
-	float2 vUVSet = vWorldPos.xy * g_vRecipTerrainSize.xy;
+	float2 vUVSet = vWorldPos.xy * float2(g_fRecipTerrainSize, g_fRecipTerrainSize);
 	
 	
 	// NormalMap
@@ -278,7 +272,7 @@ float4 PS_Main_Seam(VS_OUTPUT kInput) : COLOR0
 	// 解出倾斜情况,小于一定角度的不进行着色
 	float3 vPlanarWeight;
 	vPlanarWeight.xy 	= vBaseNormalTex.zw;
-	vPlanarWeight.z 	= saturate(1.0 - vBaseNormalTex.z - vBaseNormalTex.w);
+	vPlanarWeight.z 	= saturate(1.0 - vPlanarWeight.x - vPlanarWeight.y);
 
 	clip(dot(sign(vPlanarWeight), 1) - 1.5);
 	
@@ -299,11 +293,11 @@ float4 PS_Main_Seam(VS_OUTPUT kInput) : COLOR0
 	// BlendMap
 	// @{
 	// 计算新的UV(不解,大概是为了在Tile边缘进行融合)
-	//float2 tileCenterOffset = frac(vUVSet * (2048.0 / 4.0)) - 0.5;
-	//vUVSet -= tileCenterOffset * (1.0 / 2048.0);
+	float2 tileCenterOffset = frac(vUVSet * g_fTileMapSize) - 0.5;
+	float2 vUVSet2 = vUVSet - tileCenterOffset * g_fRecipBlendMapSize;
 	
 	// 根据UV采样BlendMap
-	float4 vBlendTex = tex2D(sdBlendSampler, vUVSet);
+	float4 vBlendTex = tex2D(sdBlendSampler, vUVSet2);
 	
 	// 归一化权重
 	float fTotalWeight = dot(vBlendTex.xyz, 1.0);
@@ -336,8 +330,8 @@ float4 PS_Main_Seam(VS_OUTPUT kInput) : COLOR0
 	
 	// 贴图混合
 	float4 vDiffuseGloss = SamplerAtlasMap_Planar(sdDiffuseAtlasSampler, sdAtlasTableSampler, vUVSetTable.xw, vTerrainUV_XY, vTerrainUV_YZ, vTerrainUV_XZ, vPlanarWeight) * vBlendTex.b +
-						   SamplerAtlasMap_Planar(sdDiffuseAtlasSampler, sdAtlasTableSampler, vUVSetTable.yw, vTerrainUV_XY, vTerrainUV_YZ, vTerrainUV_XZ, vPlanarWeight) * vBlendTex.g +
-						   SamplerAtlasMap_Planar(sdDiffuseAtlasSampler, sdAtlasTableSampler, vUVSetTable.zw, vTerrainUV_XY, vTerrainUV_YZ, vTerrainUV_XZ, vPlanarWeight) * vBlendTex.r;
+		SamplerAtlasMap_Planar(sdDiffuseAtlasSampler, sdAtlasTableSampler, vUVSetTable.yw, vTerrainUV_XY, vTerrainUV_YZ, vTerrainUV_XZ, vPlanarWeight) * vBlendTex.g +
+		SamplerAtlasMap_Planar(sdDiffuseAtlasSampler, sdAtlasTableSampler, vUVSetTable.zw, vTerrainUV_XY, vTerrainUV_YZ, vTerrainUV_XZ, vPlanarWeight) * vBlendTex.r;
 	
 #ifdef _SD_EDITOR
 	vDiffuseGloss = max(vDiffuse_Gloss, float4(g_vDiffuseMapMask,g_fGlossMapMask));
@@ -365,6 +359,25 @@ float4 PS_Main_Seam(VS_OUTPUT kInput) : COLOR0
 	// @}
 	
 	return float4(vColor, 0);
+	
+	//*************************
+	// 测试平坦与陡峭地区的分割
+	//return float4(1,0,0,0);
+	
+	// 测试LOD选取情况
+	//if (vLodLevel.x > -1.f)
+	//	return float4(0,0,0,0);
+	//else if (vLodLevel.x > -2.f)
+	//	return float4(0.5,0.5,0.5,0);
+	//else if (vLodLevel.x > -4.f)
+	//	return float4(0,0,1,0);	
+	//else if (vLodLevel.x > -6.f)
+	//	return float4(0,1,0,0);	
+	//else if (vLodLevel.x > -8.f)
+	//	return float4(1,0,0,0);	
+	//else
+	//	return float4(1,1,1,0);	
+	//*************************
 }
 
 //---------------------------------------------------------------------------------------

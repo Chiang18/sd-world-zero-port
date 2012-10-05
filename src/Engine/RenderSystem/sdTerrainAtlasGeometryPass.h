@@ -12,7 +12,6 @@
 
 namespace RenderSystem
 {
-
 	// 前置声明
 	class sdTerrainParams;
 
@@ -51,15 +50,21 @@ namespace RenderSystem
 		// 透视投影相机材质:
 		//	1.近处渲染基本法线和法线贴图的材质
 		//	2.远处渲染基本法线的材质
+		NiMaterialPtr	m_spFarBaseNormalMaterial;
+		NiMaterialPtr	m_spNearNormalMapMaterial;
 
 		// 正射投影相机材质:
 		//	1.近处渲染基本法线和法线贴图的材质
 		//	2.远处渲染基本法线的材质
-
+		NiMaterialPtr	m_spOrthoFarBaseNormalMaterial;
+		NiMaterialPtr	m_spOrthoNearNormalMapMaterial;
 		// @}
 
 		// 地形深度纹理
 		NiRenderedTexturePtr	m_spDepthTexture;
+
+		// 立方体贴图,用于确定地表贴图投影方向
+		NiSourceCubeMapPtr		m_spUVTableCubeMap;
 
 		// 地形渲染属性
 		NiPropertyList			m_kPropertyList;

@@ -318,6 +318,33 @@ namespace Base
 					return false;
 				}
 			}
+
+			// 计算点到AABB的最小距离
+			//float Distance(const sdVector3& kPoint) const
+			//{
+			//	if (Contains(kPoint))
+			//		return 0;
+			//	else
+			//	{
+			//		float fMaxDist = std::numeric_limits<float>::min();
+
+			//		if (v.x < mMinimum.x)
+			//			maxDist = std::max(maxDist, mMinimum.x - v.x);
+			//		if (v.y < mMinimum.y)
+			//			maxDist = std::max(maxDist, mMinimum.y - v.y);
+			//		if (v.z < mMinimum.z)
+			//			maxDist = std::max(maxDist, mMinimum.z - v.z);
+
+			//		if (v.x > mMaximum.x)
+			//			maxDist = std::max(maxDist, v.x - mMaximum.x);
+			//		if (v.y > mMaximum.y)
+			//			maxDist = std::max(maxDist, v.y - mMaximum.y);
+			//		if (v.z > mMaximum.z)
+			//			maxDist = std::max(maxDist, v.z - mMaximum.z);
+
+			//		return maxDist;
+			//	}
+			//}
 			// @}
 		};
 	}

@@ -17,8 +17,17 @@ sdTerrain::sdTerrain()
 , m_uiMeshLevel(2)
 , m_fScale(1.0f)
 , m_kOrigin(NiPoint3::ZERO)
+, m_fError2Distance(0.0f)
 {
-
+	
+	// 计算Error与LOD转换系数(待修正)
+	// @{
+	float fScreenWidth	= 1024.f;
+	float fScreenHeight = 768.f;
+	float fFOV			= 60.0f / 180.0f * NI_PI;
+	float fMaxLodError	= 100.f;	
+	m_fError2Distance = fScreenHeight / (fabsf(tanf(fFOV / 2.f)) * 2.f * fMaxLodError);
+	// @}
 }
 //-------------------------------------------------------------------------------------------------
 sdTerrain::~sdTerrain()
@@ -139,16 +148,20 @@ bool sdTerrain::CreateScene(uint uiTerrainSize, uint uiBlendTexSize)
 	// @{
 	m_kRenderParams.Reset();
 
-	m_kRenderParams.terrainSize = sdVector2ui(m_uiTerrainSize, m_uiTerrainSize);
+	m_kRenderParams.terrainSize		= m_uiTerrainSize;
+	m_kRenderParams.blendMapSize	= m_uiBlendTexSize;
+	m_kRenderParams.tileMapSize		= m_uiTileMapSize;
 
 	m_kRenderParams.ambientMaterial	 = sdVector3(0, 0, 0);
-	m_kRenderParams.diffuseMaterial	 = sdVector3(1.0f, 1.0f, 1.0f);
+	m_kRenderParams.diffuseMaterial	 = sdVector3(1.f, 1.f, 1.f);
 	m_kRenderParams.specularMaterial = sdVector3(0, 0, 0);
-	m_kRenderParams.shiness			 = 0.0f;
+	m_kRenderParams.shiness			 = 0.f;
 
 	m_kRenderParams.baseNormalMap = m_pkNormalMap->GetGBTexture();
 	m_kRenderParams.tileMap		= m_spTileMap;
 	m_kRenderParams.blendMap	= m_spBlendMap;	
+
+	m_kRenderParams.terrainFarStart = 64.f;
 	// @}
 
 	return (m_bInitialized = true);

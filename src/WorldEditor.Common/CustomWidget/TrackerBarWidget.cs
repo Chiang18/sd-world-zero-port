@@ -9,12 +9,25 @@ using System.Windows.Forms;
 
 namespace WorldEditor.Common.CustomWidget
 {
+    // 控件数值改变的事件委托
     public delegate void OnValueChangedHandler(object sender, EventArgs e);
 
     // TrackBar的一个组合控件
     public partial class TrackerBarWidget : UserControl
     {
-        // 控件值改变事件
+        // 重载TrackBar,不显示内部子控件的焦点框
+        private class InnerTrackBar : System.Windows.Forms.TrackBar
+        {
+            protected override bool ShowFocusCues
+            {
+                get
+                {
+                    return false;
+                }
+            }
+        }
+
+        // 控件数值改变事件
         public event OnValueChangedHandler OnValueChanged;
 
         public TrackerBarWidget()
@@ -55,8 +68,8 @@ namespace WorldEditor.Common.CustomWidget
             set 
             { 
                 mInnerScale = value;
-                trackBar.Minimum = Convert.ToInt32(mMin * mInnerScale);
-                trackBar.Maximum = Convert.ToInt32(mMax * mInnerScale);
+                trackBar.Minimum = 0;
+                trackBar.Maximum = Convert.ToInt32((mMax - mMin) * mInnerScale);
                 trackBar.Invalidate();
                 trackBar.Refresh();
             }
@@ -72,7 +85,8 @@ namespace WorldEditor.Common.CustomWidget
             { 
                 mMin = value;
                 numericUpDown.Minimum = value;
-                trackBar.Minimum = Convert.ToInt32(mMin * mInnerScale);
+                trackBar.Minimum = 0;
+                trackBar.Maximum = Convert.ToInt32((mMax - mMin) * mInnerScale);
                 trackBar.Invalidate();
                 trackBar.Refresh();
             }
@@ -88,13 +102,14 @@ namespace WorldEditor.Common.CustomWidget
             {
                 mMax = value;
                 numericUpDown.Maximum = value;
-                trackBar.Maximum = Convert.ToInt32(mMax * mInnerScale);
+                trackBar.Minimum = 0;
+                trackBar.Maximum = Convert.ToInt32((mMax - mMin) * mInnerScale);
                 trackBar.Invalidate();
                 trackBar.Refresh();
             }
         }
 
-        // 增加步距
+        // 步距
         [CategoryAttribute("SDProperty")]
         public Decimal Increment
         {
@@ -102,7 +117,7 @@ namespace WorldEditor.Common.CustomWidget
             set { numericUpDown.Increment = value; }
         }
 
-        // 减小步距
+        // 显示的小数点位数
         [CategoryAttribute("SDProperty")]
         public int DecimalPlaces
         {
@@ -119,8 +134,11 @@ namespace WorldEditor.Common.CustomWidget
 
             // 更新numericUpDown
             bInner = true;
-            numericUpDown.Value = Convert.ToDecimal(trackBar.Value / mInnerScale);
+            numericUpDown.Value = Convert.ToDecimal(trackBar.Value / mInnerScale + mMin);
             bInner = false;
+
+            // 更新数值
+            mValue = numericUpDown.Value;
 
             // 发送改变消息
             if (OnValueChanged != null)
@@ -134,8 +152,11 @@ namespace WorldEditor.Common.CustomWidget
 
             // 更新TrackBar
             bInner = true;
-            trackBar.Value = Convert.ToInt32(numericUpDown.Value * mInnerScale);
+            trackBar.Value = Convert.ToInt32((numericUpDown.Value - mMin) * mInnerScale);
             bInner = false;
+
+            // 更新数值
+            mValue = numericUpDown.Value;
                 
             // 发送改变消息
             if (OnValueChanged != null)
