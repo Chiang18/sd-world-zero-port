@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 
-namespace WorldEditor.Base.Interface
+namespace WorldEditor.Base.Interfaces
 {
     // 插件接口
     interface IPlugin
@@ -15,6 +15,6 @@ namespace WorldEditor.Base.Interface
         bool Start();
 
         // 插件服务列表
-        IService[] GetProvidedServices();
+        Services.IService[] GetProvidedServices();
     }
 }

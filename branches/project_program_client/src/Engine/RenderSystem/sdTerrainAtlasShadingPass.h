@@ -12,7 +12,6 @@
 
 namespace RenderSystem
 {
-
 	// 前置声明
 	class sdTerrainParams;
 
@@ -56,6 +55,9 @@ namespace RenderSystem
 		// 着色输入纹理
 		NiRenderedTexturePtr	m_spLightTexture;
 		NiRenderedTexturePtr	m_spGeomTexture;
+
+		// 立方体贴图,用于确定地表贴图投影方向
+		NiSourceCubeMapPtr		m_spUVTableCubeMap;
 
 		// 地形渲染属性
 		NiPropertyList			m_kPropertyList;

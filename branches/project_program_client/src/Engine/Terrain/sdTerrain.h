@@ -21,7 +21,9 @@
 #include "sdDynamicTexture.h"
 #include "sdTextureAtlas.h"
 
-// 地形系统,所有对外接口均由此类暴露出去
+// 地形系统,所有对外接口均由此类暴露出去.
+//	1.地形中所有内容同一分为三步:更新,裁减,渲染
+//	2.地形分为几何部分和纹理部分分别处理
 //
 // 几何部分:
 //	1.Tile管理: 四叉树管理,从中间节点到叶子节点均预生成Mesh,Node内部没有LOD
@@ -120,6 +122,8 @@ public:
 
 	float	GetScale() const { return m_fScale;}
 	const NiPoint3& GetOrigin() const { return m_kOrigin;}
+
+	float	GetErrorToDistance() const { return m_fError2Distance;}
 
 	const RenderSystem::sdTerrainParams& GetTerrainParams() const { return m_kRenderParams;};
 	// @}

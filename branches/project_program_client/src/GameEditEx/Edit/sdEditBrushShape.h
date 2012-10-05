@@ -36,6 +36,8 @@ namespace GameEditEx
 		void UpdateShape();
 
 		// ÊôÐÔ
+		void SetInnerCircleVisible(bool bVisible = true) { m_spInnerCircle->SetAppCulled(bVisible);}
+		void SetOuterCircleVisible(bool bVisible = true) { m_spOuterCircle->SetAppCulled(bVisible);}
 		void SetInnerRadius(float fInnerRadius) { m_fInnerRadius = fInnerRadius;}
 		void SetOuterRadius(float fOuterRadius) { m_fOuterRadius = fOuterRadius;}
 		float GetInnerRadius() const { return m_fInnerRadius;}

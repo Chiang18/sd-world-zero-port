@@ -43,7 +43,7 @@ public:
 	GameEditEx::sdWorldEditFSM* GetWorldEditFSM(){ return &m_kWorldEditFSM;}
 
 	// 输入消息分发处理器
-	void	WndProc(int iMsg, WPARAM wParam, LPARAM lParam);
+	void	WndProc(int iMsg, HWND hWnd, WPARAM wParam, LPARAM lParam);
 
 protected:
 	// 主窗口

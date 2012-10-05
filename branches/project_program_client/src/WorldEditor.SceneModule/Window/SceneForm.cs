@@ -15,5 +15,10 @@ namespace WorldEditor.SceneModule.Window
         {
             InitializeComponent();
         }
+
+        private void buttonLight_Click(object sender, EventArgs e)
+        {
+
+        }
     }
 }

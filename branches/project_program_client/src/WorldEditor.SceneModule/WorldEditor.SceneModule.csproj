@@ -59,17 +59,23 @@
       <DesignTime>True</DesignTime>
       <DependentUpon>Resources.resx</DependentUpon>
     </Compile>
-    <Compile Include="Widget\TerrainDeformWidget.cs">
+    <Compile Include="Widget\LightPanel.cs">
       <SubType>UserControl</SubType>
     </Compile>
-    <Compile Include="Widget\TerrainDeformWidget.Designer.cs">
-      <DependentUpon>TerrainDeformWidget.cs</DependentUpon>
+    <Compile Include="Widget\LightPanel.Designer.cs">
+      <DependentUpon>LightPanel.cs</DependentUpon>
     </Compile>
-    <Compile Include="Widget\TerrainSurfaceWidget.cs">
+    <Compile Include="Widget\TerrainDeformPanel.cs">
       <SubType>UserControl</SubType>
     </Compile>
-    <Compile Include="Widget\TerrainSurfaceWidget.Designer.cs">
-      <DependentUpon>TerrainSurfaceWidget.cs</DependentUpon>
+    <Compile Include="Widget\TerrainDeformPanel.Designer.cs">
+      <DependentUpon>TerrainDeformPanel.cs</DependentUpon>
+    </Compile>
+    <Compile Include="Widget\TerrainSurfacePanel.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="Widget\TerrainSurfacePanel.Designer.cs">
+      <DependentUpon>TerrainSurfacePanel.cs</DependentUpon>
     </Compile>
     <Compile Include="Window\EntityForm.cs">
       <SubType>Form</SubType>
@@ -133,11 +139,14 @@
       <Generator>ResXFileCodeGenerator</Generator>
       <LastGenOutput>Resources.Designer.cs</LastGenOutput>
     </EmbeddedResource>
-    <EmbeddedResource Include="Widget\TerrainDeformWidget.resx">
-      <DependentUpon>TerrainDeformWidget.cs</DependentUpon>
+    <EmbeddedResource Include="Widget\LightPanel.resx">
+      <DependentUpon>LightPanel.cs</DependentUpon>
     </EmbeddedResource>
-    <EmbeddedResource Include="Widget\TerrainSurfaceWidget.resx">
-      <DependentUpon>TerrainSurfaceWidget.cs</DependentUpon>
+    <EmbeddedResource Include="Widget\TerrainDeformPanel.resx">
+      <DependentUpon>TerrainDeformPanel.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Widget\TerrainSurfacePanel.resx">
+      <DependentUpon>TerrainSurfacePanel.cs</DependentUpon>
     </EmbeddedResource>
     <EmbeddedResource Include="Window\OutputForm.resx">
       <DependentUpon>OutputForm.cs</DependentUpon>

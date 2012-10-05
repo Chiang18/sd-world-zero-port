@@ -10,12 +10,12 @@ using WorldEditorFramework;
 
 namespace WorldEditor.SceneModule.Widget
 {
-    public partial class TerrainSurfaceWidget : UserControl
+    public partial class TerrainSurfacePanel : UserControl
     {
         // 操作接口
         MEditTerrainHelper mEditTerrainHelper;
 
-        public TerrainSurfaceWidget()
+        public TerrainSurfacePanel()
         {
             InitializeComponent();
         }
@@ -53,7 +53,7 @@ namespace WorldEditor.SceneModule.Widget
 
         // @{
         //*********************************************************************
-        // 消息响应
+        // 消息响应/UI回调函数
         //*********************************************************************
         private void listBoxLayer_SelectedIndexChanged(object sender, EventArgs e)
         {

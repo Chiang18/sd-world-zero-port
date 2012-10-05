@@ -49,7 +49,7 @@ void sdRenderPath_DX9::Draw()
 	DrawGeometryPasses();
 
 	// 光照
-	//DrawPreLightPass();
+	DrawPreLightPass();
 
 	// 最终着色合成
 	DrawShadingPasses();
@@ -309,9 +309,12 @@ void sdRenderPath_DX9::PrepareShaderConstants()
 
 	// 地形参数
 	// @{
-	// 地形尺寸倒数
-	float fRecipTerrainSize[2] = { 1.0f / m_kTerrainParams.terrainSize.m_kX, 1.0f / m_kTerrainParams.terrainSize.m_kY};
-	pkRenderDevice->SetGlobalShaderConstant("g_vRecipTerrainSize", sizeof(fRecipTerrainSize), &(fRecipTerrainSize[0]));
+	// 地形尺寸信息
+	float fTerrainSize[4] = {(float)m_kTerrainParams.terrainSize, (float)m_kTerrainParams.blendMapSize, (float)m_kTerrainParams.tileMapSize, 0.f};
+	pkRenderDevice->SetGlobalShaderConstant("g_vTerrainMapSize", sizeof(fTerrainSize), &(fTerrainSize[0]));
+	
+	float fRecipTerrainSize[4] = {1.f/m_kTerrainParams.terrainSize, 1.f/m_kTerrainParams.blendMapSize, 1.f/m_kTerrainParams.tileMapSize, 0.f};
+	pkRenderDevice->SetGlobalShaderConstant("g_vRecipTerrainMapSize", sizeof(fRecipTerrainSize), &(fRecipTerrainSize[0]));
 
 	// 地形材质
 	pkRenderDevice->SetGlobalShaderConstant("g_vTerrainDiffuseMaterial", sizeof(m_kTerrainParams.diffuseMaterial), &(m_kTerrainParams.diffuseMaterial.m_fX));
@@ -335,6 +338,9 @@ void sdRenderPath_DX9::PrepareShaderConstants()
 		kFarPlanePixelSize.m_fY = (kCamFrustum.m_fTop - kCamFrustum.m_fBottom) * kCamFrustum.m_fFar / (float)uiHeight;
 	}
 	pkRenderDevice->SetGlobalShaderConstant("g_vFarPixelSize", sizeof(kFarPlanePixelSize), &kFarPlanePixelSize);
+	
+	// 地形近远平面分界距离
+	pkRenderDevice->SetGlobalShaderConstant("g_fTerrainFarStart", sizeof(m_kTerrainParams.terrainFarStart), &m_kTerrainParams.terrainFarStart);
 	// @}
 
 
@@ -358,8 +364,8 @@ void sdRenderPath_DX9::PrepareShaderConstants()
 	// 编辑器状态下的一些默认值
 	sdVector3 kVertexColorMask = sdVector3::ZERO;
 	sdVector3 kDiffuseMask = sdVector3::ZERO;
-	float fGlossMapMask = 0.0f;
-	float fLightMapMask = 0.0f;
+	float fGlossMapMask = 1.0f;
+	float fLightMapMask = 1.0f;
 	
 	if (!m_kRenderParams.IsEnableChannel(sdRenderParams::E_BUILDING, sdRenderParams::E_DIFFUSEMAP))	kDiffuseMask = sdVector3::UNIT_SCALE;
 	if (!m_kRenderParams.IsEnableChannel(sdRenderParams::E_BUILDING, sdRenderParams::E_GLOSSMAP))	fGlossMapMask = 1.0f;
@@ -442,8 +448,8 @@ void sdRenderPath_DX9::DrawPreLightPass()
 	uint uiBlackColor = 0x00000000;
 	pkRenderDevice->Clear(&uiBlackColor, NULL, NULL);
 
-	// 绘制
-	//
+	// 计算LocalLight
+
 }
 //-------------------------------------------------------------------------------------------------
 void sdRenderPath_DX9::DrawShadingPasses()

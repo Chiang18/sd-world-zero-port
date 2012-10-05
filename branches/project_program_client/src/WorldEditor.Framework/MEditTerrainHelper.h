@@ -20,23 +20,38 @@ namespace WorldEditorFramework
 	public:
 		MEditTerrainHelper();
 
-		// 笔刷属性
-		// @{
-		//property float OutterRadius
-		//{
-		//	void set(float fRadius){ }
-		//}
-		// @}
-
 		// 地形高度编辑
 		// @{
-		//void SetOuterRadius(float fRadius);
-		//float GetOuterRadius();
+		property int DeformBrushType
+		{
+			void set(int iType);
+			int get();
+		}
 
-		//void SetInnerRadius(float fRadius);
-		//float GetInnerRadius();
+		property float DeformBrushOutterRadius
+		{
+			void set(float fRadius);
+			float get();
+		}
+
+		property float DeformBrushInnerRadius
+		{
+			void set(float fRadius);
+			float get();
+		}
+
+		property float DeformBrushHardness
+		{
+			void set(float fHardness);
+			float get();
+		}
+
+		property float DeformBrushHeight
+		{
+			void set(float fHeight);
+			float get();
+		}
 		// @}
-
 		
 		// 地形纹理编辑
 		// @{

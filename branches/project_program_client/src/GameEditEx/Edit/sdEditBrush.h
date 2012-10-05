@@ -36,13 +36,14 @@ namespace GameEditEx
 		// 编辑笔刷
 		enum EBrushType
 		{
-			E_BRUSH_PULL = 0,	// 地表拉伸
+			E_BRUSH_INVALID = 0,
+			E_BRUSH_PULL,		// 地表拉伸
 			E_BRUSH_SMOOTH,		// 地表平滑
 			E_BRUSH_NOISE,		// 地表噪声
 			E_BRUSH_AVERAGE,	// 地表平均
 			E_BRUSH_FLAT,		// 地表踏平
 			E_BRUSH_LAYER,		// 地表纹理混合
-			NUM_BRUSHES,		
+			NUM_BRUSHES,	
 		};	
 
 	public:
@@ -73,9 +74,18 @@ namespace GameEditEx
 	class sdTerrainDeformPoolBrush : public sdEditBrush
 	{
 	public:
+		sdTerrainDeformPoolBrush() : m_fHeight(0.f){}
+
 		// 虚函数继承
 		virtual EBrushType GetType() { return E_BRUSH_PULL;}
 		virtual void Apply(const Base::Math::sdRay& kRay);
+
+		// 属性访问
+		float GetHeight() { return m_fHeight;}
+		void SetHeight(float fHeight) { m_fHeight = fHeight;}	
+
+	protected:
+		float	m_fHeight;	// 用于确定拉伸强度,可以为负
 	};
 	NiSmartPointer(sdTerrainDeformPoolBrush);
 

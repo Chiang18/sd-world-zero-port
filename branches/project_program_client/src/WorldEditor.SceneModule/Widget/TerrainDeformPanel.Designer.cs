@@ -1,6 +1,6 @@
 ﻿namespace WorldEditor.SceneModule.Widget
 {
-    partial class TerrainDeformWidget
+    partial class TerrainDeformPanel
     {
         /// <summary> 
         /// Required designer variable.
@@ -29,7 +29,7 @@
         private void InitializeComponent()
         {
             this.components = new System.ComponentModel.Container();
-            System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(TerrainDeformWidget));
+            System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(TerrainDeformPanel));
             this.toolBarBrushType = new System.Windows.Forms.ToolBar();
             this.toolBarButtonPull = new System.Windows.Forms.ToolBarButton();
             this.toolBarButtonSmooth = new System.Windows.Forms.ToolBarButton();
@@ -61,6 +61,7 @@
             this.toolBarBrushType.ShowToolTips = true;
             this.toolBarBrushType.Size = new System.Drawing.Size(250, 39);
             this.toolBarBrushType.TabIndex = 2;
+            this.toolBarBrushType.ButtonClick += new System.Windows.Forms.ToolBarButtonClickEventHandler(this.toolBarBrushType_ButtonClick);
             // 
             // toolBarButtonPull
             // 
@@ -99,7 +100,9 @@
             // 
             // trackerBarWidgetOutterRadius
             // 
-            this.trackerBarWidgetOutterRadius.DecimalPlaces = 0;
+            this.trackerBarWidgetOutterRadius.AutoValidate = System.Windows.Forms.AutoValidate.EnablePreventFocusChange;
+            this.trackerBarWidgetOutterRadius.DecimalPlaces = 1;
+            this.trackerBarWidgetOutterRadius.Dock = System.Windows.Forms.DockStyle.Top;
             this.trackerBarWidgetOutterRadius.Increment = new decimal(new int[] {
             1,
             0,
@@ -111,7 +114,7 @@
             0,
             0});
             this.trackerBarWidgetOutterRadius.LabelCaption = "外圈半径";
-            this.trackerBarWidgetOutterRadius.Location = new System.Drawing.Point(3, 45);
+            this.trackerBarWidgetOutterRadius.Location = new System.Drawing.Point(0, 39);
             this.trackerBarWidgetOutterRadius.MaxValue = new decimal(new int[] {
             20,
             0,
@@ -123,17 +126,19 @@
             0,
             0});
             this.trackerBarWidgetOutterRadius.Name = "trackerBarWidgetOutterRadius";
-            this.trackerBarWidgetOutterRadius.Size = new System.Drawing.Size(241, 55);
+            this.trackerBarWidgetOutterRadius.Size = new System.Drawing.Size(250, 55);
             this.trackerBarWidgetOutterRadius.TabIndex = 3;
             this.trackerBarWidgetOutterRadius.Value = new decimal(new int[] {
             5,
             0,
             0,
             0});
+            this.trackerBarWidgetOutterRadius.OnValueChanged += new WorldEditor.Common.CustomWidget.OnValueChangedHandler(this.trackerBarWidgetOutterRadius_OnValueChanged);
             // 
             // trackerBarWidgetInnerRadius
             // 
-            this.trackerBarWidgetInnerRadius.DecimalPlaces = 0;
+            this.trackerBarWidgetInnerRadius.DecimalPlaces = 1;
+            this.trackerBarWidgetInnerRadius.Dock = System.Windows.Forms.DockStyle.Top;
             this.trackerBarWidgetInnerRadius.Increment = new decimal(new int[] {
             1,
             0,
@@ -145,7 +150,7 @@
             0,
             0});
             this.trackerBarWidgetInnerRadius.LabelCaption = "内圈半径";
-            this.trackerBarWidgetInnerRadius.Location = new System.Drawing.Point(3, 106);
+            this.trackerBarWidgetInnerRadius.Location = new System.Drawing.Point(0, 94);
             this.trackerBarWidgetInnerRadius.MaxValue = new decimal(new int[] {
             20,
             0,
@@ -157,31 +162,33 @@
             0,
             0});
             this.trackerBarWidgetInnerRadius.Name = "trackerBarWidgetInnerRadius";
-            this.trackerBarWidgetInnerRadius.Size = new System.Drawing.Size(241, 55);
+            this.trackerBarWidgetInnerRadius.Size = new System.Drawing.Size(250, 55);
             this.trackerBarWidgetInnerRadius.TabIndex = 4;
             this.trackerBarWidgetInnerRadius.Value = new decimal(new int[] {
             5,
             0,
             0,
             0});
+            this.trackerBarWidgetInnerRadius.OnValueChanged += new WorldEditor.Common.CustomWidget.OnValueChangedHandler(this.trackerBarWidgetInnerRadius_OnValueChanged);
             // 
             // trackerBarWidgetBrushPower
             // 
-            this.trackerBarWidgetBrushPower.DecimalPlaces = 0;
+            this.trackerBarWidgetBrushPower.DecimalPlaces = 2;
+            this.trackerBarWidgetBrushPower.Dock = System.Windows.Forms.DockStyle.Top;
             this.trackerBarWidgetBrushPower.Increment = new decimal(new int[] {
             1,
             0,
             0,
-            65536});
+            131072});
             this.trackerBarWidgetBrushPower.InnerScale = new decimal(new int[] {
-            10,
+            100,
             0,
             0,
             0});
             this.trackerBarWidgetBrushPower.LabelCaption = "强度";
-            this.trackerBarWidgetBrushPower.Location = new System.Drawing.Point(6, 167);
+            this.trackerBarWidgetBrushPower.Location = new System.Drawing.Point(0, 149);
             this.trackerBarWidgetBrushPower.MaxValue = new decimal(new int[] {
-            20,
+            1,
             0,
             0,
             0});
@@ -191,49 +198,52 @@
             0,
             0});
             this.trackerBarWidgetBrushPower.Name = "trackerBarWidgetBrushPower";
-            this.trackerBarWidgetBrushPower.Size = new System.Drawing.Size(238, 55);
+            this.trackerBarWidgetBrushPower.Size = new System.Drawing.Size(250, 55);
             this.trackerBarWidgetBrushPower.TabIndex = 5;
             this.trackerBarWidgetBrushPower.Value = new decimal(new int[] {
-            5,
+            1,
             0,
             0,
             0});
+            this.trackerBarWidgetBrushPower.OnValueChanged += new WorldEditor.Common.CustomWidget.OnValueChangedHandler(this.trackerBarWidgetBrushPower_OnValueChanged);
             // 
             // trackerBarWidgetHeight
             // 
             this.trackerBarWidgetHeight.DecimalPlaces = 0;
+            this.trackerBarWidgetHeight.Dock = System.Windows.Forms.DockStyle.Top;
             this.trackerBarWidgetHeight.Increment = new decimal(new int[] {
             1,
             0,
             0,
-            65536});
+            0});
             this.trackerBarWidgetHeight.InnerScale = new decimal(new int[] {
-            10,
+            1,
             0,
             0,
             0});
             this.trackerBarWidgetHeight.LabelCaption = "高度";
-            this.trackerBarWidgetHeight.Location = new System.Drawing.Point(6, 228);
+            this.trackerBarWidgetHeight.Location = new System.Drawing.Point(0, 204);
             this.trackerBarWidgetHeight.MaxValue = new decimal(new int[] {
-            20,
+            1000,
             0,
             0,
             0});
             this.trackerBarWidgetHeight.MinValue = new decimal(new int[] {
+            1000,
             0,
             0,
-            0,
-            0});
+            -2147483648});
             this.trackerBarWidgetHeight.Name = "trackerBarWidgetHeight";
-            this.trackerBarWidgetHeight.Size = new System.Drawing.Size(238, 54);
+            this.trackerBarWidgetHeight.Size = new System.Drawing.Size(250, 54);
             this.trackerBarWidgetHeight.TabIndex = 6;
             this.trackerBarWidgetHeight.Value = new decimal(new int[] {
-            5,
+            100,
             0,
             0,
             0});
+            this.trackerBarWidgetHeight.OnValueChanged += new WorldEditor.Common.CustomWidget.OnValueChangedHandler(this.trackerBarWidgetHeight_OnValueChanged);
             // 
-            // TerrainDeformWidget
+            // TerrainDeformPanel
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 12F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
@@ -242,8 +252,8 @@
             this.Controls.Add(this.trackerBarWidgetInnerRadius);
             this.Controls.Add(this.trackerBarWidgetOutterRadius);
             this.Controls.Add(this.toolBarBrushType);
-            this.Name = "TerrainDeformWidget";
-            this.Size = new System.Drawing.Size(250, 342);
+            this.Name = "TerrainDeformPanel";
+            this.Size = new System.Drawing.Size(250, 265);
             this.ResumeLayout(false);
             this.PerformLayout();
 

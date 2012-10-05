@@ -184,6 +184,22 @@
 					RelativePath=".\RenderSystem\sdRenderPath_DX9_Draw.cpp"
 					>
 				</File>
+				<File
+					RelativePath=".\RenderSystem\sdRenderPath_LightWeight.cpp"
+					>
+				</File>
+				<File
+					RelativePath=".\RenderSystem\sdRenderPath_LightWeight.h"
+					>
+				</File>
+				<File
+					RelativePath=".\RenderSystem\sdRenderPath_SceneDepth.cpp"
+					>
+				</File>
+				<File
+					RelativePath=".\RenderSystem\sdRenderPath_SceneDepth.h"
+					>
+				</File>
 			</Filter>
 			<Filter
 				Name="RenderPass"
@@ -267,6 +283,10 @@
 						RelativePath=".\RenderSystem\sdTerrainDepthPass.h"
 						>
 					</File>
+				</Filter>
+				<Filter
+					Name="PreProcrss"
+					>
 				</Filter>
 			</Filter>
 			<Filter
@@ -416,6 +436,18 @@
 					Name="Occlusion"
 					>
 				</Filter>
+				<Filter
+					Name="Bake"
+					>
+				</Filter>
+				<Filter
+					Name="Material"
+					>
+				</Filter>
+				<Filter
+					Name="Misc"
+					>
+				</Filter>
 			</Filter>
 		</Filter>
 		<Filter
@@ -437,6 +469,14 @@
 					>
 				</File>
 				<File
+					RelativePath=".\Entity\sdGameObject.cpp"
+					>
+				</File>
+				<File
+					RelativePath=".\Entity\sdGameObject.h"
+					>
+				</File>
+				<File
 					RelativePath=".\Entity\sdLight.cpp"
 					>
 				</File>
@@ -452,6 +492,18 @@
 			<Filter
 				Name="Doodads"
 				>
+				<File
+					RelativePath=".\Entity\sdDoodad.cpp"
+					>
+				</File>
+				<File
+					RelativePath=".\Entity\sdDoodad.h"
+					>
+				</File>
+				<File
+					RelativePath=".\Entity\sdDoodadsGroup.cpp"
+					>
+				</File>
 			</Filter>
 			<Filter
 				Name="Animation"
@@ -545,14 +597,6 @@
 				Name="Map"
 				>
 				<File
-					RelativePath=".\Entity\sdGameObject.cpp"
-					>
-				</File>
-				<File
-					RelativePath=".\Entity\sdGameObject.h"
-					>
-				</File>
-				<File
 					RelativePath=".\World\sdMap.cpp"
 					>
 				</File>
@@ -630,10 +674,6 @@
 				>
 			</File>
 			<File
-				RelativePath=".\ResourceSystem\sdResourceSyste_Syn.cpp"
-				>
-			</File>
-			<File
 				RelativePath=".\ResourceSystem\sdResourceSystem.cpp"
 				>
 			</File>
@@ -645,12 +685,20 @@
 				RelativePath=".\ResourceSystem\sdResourceSystem_Asyn.cpp"
 				>
 			</File>
-			<Filter
-				Name="Texture"
+			<File
+				RelativePath=".\ResourceSystem\sdResourceSystem_Syn.cpp"
 				>
-			</Filter>
+			</File>
 			<Filter
 				Name="Mesh"
+				>
+				<File
+					RelativePath=".\ResourceSystem\Mesh\sdIResourcePool.h"
+					>
+				</File>
+			</Filter>
+			<Filter
+				Name="Texture"
 				>
 			</Filter>
 		</Filter>

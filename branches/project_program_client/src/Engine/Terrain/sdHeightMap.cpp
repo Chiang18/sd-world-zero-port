@@ -167,19 +167,27 @@ void sdHeightMap::GetNormal(uint uiX, uint uiY, float& fNX, float& fNY, float& f
 	//	v1---v2----v3
 	//
 	// 如上图,不过目前仅仅采用了4邻接点的法线的平均值
-
+	//
+	// WZ原式如下, 没有减去fVHeight,不知原因
+	//	NiPoint3 kV2( 0, -1,	GetRawHeight(uiX, uiYMinus));
+	//	NiPoint3 kV5( 1,  0,	GetRawHeight(uiX+1, uiY));
+	//	NiPoint3 kV7( 0,  1,	GetRawHeight(uiX, uiY+1));
+	//	NiPoint3 kV4(-1,  0,	GetRawHeight(uiXMinus, uiY));
+	//
+	//	NiPoint3 kV = kV2.UnitCross(kV5) + kV5.UnitCross(kV7) + 
+	//			kV7.UnitCross(kV4) + kV4.UnitCross(kV2);
+	//	kV.Unitize();
+	//
 	uint uiXMinus = ((int)uiX-1) < 0 ? uiX : uiX-1;	// 防止uint下溢
 	uint uiYMinus = ((int)uiY-1) < 0 ? uiY : uiY-1;
-	NiPoint3 kV2( 0, -1,	GetRawHeight(uiX, uiYMinus));
-	NiPoint3 kV5( 1,  0,	GetRawHeight(uiX+1, uiY));
-	NiPoint3 kV7( 0,  1,	GetRawHeight(uiX, uiY+1));
-	NiPoint3 kV4(-1,  0,	GetRawHeight(uiXMinus, uiY));
 
-	kV2.Unitize();
-	kV5.Unitize();
-	kV7.Unitize();
-	kV4.Unitize();
-	NiPoint3 kV = kV2.Cross(kV5) + kV5.Cross(kV7) + kV7.Cross(kV4) + kV4.Cross(kV2);
+	float fVHeight = GetRawHeight(uiX, uiY);
+	NiPoint3 kV2( 0, -1,	GetRawHeight(uiX, uiYMinus) - fVHeight);
+	NiPoint3 kV5( 1,  0,	GetRawHeight(uiX+1, uiY)	- fVHeight);
+	NiPoint3 kV7( 0,  1,	GetRawHeight(uiX, uiY+1)	- fVHeight);
+	NiPoint3 kV4(-1,  0,	GetRawHeight(uiXMinus, uiY) - fVHeight);
+
+	NiPoint3 kV = kV2.UnitCross(kV5) + kV5.UnitCross(kV7) + kV7.UnitCross(kV4) + kV4.UnitCross(kV2);
 	kV.Unitize();
 
 	fNX = kV.x;

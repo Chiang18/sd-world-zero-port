@@ -2,6 +2,9 @@
 #include "sdTerrainAtlasShadingPass.h"
 #include "sdRenderDevice_DX9.h"
 #include "sdRenderSystem_DX9.h"
+#include "sdResourceSystem.h"
+
+using namespace ResourceSystem;
 
 namespace RenderSystem
 {
@@ -40,6 +43,9 @@ bool sdTerrainAtlasShadingPass::Initialize(uint uiStencilRef, uint uiStencilMask
 	sdRenderDevice* pkRenderDevice = sdRenderDevice_DX9::InstancePtr();
 	NIASSERT(pkRenderDevice);
 
+	sdResourceSystem* pkResourceSystem = sdResourceSystem::InstancePtr();
+	NIASSERT(pkResourceSystem);
+
 	// 设置模版参数
 	m_uiStencilRef = uiStencilRef;
 	m_uiStencilMask = uiStencilMask;
@@ -48,14 +54,20 @@ bool sdTerrainAtlasShadingPass::Initialize(uint uiStencilRef, uint uiStencilMask
 	m_spLightTexture = spLightTexture;
 	m_spGeomTexture = spGeomTexture;
 
+	m_spUVTableCubeMap = pkResourceSystem->LoadCubeTexture("dependence\\engine\\texture\\terrain\\terrainuvtable.dds");
+	NIASSERT(m_spUVTableCubeMap);
+
 	// 初始化材质
 	m_spPlanarShadingMaterial = pkRenderDevice->CreateMaterial("Terrain_AtlasShading_Planar");
 	NIASSERT(m_spPlanarShadingMaterial);
 
+	m_spSeamShadingMaterial = pkRenderDevice->CreateMaterial("Terrain_AtlasShading_Seam");
+	NIASSERT(m_spSeamShadingMaterial);
+
 	// 初始化纹理属性
 	m_spTexturingProp  = NiNew NiTexturingProperty;
 	NIASSERT(m_spTexturingProp);
-	m_spTexturingProp->SetShaderMap(0, NiNew NiTexturingProperty::ShaderMap(0, 0));
+	m_spTexturingProp->SetShaderMap(0, NiNew NiTexturingProperty::ShaderMap(m_spUVTableCubeMap, 0));
 	m_spTexturingProp->SetShaderMap(1, NiNew NiTexturingProperty::ShaderMap(spGeomTexture, 0));
 	m_spTexturingProp->SetShaderMap(2, NiNew NiTexturingProperty::ShaderMap(spLightTexture, 0));
 	m_spTexturingProp->SetShaderMap(3, NiNew NiTexturingProperty::ShaderMap(0, 0));
@@ -70,10 +82,15 @@ bool sdTerrainAtlasShadingPass::Initialize(uint uiStencilRef, uint uiStencilMask
 //-------------------------------------------------------------------------------------------------
 void sdTerrainAtlasShadingPass::Destroy()
 {
+	m_spTexturingProp = 0;
+
 	m_uiStencilRef = 0;
 	m_uiStencilMask = 0;
+
 	m_spLightTexture = 0;
 	m_spGeomTexture = 0;
+	m_spUVTableCubeMap = 0;
+
 	m_spSimpleShadingMaterial = 0;
 	m_spPlanarShadingMaterial = 0;
 	m_spSeamShadingMaterial = 0;
@@ -175,6 +192,10 @@ void sdTerrainAtlasShadingPass::Draw()
 	
 	// 平坦区域着色
 	spScreenMesh->ApplyAndSetActiveMaterial(m_spPlanarShadingMaterial);
+	spScreenMesh->RenderImmediate(spRenderer);
+
+	// 陡峭区域着色
+	spScreenMesh->ApplyAndSetActiveMaterial(m_spSeamShadingMaterial);
 	spScreenMesh->RenderImmediate(spRenderer);
 
 	spScreenMesh->SetActiveMaterial(NULL);

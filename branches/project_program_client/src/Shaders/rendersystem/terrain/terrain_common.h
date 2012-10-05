@@ -3,7 +3,7 @@
 //---------------------------------------------------------
 // 作者:		
 // 创建:		2012-08-04
-// 最后修改:	2012-09-25
+// 最后修改:	2012-10-03
 //*************************************************************************************************
 #ifndef _TERRAIN_COMMON_H__
 #define _TERRAIN_COMMON_H__
@@ -17,8 +17,17 @@ float4	a_vTerrainQuadParam 	: ATTRIBUTE;
 #define	a_fQuadScale			a_vTerrainQuadParam[2]
 #define	a_fQuadMorphFactor		a_vTerrainQuadParam[3]
 
-// 地形大小及其倒数(用于计算地形点UV坐标)
-float2	g_vRecipTerrainSize		: GLOBAL;
+// 地形一些贴图的尺寸(用于计算UV)
+float4	g_vTerrainMapSize		: GLOBAL;
+#define g_fTerrainSize 			g_vTerrainMapSize.x
+#define g_fBlendMapSize 		g_vTerrainMapSize.y
+#define g_fTileMapSize 			g_vTerrainMapSize.z
+
+float4	g_vRecipTerrainMapSize	: GLOBAL;
+#define g_fRecipTerrainSize 	g_vRecipTerrainMapSize.x
+#define g_fRecipBlendMapSize 	g_vRecipTerrainMapSize.y
+#define g_fRecipTileMapSize 	g_vRecipTerrainMapSize.z
+
 
 //
 //float4	g_vRecipUVRepeats[3]	: GLOBAL;

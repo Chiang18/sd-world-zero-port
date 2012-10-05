@@ -18,22 +18,22 @@ namespace WorldEditor.SceneModule.Window
         MWorldEditorFSM mWorldEditorFSM;
 
         //
-        private TerrainDeformWidget mTerrainDeformWidget;
-        private TerrainSurfaceWidget mTerrainSurfaceWidget;
+        private TerrainDeformPanel mTerrainDeformWidget;
+        private TerrainSurfacePanel mTerrainSurfaceWidget;
 
         public TerrainForm()
         {
             InitializeComponent();
 
             // 地表高度面板
-            mTerrainDeformWidget = new TerrainDeformWidget();
+            mTerrainDeformWidget = new TerrainDeformPanel();
             mTerrainDeformWidget.Dock = DockStyle.Fill;
             mTerrainDeformWidget.Location = new Point(5, 13);
             mTerrainDeformWidget.Visible = false;
             this.groupBoxProperty.Controls.Add(mTerrainDeformWidget);
 
             // 地表纹理面板
-            mTerrainSurfaceWidget = new TerrainSurfaceWidget();
+            mTerrainSurfaceWidget = new TerrainSurfacePanel();
             mTerrainSurfaceWidget.Dock = DockStyle.Fill;
             mTerrainSurfaceWidget.Location = new Point(5, 13);
             mTerrainSurfaceWidget.Visible = false;

@@ -3,7 +3,7 @@
 //---------------------------------------------------------
 // 作者:		
 // 创建:		2012-08-08
-// 最后修改:
+// 最后修改:	2012-10-02
 //*************************************************************************************************
 #pragma once
 #ifndef _TERRAIN_NORMAL_MAP_H__
@@ -19,6 +19,7 @@ class sdNormalMap : public NiRefObject
 {
 public:
 	sdNormalMap(uint uiSize, sdHeightMap* pkHeightMap);
+	sdNormalMap(NiTexture* spNormalTexture);
 	~sdNormalMap();
 
 	// 更新,分别是整体更新/更新指定区域(单位1)
@@ -35,6 +36,9 @@ protected:
 	// NormalMap的纹理
 	RenderSystem::sdDynamicTexturePtr	m_pkDynamicNormalTexture;	// 用于编辑状态,以提供动态更新
 	NiTexturePtr	m_spNormalTexture;	// 用于游戏状态
+
+	// 坡度阈值
+	NiPoint3	m_kPlanarThreshold;
 };
 NiSmartPointer(sdNormalMap);
 #endif

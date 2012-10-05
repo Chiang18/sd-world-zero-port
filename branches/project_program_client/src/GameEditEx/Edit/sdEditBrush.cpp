@@ -82,7 +82,8 @@ void sdTerrainDeformPoolBrush::Apply(const sdRay& kRay)
 				{
 					float fWeight = pkDualCirlceShape->GetWeight(fX, fY);
 					float fOldHeight = pkTerrain->GetRawHeight(uiHX, uiHY);
-					pkTerrain->SetRawHeight(uiHX, uiHY, fOldHeight + fFrameTime * fWeight * fPullSpeed);
+					pkTerrain->SetRawHeight(uiHX, uiHY, 
+						fOldHeight + fFrameTime * fWeight * fPullSpeed * m_fHeight);
 				}
 			}
 		}

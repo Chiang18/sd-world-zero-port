@@ -43,7 +43,8 @@ namespace ResourceSystem
 
 		// Õ¨≤Ωº”‘ÿ(Synchronous)
 		// @{
-		virtual NiSourceTexturePtr LoadTexture(const std::string& szFileName, bool bMipmap = true);
+		virtual NiSourceTexturePtr	LoadTexture(const std::string& szFileName, bool bMipmap = true);
+		virtual NiSourceCubeMapPtr	LoadCubeTexture(const std::string& szFileName);
 		virtual NiPixelDataPtr LoadTextureToMemory(const std::string& szFileName);
 		// @}
 

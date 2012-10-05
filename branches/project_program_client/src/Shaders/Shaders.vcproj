@@ -187,15 +187,7 @@
 						>
 					</File>
 					<File
-						RelativePath=".\rendersystem\terrain\terrain_atlas_geometry_ortho.fx"
-						>
-					</File>
-					<File
 						RelativePath=".\rendersystem\terrain\terrain_atlas_shading.fx"
-						>
-					</File>
-					<File
-						RelativePath=".\rendersystem\terrain\terrain_atlas_shading_ortho.fx"
 						>
 					</File>
 					<File

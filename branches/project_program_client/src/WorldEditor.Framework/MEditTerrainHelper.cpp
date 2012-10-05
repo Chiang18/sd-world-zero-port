@@ -19,6 +19,56 @@ namespace WorldEditorFramework
 		m_pkEditTerrainHelper = pkWorldEditFSM->GetEditTerrainHelper();
 	}
 	//-----------------------------------------------------------------------------
+	int MEditTerrainHelper::DeformBrushType::get()
+	{
+		return m_pkEditTerrainHelper->GetDeformBrushType();
+	}
+	//-----------------------------------------------------------------------------
+	void MEditTerrainHelper::DeformBrushType::set(int iType)
+	{
+		m_pkEditTerrainHelper->SetActiveDeformBrush(iType);
+	}
+	//-----------------------------------------------------------------------------
+	float MEditTerrainHelper::DeformBrushOutterRadius::get()
+	{
+		return m_pkEditTerrainHelper->GetDeformBrushOutterRadius();
+	}
+	//-----------------------------------------------------------------------------
+	void MEditTerrainHelper::DeformBrushOutterRadius::set(float fRadius)
+	{
+		return m_pkEditTerrainHelper->SetDeformBrushOutterRadius(fRadius);
+	}
+	//-----------------------------------------------------------------------------
+	float MEditTerrainHelper::DeformBrushInnerRadius::get()
+	{
+		return m_pkEditTerrainHelper->GetDeformBrushInnerRadius();
+	}
+	//-----------------------------------------------------------------------------
+	void MEditTerrainHelper::DeformBrushInnerRadius::set(float fRadius)
+	{
+		return m_pkEditTerrainHelper->SetDeformBrushInnerRadius(fRadius);
+	}
+	//-----------------------------------------------------------------------------
+	float MEditTerrainHelper::DeformBrushHardness::get()
+	{
+		return m_pkEditTerrainHelper->GetDeformBrushHardness();
+	}
+	//-----------------------------------------------------------------------------
+	void MEditTerrainHelper::DeformBrushHardness::set(float fHardness)
+	{
+		return m_pkEditTerrainHelper->SetDeformBrushHardness(fHardness);
+	}
+	//-----------------------------------------------------------------------------
+	float MEditTerrainHelper::DeformBrushHeight::get()
+	{
+		return m_pkEditTerrainHelper->GetDeformBrushHeight();
+	}
+	//-----------------------------------------------------------------------------
+	void MEditTerrainHelper::DeformBrushHeight::set(float fHeight)
+	{
+		return m_pkEditTerrainHelper->SetDeformBrushHeight(fHeight);
+	}
+	//-----------------------------------------------------------------------------
 	unsigned int MEditTerrainHelper::GetLayerMapCount()
 	{
 		return m_pkEditTerrainHelper->GetLayerMapCount();

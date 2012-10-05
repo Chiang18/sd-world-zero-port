@@ -49,21 +49,27 @@
     <Compile Include="Interfaces\IModule.cs" />
     <Compile Include="Interfaces\MVC\IDocument.cs" />
     <Compile Include="Interfaces\IPlugin.cs" />
-    <Compile Include="Interfaces\IService.cs" />
+    <Compile Include="Interfaces\Services\ICommandService.cs" />
+    <Compile Include="Interfaces\Services\IEventService.cs" />
+    <Compile Include="Interfaces\Services\ILoggingService.cs" />
+    <Compile Include="Interfaces\Services\IService.cs" />
     <Compile Include="Interfaces\MVC\IShortCutView.cs" />
     <Compile Include="Interfaces\MVC\IView.cs" />
     <Compile Include="Interfaces\MVC\IViewAdapter.cs" />
+    <Compile Include="Interfaces\Services\ISettingService.cs" />
+    <Compile Include="Interfaces\Services\IShortcutService.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="Services\LoggingServiceImpl.cs" />
+    <Compile Include="Services\ShortcutServiceImpl.cs" />
+    <Compile Include="Services\StandardServiceBaseImpl.cs" />
     <Compile Include="TSingleton.cs" />
+    <Compile Include="UICommands\UICommand.cs" />
   </ItemGroup>
   <ItemGroup>
     <WCFMetadata Include="Service References\" />
   </ItemGroup>
   <ItemGroup>
-    <Folder Include="Interfaces\Service\" />
-    <Folder Include="Services\" />
     <Folder Include="UIBindings\" />
-    <Folder Include="UICommands\" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 

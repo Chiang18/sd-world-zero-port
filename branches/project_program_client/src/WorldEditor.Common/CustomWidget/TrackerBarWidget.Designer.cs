@@ -29,11 +29,11 @@
         private void InitializeComponent()
         {
             this.groupBox = new System.Windows.Forms.GroupBox();
-            this.trackBar = new System.Windows.Forms.TrackBar();
             this.numericUpDown = new System.Windows.Forms.NumericUpDown();
+            this.trackBar = new InnerTrackBar();
             this.groupBox.SuspendLayout();
-            ((System.ComponentModel.ISupportInitialize)(this.trackBar)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.numericUpDown)).BeginInit();
+            ((System.ComponentModel.ISupportInitialize)(this.trackBar)).BeginInit();
             this.SuspendLayout();
             // 
             // groupBox
@@ -47,16 +47,6 @@
             this.groupBox.TabIndex = 0;
             this.groupBox.TabStop = false;
             // 
-            // trackBar
-            // 
-            this.trackBar.AutoSize = false;
-            this.trackBar.Location = new System.Drawing.Point(3, 17);
-            this.trackBar.Name = "trackBar";
-            this.trackBar.Size = new System.Drawing.Size(165, 21);
-            this.trackBar.TabIndex = 0;
-            this.trackBar.TickStyle = System.Windows.Forms.TickStyle.None;
-            this.trackBar.Scroll += new System.EventHandler(this.trackBar_Scroll);
-            // 
             // numericUpDown
             // 
             this.numericUpDown.Dock = System.Windows.Forms.DockStyle.Right;
@@ -67,24 +57,34 @@
             this.numericUpDown.TextAlign = System.Windows.Forms.HorizontalAlignment.Right;
             this.numericUpDown.ValueChanged += new System.EventHandler(this.numericUpDown_ValueChanged);
             // 
-            // TrackerBar
+            // trackBar
+            // 
+            this.trackBar.AutoSize = false;
+            this.trackBar.Location = new System.Drawing.Point(3, 17);
+            this.trackBar.Name = "trackBar";
+            this.trackBar.Size = new System.Drawing.Size(165, 21);
+            this.trackBar.TabIndex = 0;
+            this.trackBar.TickStyle = System.Windows.Forms.TickStyle.None;
+            this.trackBar.Scroll += new System.EventHandler(this.trackBar_Scroll);
+            // 
+            // TrackerBarWidget
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 12F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.Controls.Add(this.groupBox);
-            this.Name = "TrackerBar";
+            this.Name = "TrackerBarWidget";
             this.Size = new System.Drawing.Size(229, 55);
             this.groupBox.ResumeLayout(false);
-            ((System.ComponentModel.ISupportInitialize)(this.trackBar)).EndInit();
             ((System.ComponentModel.ISupportInitialize)(this.numericUpDown)).EndInit();
+            ((System.ComponentModel.ISupportInitialize)(this.trackBar)).EndInit();
             this.ResumeLayout(false);
 
         }
 
         #endregion
 
+        private InnerTrackBar trackBar;
         private System.Windows.Forms.GroupBox groupBox;
-        private System.Windows.Forms.TrackBar trackBar;
         private System.Windows.Forms.NumericUpDown numericUpDown;
     }
 }

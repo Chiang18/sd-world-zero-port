@@ -26,6 +26,20 @@ NiSourceTexturePtr sdResourceSystem::LoadTexture(const std::string& szFileName, 
 	return spTexture;
 }
 //-------------------------------------------------------------------------------------------------
+NiSourceCubeMapPtr sdResourceSystem::LoadCubeTexture(const std::string &szFileName)
+{
+	// 获取完整路径
+	NiFixedString kFileName(("E:\\project_game\\" + szFileName).c_str());
+
+	// 检查路径合法性
+
+	// 加载纹理
+	NiSourceCubeMapPtr spTexture = NiSourceCubeMap::Create(kFileName, NiRenderer::GetRenderer());
+	NIASSERT(spTexture);
+
+	return spTexture;
+}
+//-------------------------------------------------------------------------------------------------
 NiPixelDataPtr sdResourceSystem::LoadTextureToMemory(const std::string& szFileName)
 {
 	// 获取完整路径

@@ -16,7 +16,7 @@ SD_LINEAR_WRAP_SAMPLE(2, sdBaseNormalSampler, 		sdBaseNormalTex, 	false);		// 地
 SD_POINT_CLAMP_SAMPLE(3, sdTileSampler,				sdTileTex,			false);		// 地形TileMap
 SD_LINEAR_WRAP_SAMPLE(4, sdBlendSampler,			sdBlendTex,			false);		// 地形混合权重贴图
 SD_POINT_CLAMP_SAMPLE(5, sdAtlasTableSampler,		sdAtlasTableTex,	false);		// 地形法线贴图查询表
-SD_LINEAR_CLAMP_SAMPLE(6, sdNormalAtlasSampler,		sdNormalAtlasTex,	false);		// 地形法线贴图图集
+SD_LINEAR_WRAP_SAMPLE(6, sdNormalAtlasSampler,		sdNormalAtlasTex,	false);		// 地形法线贴图图集
 
 //---------------------------------------------------------------------------------------
 // 顶点着色器输入数据流
@@ -84,7 +84,7 @@ float4 PS_Main_BaseNormal(VS_OUTPUT kInput) : COLOR0
 	// BaseNormalMap
 	// @{
 	// 计算当前点的地形相对UV(注意,这里没有偏移半像素,因为BaseNormalMap是Linear采样的)
-	float2 vUVSet = vWorldPos.xy * g_vRecipTerrainSize.xy;
+	float2 vUVSet = vWorldPos.xy * float2(g_fRecipTerrainSize, g_fRecipTerrainSize);
 	
 	// 根据UV采样NormalMap
 	float4 vBaseNormalTex 	= tex2D(sdBaseNormalSampler, vUVSet);
@@ -98,7 +98,7 @@ float4 PS_Main_BaseNormal(VS_OUTPUT kInput) : COLOR0
 	// 	1.需要乘以逆转置矩阵,
 	//	2.ViewMatrix旋转部分是正交矩阵,平移部分不是,我们只需要旋转变换
 	//	3.g_mView与g_mInvViewT旋转部分应该是一样的
-	float3 vViewNormal = mul(vWorldNormal.xyz, g_mView);
+	float3 vViewNormal = mul(vWorldNormal, g_mView);
 	// @}
 	
 	// 输出打包的法线和深度
@@ -124,7 +124,7 @@ float4 PS_Main_Far_BaseNormal(VS_OUTPUT kInput) : COLOR0
 	// BaseNormalMap
 	// @{
 	// 计算当前点的地形相对UV(注意,这里没有偏移半像素,因为BaseNormalMap是Linear采样的)
-	float2 vUVSet = vWorldPos.xy * g_vRecipTerrainSize.xy;
+	float2 vUVSet = vWorldPos.xy * float2(g_fRecipTerrainSize, g_fRecipTerrainSize);
 	
 	// 根据UV采样NormalMap
 	float4 vBaseNormalTex 	= tex2D(sdBaseNormalSampler, vUVSet);
@@ -134,8 +134,11 @@ float4 PS_Main_Far_BaseNormal(VS_OUTPUT kInput) : COLOR0
 	vWorldNormal.xy	= vBaseNormalTex.xy * 2.0 - 1.0;
 	vWorldNormal.z 	= sqrt(dot(float3(1.0, vWorldNormal.xy), float3(1.0, -vWorldNormal.xy)));
 	
-	// 变换Normal到观察空间(注意需要乘以逆转置矩阵,不过ViewMatrix旋转部分是正交矩阵,平移部分不是)
-	float3 vViewNormal = mul(vWorldNormal.xyz, g_mInvViewT);
+	// 变换Normal到观察空间
+	// 	1.需要乘以逆转置矩阵,
+	//	2.ViewMatrix旋转部分是正交矩阵,平移部分不是,我们只需要旋转变换
+	//	3.g_mView与g_mInvViewT旋转部分应该是一样的
+	float3 vViewNormal = mul(vWorldNormal, g_mView);
 	// @}
 
 
@@ -156,7 +159,7 @@ float4 PS_Main_Near_BaseNormalAndNormalMap(VS_OUTPUT kInput) : COLOR0
 	float3 vWorldPos = lerp(g_vViewPos, kInput.vUVFarClipWorldPos, fDepth);
 	
 	// 计算当前点的地形相对UV(注意,这里没有偏移半像素)
-	float2 vUVSet = vWorldPos.xy * g_vRecipTerrainSize.xy;
+	float2 vUVSet = vWorldPos.xy * float2(g_fRecipTerrainSize, g_fRecipTerrainSize);
 	
 	
 	// NormalMap
@@ -167,18 +170,13 @@ float4 PS_Main_Near_BaseNormalAndNormalMap(VS_OUTPUT kInput) : COLOR0
 	// 解出世界空间法线
 	float3 vWorldNormal;
 	vWorldNormal.xy	= vBaseNormalTex.xy * 2.0 - 1.0;
-	vWorldNormal.z 	= sqrt(dot(float3(1.0, vWorldNormal.xy), float3(1.0, -vWorldNormal.xy)));
-	
-	// 解出倾斜情况
-	float3 vPlanarWeight;
-	vPlanarWeight.xy 	= vBaseNormalTex.zw;
-	vPlanarWeight.z 	= saturate(1.0 - vBaseNormalTex.z - vBaseNormalTex.w);	
+	vWorldNormal.z 	= sqrt(dot(float3(1.0, vWorldNormal.xy), float3(1.0, -vWorldNormal.xy)));	
 	// @}
 	
 	
 	// TileMap
 	// @{
-	// 根据UV采样TileMap,
+	// 根据UV采样TileMap(这里从[0,1]恢复到[0,255]的图层索引区间)
 	float3 vIndices = tex2D(sdTileSampler, vUVSet).xyz * 255.0;
 	// @}
 	
@@ -186,14 +184,29 @@ float4 PS_Main_Near_BaseNormalAndNormalMap(VS_OUTPUT kInput) : COLOR0
 	// BlendMap
 	// @{
 	// 计算新的UV(不解,大概是为了在Tile边缘进行融合)
-	//float2 tileCenterOffset = frac(vUVSet * (2048.0 / 4.0)) - 0.5;
-	//vUVSet -= tileCenterOffset * (1.0 / 2048.0);
+	//	1.计算当前Fragment相对TexTile中心点的偏移(单位:TexTile)
+	//	2.将当前Fragment相对TexTile中心点的偏移转化为对BlendMapPixel中心偏移(单位:BlendMapPixel)
+	//	2.从UVSet减去对BlendMapPixel中心偏移
+	//
+	// WZ原式:
+	//	float2 tileCenterOffset = frac(vUVSet * (2048.0 / 4.0)) - 0.5;
+	//	vUVSet -= tileCenterOffset * (1.0 / 2048.0);
+	//
+	// 本地实现:
+	//	float2 tileCenterOffset = frac(vUVSet * g_fTileMapSize) - 0.5;
+	//	float2 vUVSet2 = vUVSet - tileCenterOffset * g_fRecipBlendMapSize;
+	//
+	// 修订版(修正对BlendMap像素中心偏移)
+	//	float2 vUVSet2 = vUVSet + float2(g_fRecipBlendMapSize, g_fRecipBlendMapSize);
+	//
+	float2 tileCenterOffset = frac(vUVSet * g_fTileMapSize) - 0.5;
+	float2 vUVSet2 = vUVSet - tileCenterOffset * g_fRecipBlendMapSize;
 
 	// 根据UV采样BlendMap
-	float3 vBlendTex = tex2D(sdBlendSampler, vUVSet).xyz;
+	float3 vBlendTex = tex2D(sdBlendSampler, vUVSet2);
 	
 	// 归一化权重
-	float fTotalWeight = dot(vBlendTex.xyz, 1.0);
+	float fTotalWeight = dot(vBlendTex, 1.0);
 	vBlendTex.rgb /= fTotalWeight;
 	// @}
 	
@@ -201,10 +214,12 @@ float4 PS_Main_Near_BaseNormalAndNormalMap(VS_OUTPUT kInput) : COLOR0
 	// 计算切线空间
 	// @{
 	// 采样立方体纹理
+	//	1.GB坐标系是X向右Y向前Z向上
+	//	2.D3D坐标系是X向右Y向上Z向前
 	float4 vPlanarVec = texCUBE(sdPlanarTableSampler, vWorldNormal.xzy) * 255 - 1;
 	
 	// 计算新的地形UV
-	float2 vUVSet2 = float2(dot(vWorldPos.xy, vPlanarVec.xy), dot(vWorldPos.yz, vPlanarVec.zw));
+	float2 vUVSet3 = float2(dot(vWorldPos.xy, vPlanarVec.xy), dot(vWorldPos.yz, vPlanarVec.zw));
 	
 	// 计算当前点的切线空间
 	float3 vWorldBinormal 	= cross(float3(vPlanarVec.xy, 0), vWorldNormal);
@@ -217,35 +232,49 @@ float4 PS_Main_Near_BaseNormalAndNormalMap(VS_OUTPUT kInput) : COLOR0
 	// 计算当前像素到观察点矢量
 	float3 vWorldViewVector = normalize(g_vViewPos - kInput.vUVFarClipWorldPos);
 	
-	// 计算当前像素应取LOD(这里不解,有待进一步关注)
+	// 计算当前像素应取LOD(先计算的是当前Pixel对应的世界空间Pixel的尺寸,然后对2取对数得到LOD)
+	//	g_vFarPixelSize				像素在垂直远平面上的对应尺寸(近似尺寸,真实远平面是一个椭球面的一部分)
+	//	g_vFarPixelSize * fDepth	像素在当前距离下的垂直平面上的对应尺寸
+	//	dot(vWorldViewVector, vWorldNormal)	当前像素相对投影方位的角度,即与投影方向的夹角余弦值
 	float2 vLodLevel = log2(g_vFarPixelSize * fDepth / max(dot(vWorldViewVector, vWorldNormal), 0.25));
 	
 	// 计算图集UV
+	//	.xyz 分别是3个Layer的id计算得到的纹理U坐标 	LayerId * (1.0f / uiWidth) + (0.5f / uiWidth)
+	//	.w	 是像素的lod信息计算得到的纹理V坐标	 	PixelLod * (1.0f / uiHeight) + (-iMinLodFactor / (float)uiHeight)
 	float4 vUVSetTable;
 	vUVSetTable.xyz = saturate(vIndices.bgr * g_fNormalAtlasIdScale + g_fNormalAtlasIdOffset);
 	vUVSetTable.w	= saturate(max(vLodLevel.x, vLodLevel.y) * g_fNormalAtlasLevelScale + g_fNormalAtlasLevelOffset);
 	
 	// 贴图混合
-	float3 vNormal = SamplerAtlasMap(sdNormalAtlasSampler, sdAtlasTableSampler, vUVSetTable.xw, vUVSet2) * vBlendTex.b +
-					 SamplerAtlasMap(sdNormalAtlasSampler, sdAtlasTableSampler, vUVSetTable.yw, vUVSet2) * vBlendTex.g +
-					 SamplerAtlasMap(sdNormalAtlasSampler, sdAtlasTableSampler, vUVSetTable.zw, vUVSet2) * vBlendTex.r;
+	float3 vNormal = SamplerAtlasMap(sdNormalAtlasSampler, sdAtlasTableSampler, vUVSetTable.xw, vUVSet3) * vBlendTex.b +
+		SamplerAtlasMap(sdNormalAtlasSampler, sdAtlasTableSampler, vUVSetTable.yw, vUVSet3) * vBlendTex.g +
+		SamplerAtlasMap(sdNormalAtlasSampler, sdAtlasTableSampler, vUVSetTable.zw, vUVSet3) * vBlendTex.r;
 	
+	// 从[0,1]变换到[-1,1]
 	vNormal = vNormal * 2.0 - 1.0;
 	
+	// 缩放法线贴图结果
 	vNormal.xy *= g_fTerrainNormalScale;
 	
-	float fNormalSmooth = saturate(5.0 -5.0 * length(vWorldPos - g_vViewPos) / g_fTerrainFarStart);
+	// 与远处法线区域做过渡
+	float fNormalSmooth = saturate(5.0 - 5.0 * length(vWorldPos - g_vViewPos) / g_fTerrainFarStart);
 	vNormal.xy *= fNormalSmooth;
+	
+	// 归一化
 	vNormal = normalize(vNormal);
 	//vNormal.z = sqrt(dot(float3(1.0, vNormal.xy), float3(1.0, -vNormal.xy)));
 	
-	vNormal = vNormal.z * vWorldNormal.xyz + vWorldNormal.y * vWorldBinormal + vWorldBinormal.x * vWorldTangent;
-	
-	// 转换到观察坐标系
-	vNormal = mul(float4(vNormal, 0), g_mView);
+	// 与BaseNormal合成
+	vNormal = vNormal.z * vWorldNormal + vNormal.y * vWorldBinormal + vNormal.x * vWorldTangent;
+
+	// 变换Normal到观察空间
+	// 	1.需要乘以逆转置矩阵,
+	//	2.ViewMatrix旋转部分是正交矩阵,平移部分不是,我们只需要旋转变换
+	//	3.g_mView与g_mInvViewT旋转部分应该是一样的
+	float3 vViewNormal = mul(vNormal, g_mView);
 	// @}
 	
-	return float4(vPackedDepth, PackNormal(vNormal));
+	return float4(vPackedDepth, PackNormal(vViewNormal));
 }
 
 //---------------------------------------------------------------------------------------
