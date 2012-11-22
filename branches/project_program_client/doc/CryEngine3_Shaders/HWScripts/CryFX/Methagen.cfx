@@ -1,0 +1,901 @@
+#include "Common.cfi"
+
+struct fragPassCustom
+{
+  // Custom per pass data     
+  half3 vTangent;        // perturbed tangent vector
+  half3 vBinormal;       // perturbed binormal vector
+
+  half3 scatterFinalColor;
+  half3 skeletonColor;
+  half3 scatterShadowScale;
+
+};
+
+struct fragLightPassCustom
+{
+#ifdef PS3
+	float4 Dummy;
+#endif
+}; 
+
+
+// Shader global descriptions
+float Script : STANDARDSGLOBAL
+<
+  string Script = "Public;"
+                  "ShaderDrawType = Light;"
+                  "ShaderType = General;"
+>;
+
+// Tweakable parameters
+float fInvRange
+<
+  psregister = PS_REG_PM_3.x;
+  string UIWidget = "slider";
+  string UIName = "Depth range scale";
+  float UIMin = 0.0;
+  float UIMax = 4.7;
+  float UIStep = 0.001;
+> = 1.7f;
+
+float RefractBumpScale
+<
+  psregister = PS_REG_PM_3.y;
+  string UIWidget = "slider";
+  string UIName = "Refraction bump scale";
+  float UIMin = 0.0;
+  float UIMax = 0.1;
+  float UIStep = 0.001;
+> = 0.01;
+
+
+//fix:: specify packing register
+float g_curveKeyPoint0
+<
+  psregister = PS_REG_PM_3.z;
+  //psregister = c24.w;
+  string UIWidget = "slider";
+  string UIName = "Central Translucency";
+  float UIMin = 0.0;
+  float UIMax = 2.0;
+  float UIStep = 0.001;
+> = 0.9;
+
+
+float g_curveKeyPoint2
+<
+  psregister = PS_REG_PM_3.w;
+  string UIWidget = "slider";
+  string UIName = "General Translucency";
+  float UIMin = 0.0;
+  float UIMax = 2.0;
+  float UIStep = 0.001;
+> = 1.9;
+
+
+float g_TranlucencyBumpStrenght
+<
+  psregister = PS_REG_PM_4.x;
+  string UIHelp = "Tranlucency Strenght";
+  string UIName = "Tranlucency Strenght";
+    
+  string UIWidget = "slider";
+  float UIMin = 0;
+  float UIMax = 10.0;
+  float UIStep = 0.001;
+> = 3.0;
+
+
+float g_DepthRampAdjust
+<
+  psregister = PS_REG_PM_4.y;
+  string UIHelp = "Allows depth adjustment to cover ramp texture range";
+  string UIName = "Absorption";
+    
+  string UIWidget = "slider";
+  float UIMin = 0;
+  float UIMax = 10.0;
+  float UIStep = 0.001;
+> = 1.8;
+
+float g_fCurveShift = 0.64f;
+
+float g_SkeletonBrightness
+<
+  psregister =  PS_REG_PM_4.w;
+  string UIHelp = "Skeleton brightness";
+  string UIName = "Skeleton brightness";
+    
+  string UIWidget = "slider";
+  float UIMin = 0;
+  float UIMax = 32.0;
+  float UIStep = 0.001;
+> = 1.0;
+
+
+#if %ENVCMSPEC
+
+  // EnvMap amount
+
+  float fReflectAmount
+  <
+    psregister = PS_REG_PM_6.x;
+    string UIWidget = "slider";
+    string UIName = "Reflect Amount";
+    string UIHelp = "Set amount of reflection";                     
+    float UIMin = 0.0;
+    float UIMax = 10.0;
+    float UIStep = 0.001;
+  > = 0.3;
+
+  // Fresnel parameters
+  float fFresnelScale
+  <
+    psregister = PS_REG_PM_6.y;
+    string UIWidget = "slider";
+    string UIName = "Fresnel Scale";
+    float UIMin = 0.0;
+    float UIMax = 32.0;
+    float UIStep = 0.01;
+  > = 1;
+
+  // Fresnel parameters
+  float fFresnelBias
+  <
+    psregister = PS_REG_PM_6.z;
+    string UIWidget = "slider";
+    string UIHelp = "Set how much reflective material is";                     
+    string UIName = "Fresnel bias";  
+    float UIMin = 0.0;
+    float UIMax = 1.0;
+    float UIStep = 0.001;
+  > = 0.0;
+
+#endif
+
+  float InnerLayerShadowBias
+  <     
+    psregister = PS_REG_PM_6.w;
+    string UIHelp = "Sets the shadow bias for internal layer"; 
+    string UIName = "Inner layer shadow bias";
+    string UIWidget = "slider";
+    float UIMin = 0.0; 
+    float UIMax = 1.0;
+    float UIStep = 0.05;    
+  > = 0.5;
+
+
+//=== Branching parameters ================================================
+
+float HDRDynamicMultiplier : PB_HDRDynamicMultiplier;
+float SPECULARPOW_GLOSSALPHA < psregister = PS_REG_PB_7.x; > = { PB_GlobalShaderFlag %SPECULARPOW_GLOSSALPHA };
+
+
+//Samplers
+
+//Shared samplers
+OPACITYMAP
+ENVIRONMENTMAP
+ENVIRONMENTCUBEMAP
+
+/*sampler2D translucenceLayer
+<
+  string Script =
+//      "RenderOrder=PreProcess;"
+      "ProcessOrder=TranslucenceLayer;"
+      "RenderCamera=Current;"
+      "RenderTarget_IDPool = _RT2D_TRANSLUCENCE_ID;"
+      "RenderTarget_Width=512;"
+      "RenderTarget_Height=512;"
+      "RenderType=CurObject;"
+      "ClearSetColor=White;"
+      "ClearSetDepth=1;"
+      "ClearTarget=Color;"
+      "ClearTarget=Depth;";
+>
+{
+  Texture = $RT_2D;
+  MinFilter = LINEAR;
+  MagFilter = LINEAR;
+  MipFilter = NONE;
+  AddressU = Clamp;
+  AddressV = Clamp;   
+};*/
+
+sampler2D scatterFadeRamp = sampler_state
+{
+ Texture = $Subsurface;
+ //Texture = objects/characters/newtexts/alienbase_ramp.dds;
+ //Texture = textures/defaults/methagen_ramp9.dds;
+ MinFilter = LINEAR;
+ MagFilter = LINEAR;
+ MipFilter = NONE;
+ AddressU = Clamp;
+ AddressV = Clamp;  
+};
+
+sampler2D screenMapSampler = sampler_state
+{
+  Texture = $ScatterLayer;
+  MinFilter = LINEAR;
+  MagFilter = LINEAR;
+  MipFilter = LINEAR; 
+  AddressU = Clamp;
+  AddressV = Clamp; 
+};
+
+sampler2D sceneDepthSampler = sampler_state
+{
+  Texture = $ZTarget;
+  MinFilter = LINEAR;
+  MagFilter = LINEAR;
+  MipFilter = LINEAR; 
+  AddressU = Clamp;
+  AddressV = Clamp; 
+};
+
+sampler2D noiseBump = sampler_state
+{
+  Texture = textures/defaults/oceanwaves_ddn.dds;
+  MinFilter = LINEAR;
+  MagFilter = LINEAR;
+  MipFilter = LINEAR; 
+  AddressU = Wrap;
+  AddressV = Wrap;  
+};
+
+sampler2D absorbtionSampler {  Texture = $CustomMap; };
+
+
+//=======================================================================
+
+/////////////////////////////
+// structs
+
+//
+// Vertex to pixel
+//
+struct PS_INPUT_METH
+{
+  float4 HPosition  : POSITION;
+
+
+  float4 baseTC     : TEXCOORDN;
+
+
+  float4 bumpTC     : TEXCOORDN;
+
+  float4 tangVec    : TEXCOORDN;
+  float4 binormVec  : TEXCOORDN;
+  float4 Pos        : TEXCOORDN;
+
+
+//#if %VERTCOLORS
+//#endif
+  float4 Color      : COLOR0;
+
+#if %_LT_LIGHTS && %_LT_HASPROJ  
+  float4 projTC     : TEXCOORDN;
+#endif
+
+  float4 screenTC   : TEXCOORDN;
+  //float2 ZPos       : TEXCOORDN;
+};
+
+
+#include "ShadeLib.cfi"
+#include "SubSurfScat.cfi"
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////////////////////////
+
+//include "VertexLib.cfi"
+
+#if !%TEMP_VEGETATION
+
+ #define INST_STREAM_CUSTOM                          \
+  #if %_RT_INSTANCING_ATTR                           \
+    float4 InstAmbientOp  : TEXCOORDN;               \
+   #if %_RT_FOG                                      \
+    float4 InstAvgFogVolumeContrib   : TEXCOORDN;    \
+   #endif                                            \
+  #endif                                             \
+  
+#endif
+
+///////////////// Vertex/texture modifiers //////////////////
+
+#include "ModificatorVT.cfi"
+#include "ModificatorTC.cfi"
+
+///////////////// General vertex output //////////////////
+
+struct vert2FragGeneral
+{  
+  OUT_P
+  float4 baseTC     : TEXCOORDN;
+
+  float4 Ambient   : TEXCOORDN;
+
+  float4 vTangent  : TEXCOORDN;
+  float4 vBinormal : TEXCOORDN;
+
+  float4 vView     : TEXCOORDN;       
+  
+#ifdef PS3 || XENON
+  float4 screenProj : TEXCOORDN;   //z used for instanced alpha test value
+#else
+	float4 screenProj : TEXCOORDN_centroid;   //z used for instanced alpha test value
+#endif
+
+#if %_LT_LIGHTS && %_LT_HASPROJ  
+  float4 projTC     : TEXCOORDN;
+#endif    
+
+#if %_RT_FOG && (!%_RT_DECAL_TEXGEN_2D || !%_RT_DECAL_TEXGEN_3D)
+  float4 AvgFogVolumeContrib : TEXCOORDN;
+#endif
+
+	float4 Color      : COLOR0;
+};
+
+///////////////// Shared vertex shader computations //////////////////
+
+void vs_shared_output( in app2vertGeneral IN, inout vert2FragGeneral OUT, bool bUseBump )
+{
+  // Common data
+  streamPos vertPassPos = (streamPos)0;
+  streamPos_FromGeneral(IN, vertPassPos);
+  float4 vPosDecal = vertPassPos.Position;
+  
+  OUT.HPosition = Pos_VS_General(g_VS_ViewProjZeroMatr, vertPassPos);     
+  float3 vNorm = vertPassPos.ObjToTangentSpace[2];
+
+  float4 baseTC = vertPassPos.baseTC;
+
+  // Apply texture modifiers
+ _TCModify(baseTC, OUT.baseTC, vertPassPos.Position, vNorm, TS_DIFFUSE);
+ 
+ if (bUseBump)
+ {
+   float4 bumpTC;
+   _TCModify(baseTC, bumpTC, vertPassPos.Position, vNorm, TS_BUMP);
+   OUT.baseTC.zw = bumpTC.xy;
+ } 
+
+  // Output ambient color - for alpha blending, recursive rendering passes, decals also require ambient.w (opacity parameter)
+   OUT.Ambient = AmbientOp;
+
+  #if %_RT_INSTANCING_ATTR
+    #fetchinst (OUT.Ambient = IN.InstAmbientOp, vertPassPos.nInstance);
+  #endif
+
+  // Output tangents only for cases that require it - alpha blending, recursive passes and anisotropic specular
+
+  // Note: Normalization required for normal diffuse map in world space in case scale used - Do not remove
+  float3 worldTangentS = normalize( mul((const float3x3)vertPassPos.InstMatrix, vertPassPos.ObjToTangentSpace[0]) );
+  float3 worldTangentT = normalize( mul((const float3x3)vertPassPos.InstMatrix, vertPassPos.ObjToTangentSpace[1]) );
+  float3 worldTangentN = (cross(worldTangentS, worldTangentT)) * vertPassPos.Tangent.w;
+  
+  OUT.vTangent = float4(worldTangentS, vertPassPos.Tangent.w); 
+  OUT.vBinormal.xyz = worldTangentT;
+
+  OUT.vView.xyz = vertPassPos.WorldPos.xyz;
+#if %_RT_OBJ_IDENTITY
+  OUT.vView.xyz -= g_VS_WorldViewPos.xyz;
+#else
+  vertPassPos.WorldPos.xyz += g_VS_WorldViewPos.xyz;
+#endif
+  
+  // Output the screen-space texture coordinates - for shadows and general projections
+  OUT.screenProj = HPosToScreenTC(OUT.HPosition);
+
+   // Output projection
+#if %_LT_LIGHTS && %_LT_HASPROJ  
+  OUT.projTC = mul(LightMatrix, vertPassPos.WorldPos);
+#endif	 
+ 
+  // Output fog into view-vector W component (to save interpolator)
+#if %_RT_FOG && (!%_RT_DECAL_TEXGEN_2D || !%_RT_DECAL_TEXGEN_3D)
+  OUT.vView.w = GetVolumetricFogDensity(OUT.vView.xyz + g_VS_WorldViewPos.xyz);
+
+ #if %_RT_INSTANCING_ATTR
+   #fetchinst (OUT.AvgFogVolumeContrib = IN.InstAvgFogVolumeContrib, vertPassPos.nInstance);  
+ #else
+   OUT.AvgFogVolumeContrib = AvgFogVolumeContrib;
+ #endif
+
+ #if !%_RT_ALPHABLEND
+    // additive blending case
+    OUT.AvgFogVolumeContrib.w *= OUT.vView.w;
+    OUT.AvgFogVolumeContrib.xyz = 0.0;
+ #endif
+#else
+  OUT.vView.w = vertPassPos.Position.w;    
+#endif
+
+  OUT.Color = vertPassPos.Color;
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////////////////////////
+
+vert2FragGeneral NewMethagenVS(app2vertGeneral IN)
+{
+  vert2FragGeneral OUT = (vert2FragGeneral)0; 
+
+  vs_shared_output(IN, OUT, true);
+
+  return OUT;
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////////////////////////
+//------------------------------------------------------------------------------
+//  Pixel shader
+//------------------------------------------------------------------------------
+////////////////////////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////////////////////////
+
+void frag_unify_parameters( inout fragPass pPass )
+{
+
+  pPass.bCustomComposition = true;
+  pPass.bRenormalizeNormal = true;
+  pPass.bHemisphereLighting = true;
+
+
+#if %ENVCMSPEC  
+  #if %_TT3_TCUBE
+    pPass.nReflectionMapping = REFLECT_CUBE;
+  #else
+    pPass.nReflectionMapping = REFLECT_SPHERE;  
+  #endif    
+  
+  pPass.fReflection_Amount = fReflectAmount;
+  pPass.fFresnel_Bias = fFresnelBias;
+  pPass.fFresnel_Scale = fFresnelScale;
+#endif 
+
+//FIX is envmap & offset bumpmapping needed
+/*
+#if %OFFSETBUMPMAPPING || %PARALLAX_OCCLUSION_MAPPING
+  pPass.fBumpHeightScale = Displacement;
+  #if %PARALLAX_OCCLUSION_MAPPING
+    pPass.bParallaxOcclusionMapping = true;
+  #elif %OFFSETBUMPMAPPING
+    pPass.bOffsetBumpMapping = true;
+  #endif
+#endif
+*/
+
+#if %VERTCOLORS
+  //pPass.bVertexColors = true; 
+#endif
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+void frag_unify_methagen(inout fragPass pPass, in vert2FragGeneral IN)
+{
+  // Set quality level (LOW or HIGH)
+  pPass.nQuality = GetShaderQuality();
+
+  pPass.IN.baseTC = IN.baseTC;
+  pPass.IN.bumpTC = pPass.IN.baseTC;
+
+  pPass.IN.Ambient = IN.Ambient;
+
+  pPass.IN.vTangent = IN.vTangent;
+  pPass.IN.vBinormal = IN.vBinormal;
+  pPass.IN.vNormal.xyz = (cross(IN.vTangent.xyz, IN.vBinormal.xyz)) * IN.vTangent.w;                  // 4 alu
+
+  pPass.IN.vView = IN.vView;
+  pPass.IN.screenProj = IN.screenProj;
+
+#if %_LT_LIGHTS && %_LT_HASPROJ  
+  pPass.IN.projTC = IN.projTC;
+#endif    
+
+  pPass.IN.Color = IN.Color;
+
+#if %_RT_DECAL_TEXGEN_2D || %_RT_DECAL_TEXGEN_3D
+  pPass.IN.DistAtten = IN.DistAtten;
+#elif %_RT_FOG
+  pPass.IN.AvgFogVolumeContrib = IN.AvgFogVolumeContrib;
+#endif
+ 
+  frag_unify_parameters( pPass );     
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////////////////////////
+
+void frag_custom_begin( inout fragPass pPass )
+{
+  float4 baseTC = pPass.IN.baseTC;
+  float4 bumpTC = pPass.IN.bumpTC;
+
+  float4 screenTC = pPass.IN.screenProj;
+
+  ///////////////////////////////////////////////////////////////
+  //  scattering refraction
+  half3 WorldViewVector = normalize(-pPass.IN.vView.xyz);
+
+	half2 ViewVecTan;
+	ViewVecTan.x = dot(pPass.IN.vTangent.xyz, WorldViewVector);
+	ViewVecTan.y = dot(pPass.IN.vBinormal.xyz, WorldViewVector);
+
+	half2 vRefract = refract( ViewVecTan, pPass.cBumpMap.xy, 1.003/2.33 );
+
+  ///////////////////////////////////////////////////////////////
+
+
+  //scattering parameters
+  half4 scatterMap = tex2D(screenMapSampler, (screenTC.xy/screenTC.w) + (vRefract.xy * RefractBumpScale));
+
+  //TOFIX: make constant
+  //should be computed based on the far distance plane
+  //float fInvRange = 1.7f;//2.412f; //2470.0f
+  
+#if %USE_PRECOMPUTED_SCATTERING
+  //float fExpDist = (scatterMap.r * PS_NearFarClipDist.y * fInvRange);
+  float fExpDist = dot(WorldViewVector,pPass.IN.vNormal.xyz);
+#else
+  float fExpDist = (scatterMap.w * PS_NearFarClipDist.y * fInvRange);
+#endif
+
+#if %_RT_NEAREST
+  fExpDist /= PS_NearFarClipDist.z;
+#endif
+
+  //works bad
+  //fExpDist = lerp(1.0, fExpDist, pPass.fNdotE);
+  //fExpDist += 5 * pPass.fNdotE * RefractBumpScale;
+
+	//scattering estimation by math exp
+	/*
+  half3 scatterFinalColor ;
+  scatterFinalColor.xyz = scatterColor.xyz;
+  scatterFinalColor.xyz *= exp(-fExpDist*g_DepthRampAdjust);
+  //ambient multiplier
+  scatterFinalColor.xyz *= g_TranlucencyBumpStrenght;
+  pPass.pCustom.scatterFinalColor.xyz = scatterFinalColor.xyz;
+	*/
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+  //float fDist = min(deltaLayer*g_DepthRampAdjust, 1);
+  //fDist = 1-fDist;
+  //fDist = pow(fDist, 2);
+
+  //fDist = clamp(fDist,0.001, 0.99);
+
+	float fDist = 1-saturate(fExpDist);
+	fDist *= g_DepthRampAdjust;
+
+#if %USE_PRECOMPUTED_SCATTERING
+		half scatterTex = tex2D(absorbtionSampler, pPass.IN.baseTC).x;
+		fDist = fDist * (1 - scatterTex) + scatterTex;
+#endif
+
+  float2 attenRampTC = float2(fDist ,0.5);
+
+  //if ( fDist*fDist<0) //isNan check
+
+  float4 attenRamp = tex2D( scatterFadeRamp,  attenRampTC); 
+  attenRamp.xyz *= g_TranlucencyBumpStrenght;
+  pPass.pCustom.scatterFinalColor.xyz = attenRamp.xyz; //saturate(fExpDist); /** (1-silh)*/;
+
+  //SASCHA: init with material emissive color
+  pPass.pCustom.scatterShadowScale = 0;//MatEmissiveColor.xyz;
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+	//pPass.pCustom.scatterFinalColor.xyz * = saturate(1-dot(silh,float3(1,1,1)));
+
+
+  //pPass.pCustom.skeletonColor.xyz = float3(0, g_SkeletonBrightness*scatterMap.yz); //XENON
+  pPass.pCustom.skeletonColor.xyz = g_SkeletonBrightness*scatterMap.xyz;
+
+  // load the gloss
+  pPass.cGlossMap = 1;
+#if %GLOSS_MAP
+  pPass.cGlossMap = GetTexture2D(glossMapSampler, pPass.IN.baseTC.xy);
+
+  #if %SPECULARPOW_GLOSSALPHA
+    pPass.fSpecPow *= pPass.cGlossMap.a;
+  #endif
+#endif
+
+  // Output alpha
+  half fAlpha = pPass.cDiffuseMap.a;
+  if (pPass.bVertexColors)
+    fAlpha *= pPass.IN.Color.w;
+  else
+  if (pPass.bAlphaGlow)
+    fAlpha = pPass.IN.Color.w;
+
+#if %_RT_AMBIENT
+  fAlpha *= pPass.IN.Ambient.w;
+#endif
+
+
+  pPass.fAlpha = fAlpha;
+
+
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////////////////////////
+void frag_custom_per_light( inout fragPass pPass, inout fragLightPass pLight )
+{
+  //SASCHA: SOFTER DIFFUSE FALLOFF - LOOKS LESS LIKE CONCRETE
+  //pLight.fNdotL = saturate(pLight.fNdotL);
+  pLight.fNdotL = pLight.fNdotL*.5 + .5;
+  
+  half3 CiD = pLight.cDiffuse.xyz * pLight.fNdotL;                                            // 1 alu
+  //FIX: change to blinn
+  half fSpec = Phong(pPass.vReflVec, pLight.vLight,  pPass.fSpecPow); // 4 alu
+
+  // Final specular term
+  half3 CiS = pLight.cSpecular.xyz * fSpec;			                                       		  // 1 alu
+    
+  half3 Ko = pLight.fOcclShadow * pLight.fFallOff * pLight.cFilter;                                // 2 alu 
+  
+  pPass.cDiffuseAcc.xyz += CiD.xyz * Ko.xyz;                                                   // 1 alu
+  pPass.cSpecularAcc.xyz += CiS.xyz * Ko.xyz;                                                 // 1 alu
+
+  //SASCHA: store shadow term for scatter color scale
+  pPass.pCustom.scatterShadowScale += pLight.fOcclShadow;
+
+  //pPass.cDiffuseAcc.xyz = pPass.pCustom.scatterFinalColor.xyz;
+
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////////////////////////
+void frag_custom_ambient( inout fragPass pPass, inout half3 cAmbient)
+{    
+  pPass.cAmbientAcc.xyz += cAmbient.xyz;
+}
+
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////////////////////////
+
+void frag_custom_end( inout fragPass pPass, inout half3 cFinal )
+{
+	//translucency
+  half dotEN = pPass.fNdotE; //WSFix
+  half rAlpha = 0;
+  {
+	  //rAlpha = dotEN;
+
+    half adjDotEN = saturate( dotEN ) ;
+    adjDotEN = 3 * adjDotEN * adjDotEN - 2 * adjDotEN * adjDotEN;
+    rAlpha = saturate( ( -1.0 / ( g_curveKeyPoint0*3.0 - g_fCurveShift ) ) * adjDotEN + 1.0 ) * ( g_curveKeyPoint2 - g_fCurveShift * 0.5 );
+  }
+
+  rAlpha = saturate(rAlpha);
+
+  // Notes:
+  //.cDiffuseAcc: deferred ambient + deferred lights + foward lights
+  // cAmbientAcc: 0 for opaque geometry
+  // Methagen ambient: contains 2 ambient terms, inner ambient and outer layer ambient
+  half3 cOuterLayerEmissive = 0;
+#if %_RT_AMBIENT
+
+  #if %ALPHA_OCCLUDERS
+    pPass.pCustom.scatterFinalColor *= pPass.fAlpha;
+    //SASCHA
+    pPass.pCustom.skeletonColor *= pPass.fAlpha;
+  #endif
+
+  // Normalize shadow scale term (put in 0 to 1 range)
+  if (%_LT_NUM)
+    pPass.pCustom.scatterShadowScale /= %_LT_NUM;
+
+	// Add inner layer ambient to light accumulation
+  half3 cScatterComponent = pPass.pCustom.scatterFinalColor.xyz;
+  cScatterComponent += lerp(pPass.pCustom.skeletonColor.xyz, half3(0,0,0), rAlpha); 	//skeleton rendering
+  half3 cInnerAmbient = cScatterComponent * pPass.IN.Ambient* saturate(pPass.pCustom.scatterShadowScale + InnerLayerShadowBias);
+  cFinal.xyz += cInnerAmbient;
+
+
+  // Set outer layer emissive
+  cOuterLayerEmissive = MatEmissiveColor.xyz;
+
+#endif
+
+  if( pPass.nReflectionMapping )
+  {
+    // apply shading to environment map and add reflection into light accumulation
+    pPass.cEnvironment.xyz *= (cOuterLayerEmissive + pPass.cDiffuseAcc.xyz);
+    pPass.cSpecularAcc.xyz += pPass.cEnvironment.xyz;
+  }
+	
+  // Add outer layer into light accumulation
+  half3 cFrontLight = (cOuterLayerEmissive + pPass.cDiffuseAcc.xyz) * pPass.cDiffuseMap.xyz * MatDifColor.xyz;  // 3 alu  
+  cFrontLight.xyz += pPass.cSpecularAcc.xyz * pPass.cGlossMap.xyz * MatSpecColor.xyz ;                    // 2 alu
+	cFinal.xyz += cFrontLight.xyz;
+
+	//skeletin rendering
+	//cFinal.xyz += lerp(0.0f, pPass.pCustom.skeletonColor.xyz*saturate(1-rAlpha)*7.0f*g_SkeletonBrightness, /*1-saturate(fExpDist)*/0.2);
+	
+  //skeleton visibility
+  /*half ndotvHot = (g_translucenseWrap+ndotvHot)*0.5;
+  ndotvHot = max(ndotvHot, 0);
+  //ndotv += ndotvHot*g_plasmaBrightness;
+
+  ldotvHot = pow(ldotvHot, 5);
+  ldotv += ldotvHot*g_plasmaBrightness;
+    
+  half scatterCoeff = (ndotv*ldotv);*/
+
+
+  //cFinal.xyz = lerp(float3(0,0,0), /*float3(1,1,1)*/pPass.pCustom.skeletonColor.xyz, saturate(rAlpha));
+  //cFinal.xyz = pPass.pCustom.scatterFinalColor.xyz;//lerp(pPass.pCustom.scatterFinalColor.xyz, cFinal.xyz, 1- rAlpha) ;
+}
+
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////////////////////////
+
+#include "fragLib.cfi"
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////////////////////////
+
+pixout NewMethagenPS(vert2FragGeneral IN)
+{
+  pixout OUT = (pixout)0;
+
+  // Initialize fragPass structure
+  fragPass pPass = (fragPass) 0;
+
+  frag_unify_methagen(pPass, IN);
+  //pPass.bDontUseEmissive = true;
+      
+  half4 cFinal = frag_shared_output(pPass);
+      
+  HDROutput(OUT, cFinal, 1);  
+
+#if %_RT_SCATTERSHADE
+  //OUT.Color.a = 0.0f; //fill alpha channel by zero for internal layer for scattering 
+#endif
+ 
+  return OUT;
+}
+
+
+//////////////////////////////// technique ////////////////
+//fix - all Shadow LODs should be combined in ShadowPass to ShadowMask
+technique General
+<
+  string Script =
+        "TechniqueShadowGen=ShadowGen;"
+#ifdef D3D10
+        "TechniqueShadowGenDX11=ShadowGenGS;"
+#endif
+        "TechniqueZ=MethZPass;"
+        "TechniqueScatterPass=ScatterPass;"
+        "TechniqueShadowPass=MethShadowPass;" 
+        "TechniqueMotionBlur=MotionBlurPass;" 
+        //"TechniqueDetail=DetailPass;"
+>
+{
+  pass p0
+  {
+#if %DYN_BRANCHING
+    VertexShader = compile vs_3_0 NewMethagenVS() MethaGenVS;
+    PixelShader = compile ps_3_0 NewMethagenPS() MethaGenPS;
+#else
+    VertexShader = compile vs_Auto NewMethagenVS() MethaGenVS;
+    PixelShader = compile ps_Auto NewMethagenPS() MethaGenPS;
+#endif
+
+    ZEnable = true;
+    ZWriteEnable = false;
+    CullMode = Back;
+    ZFunc = Equal;
+  }
+  /*pass p1
+  {
+    VertexShader = compile vs_Auto TransVS();
+    PixelShader = compile ps_Auto TransPS();
+    
+    ZEnable = true;
+    ZWriteEnable = false;
+    CullMode = Back;        
+    
+    SrcBlend = ONE;
+    DestBlend = ONE;
+    AlphaBlendEnable = true;                
+
+  } */   
+}
+
+
+//===========================================================================
+// Common passes support (zpass/fog/detail)
+#include "CommonZPass.cfi"
+
+technique ScatterPass
+{
+  pass p0
+  {
+    VertexShader = compile vs_Auto Common_ZPassVS() ZVS;
+    PixelShader = compile ps_Auto Common_ZPassPS() ZPS;
+    
+    ZEnable = true;
+    ZWriteEnable = true;
+    CullMode = Back;
+  }
+}
+
+
+technique MethZPass
+{
+  pass p0
+  {
+    VertexShader = compile vs_Auto Common_ZPassVS() ZVS;
+    PixelShader = compile ps_Auto Common_ZPassPS() ZPS;
+
+    ZFunc = LEqual;
+    ZEnable = true;
+    ZWriteEnable = true;
+    CullMode = Back;
+  }
+}
+
+//===========================================================================
+// Shadows support
+#include "ShadowCommon.cfi"
+#include "CommonShadowGenPass.cfi"
+#ifdef D3D10
+	#include "CommonShadowGenPassGS.cfi"
+#endif
+#include "CommonShadowPass.cfi"
+
+technique MethShadowPass
+{
+  pass p0
+  {
+    VertexShader = compile vs_Auto Common_ShadowVS() ShadowVS;
+    PixelShader = compile ps_Auto Common_ShadowPS() ShadowPS;
+    
+    ZEnable = true;
+    ZWriteEnable = true;
+    CullMode = Back;
+  }
+}
+
+//===========================================================================
+// Glow support
+#include "CommonGlowPass.cfi"
+
+technique MethGlowPass
+{
+  pass p0
+  {
+    VertexShader = compile vs_Auto Common_GlowPassVS() GlowVS;
+    PixelShader = compile ps_Auto Common_GlowPassPS() GlowPS;
+    
+    ZEnable = true;
+    ZWriteEnable = false;
+    ZFunc = LEqual;
+    CullMode = Back;                
+  }
+}
+
+//===========================================================================
+// Detail pass support
+#include "CommonDetailPass.cfi"
+
+//===========================================================================
+// MB support
+#include  "CommonMotionBlurPass.cfi"
+
+/////////////////////// eof ///

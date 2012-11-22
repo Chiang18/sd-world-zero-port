@@ -1,0 +1,647 @@
+////////////////////////////////////////////////////////////////////////////
+//
+//  Crytek Engine Shader Source File
+//  Copyright (C), Crytek Studios, 2001-2007
+// -------------------------------------------------------------------------
+//  File name:   VoxTerrain.cfx
+//  Version:     v1.00
+//  Created:     04/12/2006 by Vladimir Kajalin
+//  Description: voxterrain shader
+// -------------------------------------------------------------------------
+//  History:
+//
+////////////////////////////////////////////////////////////////////////////
+
+//define %TEMP_TERRAIN 0x200000000
+
+#include "Common.cfi"
+#include "TerrainValidations.cfi"
+
+// Shader global descriptions
+float Script : STANDARDSGLOBAL
+<
+  string Script =
+#if %DETAIL_BUMP_MAPPING
+					 "DetailBumpMapping;"
+#endif
+           "SupportsDeferredShading;"
+           "ShaderDrawType = Terrain;"
+           "ShaderType = Terrain;"
+>;
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
+//////////////////////////////// Custom shading pass structure /////////////////////////////////////
+
+struct fragPassCustom
+{
+  half3 vTangent;        // perturbed tangent vector
+  half3 vBinormal;       // perturbed binormal vector
+  half3 cEnvironment;    // environment map
+  half fDiffuseAlpha;    // layer alpha
+  half4 Color1;
+};
+
+struct fragLightPassCustom
+{
+#ifdef PS3
+	float4 Dummy;
+#endif
+};
+
+#include "ShadeLib.cfi"
+
+
+//=============================================================
+
+/// Un-Tweakables //////////////////////
+
+float4 BaseTCMatrix    : PB_TerrainBaseMatrix;
+
+// Terrain layer constants:
+float4 atlasInfo[8]      : PB_VoxTerrainAtlasInfo;
+
+//float3 Tangent           = {PB_FromRE[16], PB_FromRE[17], PB_FromRE[18]};
+
+//=========================================================================
+
+// Tweakables /////////////////
+#if %ENVIRONMENT_MAP
+  // EnvMap amount
+  float EnvMapAmount
+  <
+    psregister = PS_REG_PM_3.x;
+    string UIHelp = "Set amount of reflection"; 
+    string UIWidget = "slider";
+    string UIName = "Reflect Amount";
+    float UIMin = 0.0;
+    float UIMax = 10.0;
+    float UIStep = 0.01;
+  > = 0.25;
+  
+  // Fresnel parameters
+  float FresnelScale
+  <
+    psregister = PS_REG_PM_3.y;
+    string UIHelp = "Set fresnel term scale"; 
+    string UIWidget = "slider";
+    string UIName = "Fresnel Scale";
+    float UIMin = 0.0;
+    float UIMax = 32.0;
+    float UIStep = 0.01;
+  > = 1;
+
+  float FresnelBias
+  <
+    psregister = PS_REG_PM_3.z;
+    string UIWidget = "slider";
+    string UIHelp = "Set how much reflective material is"; 
+    string UIName = "Fresnel Bias";  
+    
+    float UIMin = 0.0;
+    float UIMax = 1.0;
+    float UIStep = 0.001;
+  > = 0;
+
+#endif
+
+float DetailTextureStrength
+<
+  psregister = PS_REG_PM_3.w;
+  string UIWidget = "slider";
+  float UIMin = 0.0;
+  float UIMax = 2.0;
+  float UIStep = 0.05;
+> = 1;
+
+
+#if %OFFSETBUMPMAPPING
+float ObmDisplacement
+<
+  psregister = PS_REG_PM_4.x;
+  string UIWidget = "slider";
+  string UIName = "OBM Displacement";
+  float UIMin = 0.0;
+  float UIMax = 1.0;
+  float UIStep = 0.001;
+> = 0.004;
+#endif
+
+#if %EXPOSE_POM_MAT_PARAMS
+float PomDisplacement
+<
+  psregister = PS_REG_PM_5.x;
+  string UIWidget = "slider";
+  string UIName = "POM Displacement";
+  float UIMin = 0.0;
+  float UIMax = 1.0;
+  float UIStep = 0.001;
+> = 0.025;
+
+float SelfShadowStrength
+<
+  psregister = PS_REG_PM_5.y;
+  string UIWidget = "slider";
+  string UIName = "Self shadow strength";
+  float UIMin = 0.0;
+  float UIMax = 5.0;
+  float UIStep = 0.1;
+> = 3.0;
+#endif
+
+#if %DETAIL_BUMP_MAPPING
+	float DetailBumpTillingU
+	<
+	  psregister = PS_REG_PM_6.x;
+	  string UIHelp = "Set detail diffuse_bump tilling";                     
+	  string UIName = "Detail tilling U";
+	  string UIWidget = "slider";
+	  float UIMin = 0.0;
+	  float UIMax = 32.0;
+	  float UIStep = 0.1;
+	> = 1.0;
+	
+	float DetailBumpTillingV
+	<
+	  psregister = PS_REG_PM_6.y;
+	  string UIHelp = "Set detail diffuse_bump tilling";                     
+	  string UIName = "Detail tilling V";
+	  string UIWidget = "slider";
+	  float UIMin = 0.0;
+	  float UIMax = 32.0;
+	  float UIStep = 0.1;
+	> = 1.0;
+	
+	float DetailBumpScale
+	<
+	  psregister = PS_REG_PM_6.z;
+	  string UIHelp = "Set detail bump scale";                     
+	  string UIName = "Detail bump scale";    	  
+	  string UIWidget = "slider";
+	  float UIMin = 0.0;
+	  float UIMax = 10.0;
+	  float UIStep = 0.1;
+	> = 1.0;
+	
+	float DetailBlendAmount
+	<
+	  psregister = PS_REG_PM_6.w;
+	  string UIHelp = "Set diffuse detail blend scale";                     
+	  string UIName = "Detail blend amount";    	  
+	  string UIWidget = "slider";
+	  float UIMin = 0.0;
+	  float UIMax = 1.0;
+	  float UIStep = 0.1;
+	> = 0.0;
+#endif
+
+
+///////////////////////////////
+// Samplers
+sampler2D baseMapSampler = sampler_state
+{
+  Texture = $FromRE0;
+  MinFilter = LINEAR;
+  MagFilter = LINEAR;
+  MipFilter = NONE;
+  AddressU = Clamp;
+  AddressV = Clamp;
+};
+
+sampler2D terrainBumpMapSampler = sampler_state
+{
+  Texture = $FromRE1;
+  MinFilter = LINEAR;
+  MagFilter = LINEAR;
+  MipFilter = NONE;
+  AddressU = Clamp;
+  AddressV = Clamp;
+};
+
+sampler2D baseMap_FromContainerSampler = sampler_state
+{
+  Texture = $FromRE0_FromContainer;
+  MinFilter = LINEAR;
+  MagFilter = LINEAR;
+  MipFilter = NONE;
+  AddressU = Clamp;
+  AddressV = Clamp;
+};
+
+sampler2D lmMap_FromContainerSampler = sampler_state
+{
+  Texture = $FromRE1_FromContainer;
+  MinFilter = LINEAR;
+  MagFilter = LINEAR;
+  MipFilter = NONE;
+  AddressU = Clamp;
+  AddressV = Clamp;
+};
+
+sampler2D envMapSampler = sampler_state
+{ Texture = $EnvironmentCubeMap; };
+samplerCUBE envMapSamplerCUBE = sampler_state
+{
+	Texture = $EnvironmentCubeMap;
+	AddressU = Clamp;
+  AddressV = Clamp;
+};
+
+//==========================================================================
+
+struct vert2fragTerrain
+{
+  OUT_P
+  float4 baseTC     : TEXCOORDN; // z is used as fLinearDistanceToCameraInMeters during impostor gen
+  float4 bumpTC     : TEXCOORDN; // z is used as fLinearDistanceToCameraInMeters during impostor gen
+
+#ifdef PS3 || XENON
+  float4 screenProj : TEXCOORDN;
+#else
+  float4 screenProj : TEXCOORDN_centroid;
+#endif
+  
+  float4 vNormal    : TEXCOORDN; // w contain baked shadows fading
+  float4 Pos        : TEXCOORDN;
+  float4 Ambient    : TEXCOORDN;
+
+#if %_LT_LIGHTS
+ #if %_LT_HASPROJ  
+  float4 projTC     : TEXCOORDN;
+ #endif
+#endif
+
+  OUT_C0
+  OUT_C1
+};
+
+struct vert2fragLayer
+{
+  OUT_P
+  float4 basesectorTC : TEXCOORDN;		// xy=surface texture, zw=occlusionmap texture (so save interpolators)
+  float4 baseTC			  : TEXCOORDN;		// terrain normal/diffuse/spec texture
+  float3 tangVec    : TEXCOORDN;
+  float3 binormVec  : TEXCOORDN; 
+
+  float3 normalVec  : TEXCOORDN; 
+  float4 Pos        : TEXCOORDN;
+
+#ifdef PS3 || XENON
+  float4 screenProj : TEXCOORDN;
+#else
+  float4 screenProj : TEXCOORDN_centroid;
+#endif
+ 
+#if %_LT_LIGHTS
+ #if %_LT_HASPROJ  
+  float4 projTC     : TEXCOORDN;
+ #endif
+#endif
+
+  OUT_C0
+  OUT_C1
+};
+
+#include "vertexLib.cfi"
+
+///////////////// terrain vertex shader //////////////////
+vert2fragTerrain VoxTerrainVS(app2vertGeneral IN)
+{
+  vert2fragTerrain OUT = (vert2fragTerrain)1; 
+
+  streamPos vertPassPos = (streamPos)0;
+  streamPos_FromGeneral(IN, vertPassPos);
+
+  // Apply modificators if needed
+  OUT.HPosition = Pos_VS_Terrain(0.001f, g_VS_ViewProjZeroMatr, vertPassPos);
+  
+#if !%_RT_OBJ_IDENTITY
+  vertPassPos.WorldPos.xyz += g_VS_WorldViewPos.xyz;
+#endif
+  OUT.Pos.xyz = vertPassPos.WorldPos.xyz - g_VS_WorldViewPos.xyz;
+
+#ifdef %_LT_LIGHTS && %_LT_HASPROJ  
+   OUT.projTC = mul(LightMatrix, vertPassPos.WorldPos);
+#endif    
+
+  // tex coordinates on the sector textures
+  OUT.baseTC.xy = vertPassPos.baseTC.xy;
+  OUT.bumpTC.xy = vertPassPos.baseTC.xy;
+
+  // apply offset in atlas 
+  OUT.baseTC.xy *= atlasInfo[0].zw;
+  OUT.baseTC.xy += atlasInfo[0].xy;
+  
+  OUT.bumpTC.xy *= atlasInfo[1].zw;
+  OUT.bumpTC.xy += atlasInfo[1].xy;
+
+	OUT.baseTC.z = BaseTCMatrix[0];
+  OUT.baseTC.w = vertPassPos.WorldPos.z;
+
+  OUT.Color = vertPassPos.Color;
+  OUT.Color1 = float4(OUT.Color.xz, vertPassPos.Normal.ww);
+
+  OUT.Color1.a = 1;
+ 
+  OUT.Ambient = AmbientOp;
+
+	// Output the screen-space texture coordinates
+  OUT.screenProj = HPosToScreenTC(OUT.HPosition);
+  
+  OUT.vNormal.xyz = vertPassPos.Normal.xyz;
+  
+#if %_RT_FOG
+  float4 fogColor = GetVolumetricFogColor(vertPassPos.WorldPos.xyz);
+  OUT.vNormal.w = fogColor.w;
+#endif
+
+  return OUT;
+}
+
+//===================================================================================
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////////////////////////
+
+void frag_unify_parameters( inout fragPass pPass )
+{
+
+  pPass.bRenormalizeNormal = true;
+  pPass.bHemisphereLighting = true;
+  pPass.bDeferredSpecularShading = true;
+
+#if %OFFSETBUMPMAPPING || %PARALLAX_OCCLUSION_MAPPING
+  #if %PARALLAX_OCCLUSION_MAPPING
+    pPass.bParallaxOcclusionMapping = true;
+    pPass.fBumpHeightScale = PomDisplacement;
+    pPass.fSelfShadowStrength = SelfShadowStrength;
+  #elif %OFFSETBUMPMAPPING
+    pPass.bOffsetBumpMapping = true;
+    pPass.fBumpHeightScale = ObmDisplacement;
+  #endif
+#endif
+
+#if %ENVIRONMENT_MAP  
+  #if %_TT3_TCUBE
+    pPass.nReflectionMapping = REFLECT_CUBE;
+  #else
+    pPass.nReflectionMapping = REFLECT_SPHERE;  
+  #endif    
+  
+  pPass.fReflection_Amount = EnvMapAmount;
+  pPass.fFresnel_Bias = FresnelBias;
+  pPass.fFresnel_Scale = FresnelScale;
+    
+#endif  
+
+#if %DETAIL_BUMP_MAPPING
+	pPass.bDetailBumpMapping = true;
+	pPass.vDetailBumpTilling = half2(DetailBumpTillingU, DetailBumpTillingV);
+	pPass.fDetailBumpScale = DetailBumpScale;
+	pPass.fDetailBlendAmount = DetailBlendAmount;
+#endif
+
+  pPass.bSkipMaterial = true;
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+void frag_unify_voxterrain(inout fragPass pPass, in vert2fragTerrain IN)
+{
+  frag_unify_parameters( pPass );
+  
+  pPass.IN.baseTC = IN.baseTC;
+  pPass.IN.bumpTC.xy = IN.bumpTC.xy;  
+
+//  pPass.IN.vTangent.xyz = IN.tangVec;
+//  pPass.IN.vBinormal.xyz = IN.binormVec;
+
+  pPass.IN.vNormal.xyz = IN.vNormal;
+  pPass.IN.vView = IN.Pos;
+  pPass.IN.screenProj = IN.screenProj;
+  pPass.IN.Color = 1; //IN.Color;
+  pPass.IN.Color1 = 1;//IN.Color1;
+#if %_LT_LIGHTS && %_LT_HASPROJ  
+  pPass.IN.projTC = IN.projTC;
+#endif    
+
+  pPass.IN.AvgFogVolumeContrib = half4(0,0,0,1);
+
+  pPass.IN.Ambient = IN.Ambient;
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////////////////////////
+
+void frag_custom_begin(inout fragPass pPass)
+{  
+  float3 vNormalDXT = tex2D(terrainBumpMapSampler, pPass.IN.bumpTC);
+
+  // restore DXT RGB range
+  vNormalDXT = atlasInfo[4].zyx + vNormalDXT * atlasInfo[5].zyx;
+
+  vNormalDXT.xyz = vNormalDXT.xzy;
+
+  pPass.vNormal = EXPAND(vNormalDXT);
+
+  pPass.cGlossMap = saturate(length(pPass.vNormal)-0.5f) * 0.25f;
+
+  pPass.vNormal = normalize(pPass.vNormal);
+  pPass.fNdotE = ( dot(pPass.vView.xyz, pPass.vNormal.xyz));                                        // 1 alu
+  pPass.vReflVec = (2.0h * pPass.fNdotE * pPass.vNormal.xyz) - pPass.vView.xyz;     
+
+  pPass.cDiffuseMap = tex2D(baseMapSampler, pPass.IN.baseTC);
+
+  // restore DXT RGB range
+  pPass.cDiffuseMap.xyz = atlasInfo[2].zyx + pPass.cDiffuseMap.xyz * atlasInfo[3].zyx;
+
+  // restore overall RGB range
+  pPass.cDiffuseMap = pPass.cDiffuseMap * atlasInfo[2][3];
+
+//  pPass.cDiffuseMap.rgb = (pPass.vNormal.rgb*0.5+0.5)*0.5;
+//  pPass.vNormal = 0;
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////////////////////////
+// Lighting
+void frag_custom_per_light(inout fragPass pPass, inout fragLightPass pLight)
+{
+  pLight.fNdotL = saturate(pLight.fNdotL);
+  
+  half3 cDiffuse = 0;
+
+  cDiffuse = pLight.cDiffuse.xyz * pLight.fNdotL;                    // 2 alu
+  
+  half fSpec = 0;      
+  half fPow = 8;//pPass.fSpecPow;
+
+  fSpec = Phong(pPass.vReflVec.xyz, pLight.vLight.xyz, fPow);
+
+  // Final specular term
+  half3 cSpecular = pLight.cSpecular.xyz * fSpec;			                   		// 1 alu
+  
+  half3 cK = pLight.fOcclShadow * pLight.fFallOff * pLight.cFilter;                                // 2 alu 
+      
+  // Accumulate results
+  pPass.cDiffuseAcc += cDiffuse * cK;
+  pPass.cSpecularAcc += cSpecular * cK;  
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////////////////////////
+
+void frag_custom_ambient(inout fragPass pPass, inout half3 cAmbient)
+{
+  
+  pPass.cAmbientAcc += cAmbient.xyz;
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////////////////////////
+
+void frag_custom_end(inout fragPass pPass, inout half3 cFinal)
+{
+#if !%_RT_AMBIENT  
+  //cFinal *= pPass.fAlpha;
+#endif
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////////////////////////
+
+#include "fragLib.cfi"
+
+///////////////// terrain pixel shader //////////////////
+pixout VoxTerrainPS(vert2fragTerrain IN)
+{
+  pixout OUT = (pixout)0;
+  // Initialize fragPass structure
+  fragPass pPass = (fragPass) 0;
+  frag_unify_voxterrain(pPass, IN);
+  pPass.bDontUseEmissive = true;
+
+  // No bump on low-spec - Cevat request -
+  int nQuality = GetShaderQuality();
+  if (nQuality == QUALITY_LOW)
+    pPass.bDontUseBump = true;
+    
+  half4 cFinal = frag_shared_output(pPass);
+  
+  HDROutput(OUT, cFinal, 1);
+
+  return OUT;
+}
+
+//////////////////////////////// technique ////////////////
+
+technique General
+<
+  string Script =
+        "TechniqueZ=ZPass;"
+        "TechniqueShadowGen=ShadowGen;"
+        "TechniqueShadowPass=ShadowPass;"
+>
+{
+  pass p0
+  {
+    VertexShader = compile vs_Auto VoxTerrainVS() VoxTerrainVS;
+    
+    ZEnable = true;
+    ZWriteEnable = true;
+    CullMode = Back;
+        
+    PixelShader = compile ps_Auto VoxTerrainPS() VoxTerrainPS;
+  }
+}
+
+//////////////////////////////// Common techniques ////////////////
+
+#include "CommonZPass.cfi"
+#include "ShadowCommon.cfi"
+#include "CommonShadowGenPass.cfi"
+#include "CommonShadowPass.cfi"
+/*
+////////////////////////////////////////////////////////
+//                Z PASS
+////////////////////////////////////////////////////////
+
+///////////////// vertex input/output //////////////////
+struct vert2fragZ
+{
+  OUT_P
+	float4 ZInfo     : TEXCOORDN;
+	float2 baseTC     : TEXCOORDN;
+};
+
+struct pixoutZPass
+{
+  float4 Color : COLOR0;
+  #if %_RT_DEFERRED_SHADING && !XENON && !PS3
+    float4 Color1 : COLOR1;
+  #endif
+};
+
+///////////////// vertex shaders //////////////////
+vert2fragZ ZPassVS(app2vertZGeneral IN)
+{
+  vert2fragZ OUT = (vert2fragZ)0;
+  
+  streamPos vertPassPos = (streamPos)0;
+
+  streamPos_FromZ(IN, vertPassPos);
+  float4 vPosDecal = vertPassPos.Position;  
+  
+  OUT.HPosition = Pos_VS_Terrain(0.001f, g_VS_ViewProjZeroMatr, vertPassPos);
+    
+  // tex coordinates on the sector textures
+  OUT.baseTC.xy = vertPassPos.baseTC.xy;
+  // apply offset in atlas 
+  OUT.baseTC.xy *= atlasInfo[1].zw;
+  OUT.baseTC.xy += atlasInfo[1].xy;
+
+  OUT.ZInfo.x = OUT.HPosition.w * g_VS_NearFarClipDist.w;
+
+  return OUT;            
+}
+
+///////////////// pixel shaders //////////////////
+
+pixoutZPass ZPassPS(vert2fragZ IN)
+{
+	pixoutZPass OUT = (pixoutZPass) 1;
+	float fZ = IN.ZInfo.x;
+
+  OUT.Color = EncodeSceneDepthNoAlpha(fZ, 0, IN.ZInfo.yzw);
+
+#if %_RT_DEFERRED_SHADING
+	float4 vNormal = tex2D(terrainBumpMapSampler, IN.baseTC.xy);					  	
+  vNormal = float4(vNormal.xyz, 16.0/255.0);    
+  #if !PS3 && !XENON
+    OUT.Color1.xyzw = vNormal;    
+  #else
+    OUT.Color.xyzw = vNormal;    
+  #endif
+#endif
+
+	return OUT;
+}
+
+//////////////////////////////// technique ////////////////
+
+technique ZPass
+{
+  pass p0
+  {
+    VertexShader = compile vs_Auto ZPassVS() ZVS;
+    PixelShader = compile ps_Auto ZPassPS() ZPS;
+
+    ZEnable = true;
+    ZWriteEnable = true;        
+    CullMode = Back;        
+  }
+}
+
+/////////////////////// eof ///
+*/

@@ -1,0 +1,863 @@
+////////////////////////////////////////////////////////////////////////////
+//
+//  Crytek Engine Source File.
+//  Shader extension
+//  Copyright (C), Crytek Studios, 2001-2004.
+// -------------------------------------------------------------------------
+//  File name:   Runtime.ext
+//  Version:     v1.00
+//  Created:     16/2/2004 by Andrey Honich.
+//  Compilers:
+//  Description:
+// -------------------------------------------------------------------------
+//  History:
+//
+////////////////////////////////////////////////////////////////////////////
+
+
+
+Version (1.00)
+
+Property
+{
+  Name = %_RT_FOG
+  Mask = 0x1
+  Precache = GeneralPS
+  Precache = GeneralVS
+  Precache = TerrainPS
+  Precache = TerrainVS
+  Precache = VoxTerrainPS
+  Precache = VoxTerrainVS
+  Precache = VegetationVS
+  Precache = VegetationPS
+  Precache = ClothPS
+  Precache = ClothVS
+  Precache = GlassPS
+  Precache = GlassVS
+  Precache = IceVS
+  Precache = IcePS
+  Precache = ParticleVS
+  Precache = ParticlePS
+  Precache = SpritePS
+  Precache = SpriteVS
+  Precache = MethaGenVS  
+  Precache = MethaGenPS    
+
+}
+Property
+{
+  Name = %_RT_AMBIENT
+  Mask = 0x2
+  Precache = GeneralPS
+  Precache = ClothPS
+  Precache = GlassPS
+  Precache = TerrainPS 
+  Precache = VoxTerrainPS
+  Precache = VegetationPS
+  Precache = IcePS
+  Precache = SpritePS
+  Precache = ParticlePS
+  Precache = MethaGenPS  
+}
+
+Property
+{
+  Name = %_RT_SRGB
+  Mask = 0x8
+  
+#ifdef XENON || PS3
+  Precache = TerrainPS 
+#endif
+
+}
+
+Property
+{
+  Name = %_RT_SHADOW_MIXED_MAP_G16R16
+  Mask = 0x10
+  Precache = ShadowPS
+  Precache = ShadowVS
+  Precache = IceVS
+  Precache = IcePS
+}
+
+Property
+{
+  Name = %_RT_CAMERA_SPACE
+  Mask = 0x20
+  Precache = GeneralVS
+  Precache = VegetationVS    
+  Precache = ShadowVS
+  Precache = ShadowGenVS
+  Precache = ZVS
+  Precache = DetailVS
+  Precache = GlowVS
+  Precache = RainLayerVS
+  Precache = MotionBlurVS
+  Precache = FurVS
+  Precache = CausticsVS
+  Precache = CustomRenderVS
+  Precache = EffectLayerVS
+  Precache = CloakVS
+  Precache = MethaGenVS
+  Precache = DebugPassVS
+
+  DependencyReset = $HW_X360
+  DependencyReset = $HW_PS3
+}
+
+Property
+{
+  Name = %_RT_ALPHATEST
+  Mask = 0x100
+  Precache = ShadowGenVS
+  Precache = ShadowGenPS
+  Precache = ZPS
+  Precache = ZVS
+#ifdef D3D10
+  Precache = VegetationVS
+  Precache = VegetationPS
+  Precache = GeneralVS
+  Precache = GeneralPS
+  Precache = ClothPS
+  Precache = ClothVS
+  Precache = GlassPS
+  Precache = GlassVS
+  Precache = IceVS
+  Precache = IcePS
+  Precache = GlowVS
+  Precache = GlowPS  
+  Precache = MotionBlurVS
+  Precache = FurVS  
+  Precache = MotionBlurPS  
+  Precache = RainLayerVS
+  Precache = RainLayerPS
+#endif
+}
+Property
+{
+  Name = %_RT_FSAA
+  Precache = ZPS
+  Precache = ZVS
+  Mask = 0x200
+
+  DependencyReset = $HW_X360
+}
+Property
+{
+  Name = %_RT_HDR_MODE
+  Mask = 0x400
+  Precache = ParticleVS
+  
+#ifdef PS3
+  
+  // for ps3 we need to enable flag for this shader types - since we performing custom encode step
+
+  Precache = TerrainPS  
+  Precache = GeneralPS
+  Precache = ClothPS  
+  Precache = VegetationPS
+  Precache = DetailPS 
+  Precache = EffectLayerPS
+  Precache = CausticsPS
+  Precache = SpritePS
+  
+#endif
+
+}
+Property
+{
+  Name = %_RT_PARTICLE
+  Precache = ShadowPS
+  Mask = 0x800
+}
+Property
+{
+  Name = %_RT_SAMPLE1
+  Mask = 0x1000
+  Precache = ShadowPS
+  Precache = ShadowVS
+  Precache = DetailPS
+  Precache = DetailVS
+  Precache = SpritePS
+  Precache = IceVS
+  Precache = IcePS
+}
+Property
+{
+  Name = %_RT_SAMPLE2
+  Mask = 0x2000
+  Precache = ShadowPS
+  Precache = ShadowVS
+  Precache = DetailPS
+  Precache = DetailVS
+  Precache = IceVS
+  Precache = IcePS
+}
+Property
+{
+  Name = %_RT_SAMPLE3
+  Mask = 0x4000
+  Precache = ShadowPS
+  Precache = ShadowVS
+  Precache = DetailPS
+  Precache = DetailVS
+  Precache = IceVS
+  Precache = IcePS
+
+  DependencyReset = $HW_PS3
+  DependencyReset = $HW_X360
+}
+Property
+{
+  Name = %_RT_POINT_LIGHT
+  Mask = 0x8000
+  Precache = ShadowVS
+  Precache = ShadowPS
+}
+Property
+{
+  Name = %_RT_ALPHABLEND
+  Mask = 0x10000
+  Precache = ShadowPS
+  Precache = ShadowVS
+  Precache = ParticlePS
+  Precache = ParticleVS
+//  Precache = TerrainPS  
+  Precache = VegetationVS
+  Precache = GeneralVS 
+  Precache = ClothVS
+  Precache = GlassVS
+//  Precache = VegetationPS  
+  Precache = RainLayerVS
+//  Precache = RainLayerPS
+  Precache = ZVS
+  Precache = ZPS
+}
+
+Property
+{
+  Name = %_RT_ZPREPASS
+  Mask = 0x20000
+  Precache = ZPS
+  Precache = ZVS
+
+  DependencyReset = $HW_X360
+  DependencyReset = $HW_PS3
+}
+
+Property
+{
+  Name = %_RT_QUALITY
+  Mask = 0x40000
+  AutoPrecache
+  Precache = ShadowGenVS
+  Precache = ZVS
+  Precache = ZPS
+  Precache = ShadowPS
+  Precache = ShadowVS
+  Precache = GeneralPS
+  Precache = GeneralVS
+  Precache = ClothPS
+  Precache = ClothVS
+  Precache = GlassPS
+  Precache = GlassVS
+  Precache = TerrainPS  
+  Precache = TerrainVS  
+  Precache = VoxTerrainPS
+  Precache = VoxTerrainVS
+  Precache = VegetationPS  
+  Precache = VegetationVS  
+  Precache = MotionBlurVS  
+  Precache = MotionBlurPS  
+  Precache = FurVS
+  Precache = FurPS
+  Precache = SpritePS
+  Precache = DetailVS  
+  Precache = CausticsVS
+  Precache = IceVS
+  Precache = IcePS
+  Precache = RainLayerVS
+  Precache = RainLayerPS
+  Precache = ParticlePS
+  Precache = MethaGenVS
+  Precache = MethaGenPS
+
+  DependencySet = $HW_PS3
+  DependencySet = $HW_X360
+}
+Property
+{
+  Name = %_RT_QUALITY1
+  Mask = 0x80000
+  AutoPrecache
+  Precache = ShadowGenVS
+  Precache = ZVS
+  Precache = ZPS
+  Precache = ShadowPS
+  Precache = ShadowVS
+  Precache = GeneralPS
+  Precache = GeneralVS
+  Precache = ClothPS
+  Precache = ClothVS
+  Precache = GlassPS
+  Precache = GlassVS
+  Precache = TerrainPS  
+  Precache = TerrainVS  
+  Precache = VoxTerrainPS
+  Precache = VoxTerrainVS
+  Precache = VegetationPS  
+  Precache = VegetationVS  
+  Precache = MotionBlurVS  
+  Precache = MotionBlurPS  
+  Precache = FurVS
+  Precache = FurPS
+  Precache = SpritePS
+  Precache = DetailVS  
+  Precache = CausticsVS
+  Precache = IceVS
+  Precache = IcePS
+  Precache = RainLayerVS
+  Precache = RainLayerPS
+  Precache = ParticlePS
+  Precache = MethaGenVS
+  Precache = MethaGenPS  
+
+  DependencyReset = $HW_PS3
+  DependencyReset = $HW_X360
+}
+
+Property
+{
+  Name = %_RT_INSTANCING_ROT
+  Mask = 0x100000
+  Precache = GeneralVS
+  Precache = ClothVS
+  Precache = GlassVS
+  Precache = VegetationVS  
+  Precache = ShadowVS
+  Precache = ShadowGenVS    
+  Precache = ZVS
+  Precache = DetailVS  
+  Precache = GlowVS
+  Precache = RainLayerVS
+  Precache = MotionBlurVS
+  Precache = FurVS
+  Precache = IceVS
+  Precache = CausticsVS
+  Precache = CustomRenderVS
+  Precache = MethaGenVS
+	Precache = DebugPassVS
+
+  DependencyReset = $HW_PS3
+  DependencyReset = $HW_X360
+}
+Property
+{
+  Name = %_RT_INSTANCING_ATTR
+  Mask = 0x200000
+  Precache = GeneralVS
+  Precache = ClothVS
+  Precache = GlassVS
+  Precache = VegetationVS    
+  Precache = ShadowVS
+  Precache = ShadowGenVS  
+  Precache = ZVS
+  Precache = DetailVS  
+  Precache = GlowVS
+  Precache = RainLayerVS
+  Precache = MotionBlurVS
+  Precache = FurVS
+  Precache = IceVS
+  Precache = CausticsVS
+  Precache = CustomRenderVS
+  Precache = MethaGenVS
+	Precache = DebugPassVS
+	
+  DependencyReset = $HW_PS3
+  DependencyReset = $HW_X360
+}
+Property
+{
+  Name = %_RT_SKYLIGHT_BASED_FOG
+  Mask = 0x4000000
+  Precache = ParticleVS
+  Precache = VegetationVS
+  Precache = TerrainVS
+  Precache = TerrainPS
+  Precache = VoxTerrainVS
+  Precache = RainLayerVS
+  Precache = RainLayerPS
+}
+Property
+{
+  Name = %_RT_AMBIENT_OCCLUSION
+  Mask = 0x8000000
+  // hack - disable caching
+  Precache = DetailVS
+  Precache = TerrainPS // vlad: reguired for terrain base normal mapping
+  Precache = TerrainVS  
+  Precache = VoxTerrainPS
+  Precache = VoxTerrainVS
+  Precache = SpritePS
+  
+/*  
+  Precache = VegetationPS
+  Precache = VegetationVS
+  Precache = IlluminationPS
+  Precache = IlluminationVS
+  Precache = GeneralPS
+  Precache = GeneralVS 
+  Precache = SpritePS
+  */
+}
+
+Property
+{
+  Name = %_RT_FSAA_QUALITY
+  Mask = 0x8000000
+
+  Precache = DetailVS
+}
+
+Property
+{
+  Name = %_RT_SPHERICAL
+  Mask = 0x10000000
+  Precache = GeneralVS
+  Precache = ClothVS
+  Precache = GlassVS
+  Precache = VegetationVS    
+  Precache = ShadowVS
+  Precache = ShadowGenVS
+  Precache = ZVS
+  Precache = DetailVS
+  Precache = GlowVS
+  Precache = MotionBlurVS
+  Precache = FurVS
+  Precache = CausticsVS
+  Precache = CustomRenderVS
+  Precache = RainLayerVS
+  Precache = EffectLayerVS
+  Precache = CloakVS
+  Precache = MethaGenVS  
+	Precache = DebugPassVS
+
+  DependencySet = $HW_X360
+  DependencySet = $HW_PS3
+}
+
+Property
+{
+  Name = %_RT_SHAPEDEFORM
+  Mask = 0x20000000
+  Precache = GeneralVS  
+  Precache = ClothVS
+  Precache = GlassVS
+  Precache = ShadowVS
+  Precache = ShadowGenVS
+  Precache = ZVS
+  Precache = DetailVS
+  Precache = GlowVS
+  Precache = RainLayerVS
+  Precache = MotionBlurVS
+  Precache = FurVS
+  Precache = CausticsVS
+  Precache = CustomRenderVS
+  Precache = EffectLayerVS
+  Precache = CloakVS
+  Precache = MethaGenVS
+	Precache = DebugPassVS
+
+  //DependencySet = $HW_X360
+  //DependencySet = $HW_PS3
+}
+Property
+{
+  Name = %_RT_MORPHTARGET
+  Mask = 0x40000000
+  Precache = GeneralVS  
+  Precache = ClothVS
+  Precache = GlassVS
+  Precache = ShadowVS
+  Precache = ShadowGenVS
+  Precache = ZVS
+  Precache = DetailVS
+  Precache = GlowVS
+  Precache = RainLayerVS
+  Precache = MotionBlurVS
+  Precache = FurVS
+  Precache = CausticsVS
+  Precache = CustomRenderVS
+  Precache = CloakVS
+  Precache = MethaGenVS
+	Precache = DebugPassVS
+
+  //DependencySet = $HW_X360
+  //DependencySet = $HW_PS3
+}
+Property
+{
+  Name = %_RT_SKELETON_SSD
+  Mask = 0x80000000
+  Precache = GeneralVS
+  Precache = ClothVS
+  Precache = GlassVS
+  Precache = VegetationVS    
+  Precache = ShadowVS
+  Precache = ShadowGenVS
+  Precache = ZVS
+  Precache = DetailVS
+  Precache = GlowVS
+  Precache = RainLayerVS
+  Precache = MotionBlurVS
+  Precache = FurVS
+  Precache = CausticsVS
+  Precache = CustomRenderVS
+  Precache = EffectLayerVS
+  Precache = CloakVS
+  Precache = MethaGenVS
+	Precache = DebugPassVS
+}
+
+Property
+{
+  Name = %_RT_SHADER_LOD
+  Mask = 0x100000000
+  Precache = GeneralPS  
+  Precache = ClothPS
+  Precache = GlassPS
+  Precache = ZPS
+  Precache = VegetationPS
+}
+
+Property
+{
+  Name = %_RT_VARIANCE_SM
+  Mask = 0x200000000
+  Precache = ShadowGenVS
+  Precache = ShadowGenPS
+}
+
+Property
+{
+  Name = %_RT_BLEND_WITH_TERRAIN_COLOR
+  Mask = 0x400000000
+  Precache = VegetationVS
+  Precache = VegetationPS
+  Precache = SpritePS
+}
+
+Property
+{
+  Name = %_RT_INSTANCING_CONST
+  Mask = 0x1000000000
+  Precache = GeneralVS
+  Precache = ClothVS
+  Precache = GlassVS
+  Precache = VegetationVS    
+  Precache = ShadowVS
+  Precache = ShadowGenVS  
+  Precache = ZVS
+  Precache = DetailVS  
+  Precache = GlowVS
+  Precache = RainLayerVS
+  Precache = MotionBlurVS
+  Precache = FurVS
+  Precache = IceVS
+  Precache = CausticsVS
+  Precache = CustomRenderVS
+  Precache = MethaGenVS
+	Precache = DebugPassVS
+
+  DependencyReset = $HW_X360
+  DependencyReset = $HW_PS3
+}
+
+Property
+{
+  Name = %_RT_OCEAN_PARTICLE
+  Mask = 0x2000000000
+  Precache = ParticleVS
+  Precache = ParticlePS
+}
+
+Property
+{
+  Name = %_RT_OBJ_IDENTITY
+  Mask = 0x4000000000
+  Precache = TerrainVS
+  Precache = TerrainPS
+  Precache = VoxTerrainPS
+  Precache = VoxTerrainVS
+  Precache = ZVS
+  Precache = ShadowGenVS
+  Precache = RainLayerVS
+  Precache = IceVS
+  Precache = CausticsVS
+  Precache = CustomRenderVS
+
+  DependencyReset = $HW_X360
+  DependencyReset = $HW_PS3
+}
+Property
+{
+  Name = %_RT_NEAREST
+  Mask = 0x8000000000
+  Precache = MethaGenPS
+  Precache = ZVS
+  Precache = RainLayerVS
+  Precache = CloakVS
+  Precache = MotionBlurVS
+
+  DependencyReset = $HW_X360
+  DependencyReset = $HW_PS3
+}
+
+Property
+{
+  Name = %_RT_NOZPASS
+  Mask = 0x10000000000
+  Precache = VegetationVS
+  Precache = VegetationPS
+  Precache = SpritePS
+
+  DependencyReset = $HW_X360
+  DependencyReset = $HW_PS3
+}
+
+Property
+{
+  Name = %_RT_DISSOLVE
+  Mask = 0x20000000000
+  Precache = ZPS
+  Precache = ZVS
+}
+
+Property
+{
+  Name = %_RT_SOFT_PARTICLE
+  Mask = 0x40000000000
+  Precache = ParticleVS
+  Precache = ParticlePS  
+}
+Property
+{
+  Name = %_RT_SHADOW_JITTERING
+  Mask = 0x80000000000
+  Precache = IceVS
+  Precache = IcePS
+  Precache = ShadowVS
+  Precache = ShadowPS
+  Precache = TerrainPS
+
+  DependencyReset = $HW_X360
+  DependencyReset = $HW_PS3
+}
+Property
+{
+  Name = %_RT_HDR_ENCODE
+  Mask = 0x100000000000
+  //Precache = GeneralPS
+  Precache = TerrainPS
+  Precache = VegetationPS
+  Precache = IcePS
+
+  DependencyReset = $HW_X360
+}
+Property
+{
+  Name = %_RT_SAMPLE0
+  Mask = 0x200000000000
+  Precache = ShadowPS
+  Precache = CustomRenderPS
+  Precache = IceVS
+  Precache = IcePS
+}
+
+Property
+{
+  Name = %_RT_HW_PCF_COMPARE
+  Mask = 0x800000000000
+  Precache = ShadowVS
+  Precache = ShadowPS
+  Precache = ShadowGenVS
+  Precache = ShadowGenPS
+  //Precache = GeneralPS
+  //Precache = GeneralVS
+
+  DependencyReset = $HW_X360
+  DependencySet = $HW_PS3
+}
+
+Property
+{
+  Name = %_RT_SCATTERSHADE
+  Mask = 0x2000000000000
+  Precache = GeneralPS
+}
+Property
+{
+  Name = %_RT_GSM_COMBINED
+  Mask = 0x8000000000000
+}
+Property
+{
+  Name = %_RT_DEBUG0
+  Mask = 0x10000000000000
+  Runtime
+}
+Property
+{
+  Name = %_RT_DEBUG1
+  Mask = 0x20000000000000
+  Runtime
+}
+Property
+{
+  Name = %_RT_DEBUG2
+  Mask = 0x40000000000000
+  Runtime
+}
+Property
+{
+  Name = %_RT_DEBUG3
+  Mask = 0x80000000000000
+  Runtime
+}
+
+Property
+{
+  Name = %_RT_CUBEMAP0
+  Mask = 0x100000000000000
+  Precache = ShadowVS
+  Precache = ShadowPS
+  Precache = ShadowGenPS
+  Precache = ShadowGenVS
+  Precache = IceVS
+  Precache = IcePS
+}
+Property
+{
+  Name = %_RT_LIGHT_TEX_PROJ
+  Mask = 0x200000000000000
+  Precache = ShadowVS
+  Precache = ShadowPS
+  Precache = IceVS
+  Precache = IcePS
+
+}
+Property
+{
+  Name = %_RT_CUBEMAP1
+  Mask = 0x200000000000000
+  Precache = ShadowVS
+  Precache = ShadowPS
+  Precache = IceVS
+  Precache = IcePS
+
+  DependencyReset = $HW_X360
+  DependencyReset = $HW_PS3
+}
+Property
+{
+  Name = %_RT_TEX_ARR_SAMPLE
+  Mask = 0x400000000000000
+  Precache = ShadowVS
+  Precache = ShadowPS
+
+  DependencyReset = $HW_X360
+  DependencyReset = $HW_PS3
+}
+
+
+Property
+{
+  Name = %_RT_CUBEMAP2
+  Mask = 0x400000000000000
+  Precache = ShadowVS
+  Precache = ShadowPS
+  Precache = IceVS
+  Precache = IcePS
+
+  DependencyReset = $HW_X360
+  DependencyReset = $HW_PS3
+}
+
+Property
+{
+  Name = %_RT_SHADOW_FILTER
+  Mask = 0x800000000000000
+  Precache = ShadowVS
+  Precache = ShadowPS
+
+  DependencyReset = $HW_X360
+  DependencyReset = $HW_PS3
+}
+
+Property
+{
+  Name = %_RT_CUBEMAP3
+  Mask = 0x800000000000000
+  Precache = ShadowVS
+  Precache = ShadowPS
+  Precache = IceVS
+  Precache = IcePS
+
+  DependencyReset = $HW_X360
+  DependencyReset = $HW_PS3
+}
+
+Property
+{
+  Name = %_RT_SAMPLE4
+  Mask = 0x1000000000000000
+  Precache = FrozenVS
+  Precache = FrozenPS
+  Precache = ShadowGenVS
+  Precache = ShadowGenPS
+}
+
+Property
+{
+  Name = %_RT_VEGETATION
+  Mask = 0x2000000000000000
+  Precache = GeneralVS
+  Precache = ZVS
+  Precache = ShadowVS  
+  Precache = ShadowGenVS  
+  Precache = VegetationVS
+  Precache = DetailVS
+  Precache = CausticsVS
+  Precache = MotionBlurVS
+  Precache = RainLayerVS
+  Precache = DebugPassVS
+}
+
+Property
+{
+  Name = %_RT_DECAL_TEXGEN_2D
+  Mask = 0x4000000000000000
+  Precache = GeneralVS
+  Precache = ShadowGenVS  
+  Precache = CausticsVS
+  Precache = GeneralPS
+  Precache = GlowVS
+  Precache = GlowPS
+  Precache = ZVS
+  Precache = ZPS
+}
+Property
+{
+  Name = %_RT_DECAL_TEXGEN_3D
+  Mask = 0x8000000000000000
+  Precache = GeneralVS
+  Precache = ShadowGenVS  
+  Precache = CausticsVS
+  Precache = GeneralPS
+  Precache = GlowVS
+  Precache = GlowPS
+  Precache = ZVS
+  Precache = ZPS
+}
+

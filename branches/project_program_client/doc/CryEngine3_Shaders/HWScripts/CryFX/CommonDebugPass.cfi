@@ -1,0 +1,51 @@
+
+struct vert2fragDebug
+{
+  OUT_P
+  float4 Color : TEXCOORDN;	
+};
+
+vert2fragDebug Common_DebugPassVS(app2vertGeneral IN)
+{
+  vert2fragDebug OUT;
+#ifndef OPENGL  
+  OUT = (vert2fragDebug)0;
+#endif
+  
+  streamPos vertPassPos = (streamPos)0;
+  streamPos_FromGeneral(IN, vertPassPos);
+
+  OUT.HPosition = Pos_VS_General(g_VS_ViewProjZeroMatr, vertPassPos);
+	OUT.Color = AmbientOp;
+	
+  return OUT;            
+}
+
+pixout Common_DebugPassPS(vert2fragDebug IN)
+{
+  pixout OUT = (pixout)0;  
+
+  OUT.Color.xyz = IN.Color.xyz;
+  OUT.Color.w = 0.25;
+    
+  return OUT;
+}
+
+technique DebugPass
+{
+  pass p0
+  {
+    VertexShader = compile vs_Auto Common_DebugPassVS() DebugPassVS;
+    PixelShader = compile ps_Auto Common_DebugPassPS() DebugPassPS;
+
+    ZEnable = true;
+    ZWriteEnable = false;
+    CullMode = Back;
+    IgnoreMaterialState = true;
+
+    AlphaBlendEnable = true;
+    SrcBlend = SRC_ALPHA;
+    DestBlend = ONE_MINUS_SRC_ALPHA;
+    ZFunc = LEqual;
+  }
+}

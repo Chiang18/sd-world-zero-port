@@ -1,0 +1,198 @@
+//===========================================================================
+// Basic shadow maps support
+/////////////////////////////
+
+struct v2f_sh
+{
+  float4 HPosition  : POSITION;
+
+#if %_RT_ALPHATEST || %_RT_ALPHABLEND || %_RT_SAMPLE4
+  float2 baseTC : TEXCOORDN;
+#endif	
+
+#if !%_RT_HW_PCF_COMPARE || (!D3D10 && %_RT_CUBEMAP0)
+  float Depth  : TEXCOORDN;
+#endif
+
+#if %_RT_SAMPLE4
+	half3 Normal  : TEXCOORDN;
+	float2 Depth2  : TEXCOORDN;
+#endif
+};
+
+
+///////////////// vertex shader //////////////////
+v2f_sh Common_SG_VS(app2vertSGGeneral IN)
+{
+  v2f_sh OUT = (v2f_sh)0; 
+
+  streamPos vertPassPos = (streamPos)0;
+  streamPos_FromSG(IN, vertPassPos);
+  
+#if %TEMP_TERRAIN && %_RT_OBJ_IDENTITY
+  OUT.HPosition = Pos_VS_Terrain(0, g_VS_ViewProjMatr, vertPassPos, true);
+#else  
+  OUT.HPosition = Pos_VS_General(g_VS_ViewProjMatr, vertPassPos, false);
+#endif
+
+	// RSMs
+#if %_RT_SAMPLE4
+	#if %_RT_DECAL_TEXGEN_2D || %_RT_DECAL_TEXGEN_3D
+		// tex gen for 2d projected decals
+		OUT.baseTC.x = dot( DecalTangent, vertPassPos.Position );
+		OUT.baseTC.y = dot( DecalBinormal, vertPassPos.Position );  
+	#elif %TEMP_TERRAIN
+		// tex coordinates on the sector textures
+		OUT.baseTC.x = dot(float4(0, BaseTCMatrix[0], 0, BaseTCMatrix[1]), vertPassPos.WorldPos);
+		OUT.baseTC.y = dot(float4(BaseTCMatrix[0], 0, 0, BaseTCMatrix[2]), vertPassPos.WorldPos);
+		OUT.Normal = vertPassPos.Normal;
+	#else 
+		float3 objSpaceNormal = TangNormalUnnormalized(vertPassPos.Tangent, vertPassPos.Binormal);
+		OUT.Normal = mul((float3x3)vertPassPos.InstMatrix, objSpaceNormal);
+
+		// Apply texture modifiers
+		float4 baseTC = vertPassPos.baseTC;
+		_TCModify(baseTC, baseTC, vertPassPos.Position, OUT.Normal, TS_DIFFUSE);
+		OUT.baseTC = baseTC.xy;
+	#endif
+	OUT.Depth2 = OUT.HPosition.zw;
+#endif
+
+#if !%_RT_CUBEMAP0 
+  #if !PS3
+  OUT.HPosition.z /= GS_VS_FrustrumInfo.y;	//use linear z-buffer
+  #endif
+  #if !%_RT_HW_PCF_COMPARE
+    //perspective interpolation is not needed here
+    OUT.Depth = OUT.HPosition.z - GS_VS_FrustrumInfo.z; //increase precision around camera
+  #endif
+  #if !PS3
+  OUT.HPosition.z *= OUT.HPosition.w;   //HPosition.z is linearized already
+  #endif
+#else
+  #if D3D10
+    OUT.HPosition.z += fDepthTestBias.x; //TD: adjust perspective bias 
+  #else
+    OUT.Depth = (OUT.HPosition.z/GS_VS_FrustrumInfo.y);
+    OUT.Depth += fDepthTestBias.x;
+  #endif
+//_RT_DIRECTLIGHT
+#endif
+
+#if !%TEMP_TERRAIN
+ #if %_RT_ALPHATEST || %_RT_ALPHABLEND
+  OUT.baseTC.xy = vertPassPos.baseTC.xy;
+ #endif
+#endif
+
+  return OUT;
+}
+
+// Indirect color 
+#ifndef D3D10
+float4 IndirectColor
+<
+  psregister = PS_REG_PM_10;
+  string UIHelp = "Set the amount of indirectly bounced color"; 
+  string UIWidget = "color";
+
+  string UIName = "Indirect bounce color";
+> = {0.25, 0.25, 0.25, 0.25};
+#else
+float4 IndirectColor
+<
+  psregister = PS_REG_PM_9;
+  string UIHelp = "Set the amount of indirectly bounced color"; 
+  string UIWidget = "color";
+
+  string UIName = "Indirect bounce color";
+> = {0.25, 0.25, 0.25, 0.25};
+#endif
+
+struct pixout_shadow
+{
+  float4 Color  : COLOR0;
+#if %_RT_SAMPLE4
+	float4 Depth2  : COLOR1;
+  half4 Normal	 : COLOR2;
+#endif
+#if !D3D10 && %_RT_HW_PCF_COMPARE && %_RT_CUBEMAP0
+	float Depth		: DEPTH;
+#endif
+};
+
+///////////////// pixel shader //////////////////
+pixout_shadow Common_SG_PS(v2f_sh IN)
+{
+	pixout_shadow OUT;
+	OUT.Color = half4(0,0,0,0);
+
+#if !%_RT_HW_PCF_COMPARE
+	OUT.Color.rgba = IN.Depth; //FIX: depth output should be here for precision
+  #if %_RT_VARIANCE_SM
+		OUT.Color.g *= IN.Depth; //square for variance shadow maps
+  #endif
+#else
+	#if %_RT_CUBEMAP0 && !D3D10
+		//output linear depth
+		OUT.Depth = IN.Depth;
+	#endif
+#endif
+
+#if %_RT_SAMPLE4
+	OUT.Depth2 = IN.Depth2.x / IN.Depth2.y;
+	OUT.Normal.xyz = normalize(half3(IN.Normal.xyz))*.5h+.5h;
+	OUT.Normal.w = 1;
+	#if PS3
+		OUT.Depth2 = unpack_4ubyte(OUT.Depth2.x);		// pack it into ARGB8
+		OUT.Depth2 = OUT.Depth2.bgra;								// pack it into ARGB8
+		OUT.Normal = OUT.Normal.gbar;								// swizzlings for r2vb
+	#endif
+#endif
+
+#if %_RT_ALPHATEST || %_RT_ALPHABLEND || %_RT_SAMPLE4
+	#if !%TEMP_TERRAIN
+		half4 baseColor = tex2D(diffuseMapSampler, IN.baseTC.xy);
+	#else
+		half4 baseColor = tex2DTerrain(baseMapSampler, IN.baseTC.xy);
+	#endif
+
+  #if (%_RT_HW_PCF_COMPARE && !D3D10 && !PS3)
+		OUT.Color.a = baseColor.a;
+	#else
+		clip(baseColor.a - PBAlphaTest.w);
+	#endif
+
+	#if %_RT_SAMPLE4
+		// output RSM color component
+	  #if !%TEMP_TERRAIN
+			half3 vFinalIndirectColor = ( MatEmissiveColor.rgb + MatDifColor.rgb ) * IndirectColor.rgb * 4.h; 
+			OUT.Color.rgb = baseColor.rgb * vFinalIndirectColor;
+	  #else
+			OUT.Color.rgb = baseColor.rgb;
+	  #endif
+		OUT.Color.a = baseColor.a;
+	#endif
+#endif
+		
+	return OUT;
+}
+
+//======================================================================
+
+technique ShadowGen
+{
+  pass p0
+  {
+    VertexShader = compile vs_Auto Common_SG_VS() ShadowGenVS;
+    PixelShader = compile ps_Auto Common_SG_PS() ShadowGenPS;
+        
+    ZEnable = true;
+    ZWriteEnable = true;
+    CullMode = Back;
+
+    #if %GRASS || %LEAVES || %HAIR_PASS
+      CullMode = None;
+    #endif
+  }
+}

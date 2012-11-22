@@ -1,0 +1,249 @@
+#include "Common.cfi"
+#include "ModificatorVT.cfi"
+#include "shadeLib.cfi"
+
+
+float Script : STANDARDSGLOBAL
+<
+  string Script =
+           "ShaderDrawType = General;"
+           "ShaderType = Sky;"
+>;
+
+
+float4 StarSize;
+float  StarIntensity;
+
+sampler2D sceneMap0 : register(s0);
+
+struct a2v
+{
+  float4 Position  : POSITION;
+	float2 TexCoord	 : TEXCOORD; // unused but needs to be declared under DX10 to be able to share signatures
+  float4 ColAndMag : COLOR;
+};
+
+#if D3D10
+
+struct v2g
+{
+  float4 Position  : POSITION;
+  float4 Color     : COLOR;
+  float2 PSize     : TEXCOORD;
+};
+
+struct g2f
+{
+  float4 Position  : POSITION;
+  float2 QuadPos   : TEXCOORD;
+  float4 Color     : COLOR;
+};
+
+#else
+
+struct v2f
+{
+  float4 Position  : POSITION;
+#if !XENON
+  float2 QuadPos   : TEXCOORD0;
+#endif  
+#if PS3
+  #if %_RT_HDR_MODE
+    float4 screenProj : TEXCOORD1;
+  #endif
+#endif
+  float4 Color     : COLOR;
+  float  PSize     : PSIZE;
+};
+
+#endif
+
+float GetFlickerAmount(in float3 pos)
+{
+#if !PS3
+	const float2 tab[8] = 
+	{
+		float2(0.897907815,-0.347608525),	float2(0.550299290, 0.273586675), float2(0.823885965, 0.098853070), float2(0.922739035,-0.122108860),
+		float2(0.800630175,-0.088956800), float2(0.711673375, 0.158864420), float2(0.870537795, 0.085484560), float2(0.956022355,-0.058114540)
+	};
+
+	float2 hash = frac(pos.xy * 256);  
+  float index = frac(hash.x + (hash.y + 1) * StarSize.w);
+  index *= 8;
+  
+  float f = frac(index);
+  int i = (int) index;
+  return tab[i].x + f * tab[i].y;
+#else
+	return 1.0;
+#endif  
+}
+
+#if D3D10
+v2g StarsVS(a2v IN)
+{
+  v2g OUT = (v2g)0;
+
+  float4 pos = IN.Position;
+  OUT.Position = _pos_Common(pos);
+  OUT.Position.z = OUT.Position.w; 
+    
+  // On DX9 OUT.QuadPos will be filled by GPU after point sprite expansion
+
+	float4 ColAndMag = GetInputColor(IN.ColAndMag);
+
+	float appMag = 6.5 + ColAndMag.w * (-1.44 - 6.5);
+	float brightness = GetFlickerAmount(pos) * pow(5.0, (-appMag - 1.44) / 2.5);
+		
+	OUT.Color = float4(brightness * ColAndMag.xyz, brightness);
+  OUT.PSize = StarSize.xy;
+     
+  return OUT; 
+} 
+#else
+v2f StarsVS(a2v IN)
+{
+  v2f OUT = (v2f)0;
+
+  float4 pos = IN.Position;
+  OUT.Position = _pos_Common(pos);
+  OUT.Position.z = OUT.Position.w; 
+
+#if PS3
+  #if %_RT_HDR_MODE
+     OUT.screenProj = HPosToScreenTC(OUT.Position);
+  #endif
+#endif
+    
+  // On DX9 OUT.QuadPos will be filled by GPU after point sprite expansion
+
+	float4 ColAndMag = GetInputColor(IN.ColAndMag);
+
+	float appMag = 6.5 + ColAndMag.w * (-1.44 - 6.5);
+	float brightness = GetFlickerAmount(pos) * pow(5.0, (-appMag - 1.44) / 2.5);
+		
+	OUT.Color = float4(brightness * ColAndMag.xyz, brightness);
+  OUT.PSize = StarSize.xy;
+     
+  return OUT; 
+} 
+#endif
+
+#if D3D10
+[maxvertexcount(4)]
+void StarsGS(point v2g In[1], inout TriangleStream<g2f> OutStream)
+{
+  const float2 expansion[4] =
+  {
+      float2( 1,  1),
+      float2(-1,  1),
+      float2( 1, -1),
+      float2(-1, -1)
+  };
+  
+  const float2 texcoord[4] = 
+  { 
+      float2(1, 0), 
+      float2(0, 0),
+      float2(1, 1),
+      float2(0, 1)	
+  };
+
+  for (int v=0; v<4; v++)
+  {  
+  	g2f Out = (g2f) 0;
+  	Out.Position = In[0].Position;
+  	Out.Position.xy += expansion[v] * In[0].PSize * In[0].Position.w;
+  	Out.QuadPos = texcoord[v];
+  	Out.Color = In[0].Color;
+  	
+    OutStream.Append(Out);
+  }
+  OutStream.RestartStrip();
+}
+#endif
+
+
+#if D3D10
+pixout StarsPS(g2f IN)
+{
+	float2 pos = IN.QuadPos.xy;
+  pixout OUT;
+
+	float2 distCenter = 3.5 * pos.xy - 3.5 * float2(0.5, 0.5);
+	float scale = exp(-dot(distCenter, distCenter));
+
+	float3 colCool = IN.Color.xyz;
+	float3 colHot = IN.Color.w;
+	float3 colFinal = StarIntensity * (colCool * scale + 5 * colHot * pow(scale, 10));
+		
+	HDROutput(OUT, float4(colFinal, scale), 1);
+  return OUT;
+}
+#elif XENON
+pixout StarsPS(v2f IN, float2 QuadPos : SPRITETEXCOORD)
+{
+	float2 pos = QuadPos.xy;
+  pixout OUT;
+
+	float2 distCenter = 3.5 * pos.xy - 3.5 * float2(0.5, 0.5);
+	float scale = exp(-dot(distCenter, distCenter));
+
+	float3 colCool = IN.Color.xyz;
+	float3 colHot = IN.Color.w;
+	float3 colFinal = StarIntensity * (colCool * scale + 5 * colHot * pow(scale, 10));
+  // Re-scale range
+  colFinal.xyz *= PS_HDR_RANGE_ADAPT_MAX;
+		
+	HDROutput(OUT, float4(colFinal, scale), 1);
+  return OUT;
+}
+#else
+pixout StarsPS(v2f IN)
+{
+	float2 pos = IN.QuadPos.xy;
+  pixout OUT;
+
+	float2 distCenter = 3.5 * pos.xy - 3.5 * float2(0.5, 0.5);
+	float scale = exp(-dot(distCenter, distCenter));
+
+	half3 colCool = IN.Color.xyz;
+	half3 colHot = IN.Color.w;
+	half3 colFinal = StarIntensity * (colCool * scale + 5 * colHot * pow(scale, 10));
+
+  // Re-scale range
+  colFinal.xyz *= PS_HDR_RANGE_ADAPT_MAX;
+		
+	HDROutput(OUT, float4(colFinal, scale), 1);
+
+#if PS3
+  #if %_RT_HDR_MODE 
+    half4 cDstColor = DecodeHDRBuffer( tex2Dproj( sceneMap0, IN.screenProj) );
+    OUT.Color = EncodeHDRBuffer( cDstColor + half4(colFinal, 0.h) );
+  #endif
+#endif
+
+  return OUT;
+}
+#endif
+
+technique Stars
+{
+  pass p0
+  {
+    VertexShader = compile vs_Auto StarsVS();
+#if D3D10
+    GeometryShader = compile gs_4_0 StarsGS();
+#endif
+    PixelShader = compile ps_Auto StarsPS();
+    
+    ZEnable = true;
+    ZWriteEnable = false;
+    CullMode = None;
+    
+    SrcBlend = ONE;
+    DestBlend = ONE;
+    AlphaBlendEnable = true;        
+  }
+}
+

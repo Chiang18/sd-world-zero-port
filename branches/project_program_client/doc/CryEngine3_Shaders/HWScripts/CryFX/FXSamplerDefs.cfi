@@ -1,0 +1,108 @@
+
+//=== Shared samplers =========================================================
+
+#define DIFFUSEMAP sampler2D diffuseMapSampler : register (s0) { Texture = $Diffuse; sRGBLookup = true; };
+#define BUMPMAP sampler2D bumpMapSampler : register (s1) { Texture = $Bump; };
+#define BUMPHEIGHTMAP sampler2D bumpHeightMapSampler { Texture = $BumpHeight; };
+#define GLOSSMAP sampler2D glossMapSampler : register (s2) { Texture = $Gloss; sRGBLookup = true; };
+
+#define BUMPDIFFUSEMAP sampler2D bumpMapSampler_Diffuse = sampler_state { Texture = $BumpDiffuse; };
+#define OPACITYMAP sampler2D opacityMapSampler = sampler_state { Texture = $Opacity; };
+#define DETAILMAP sampler2D detailMapSampler = sampler_state { Texture = $Detail; sRGBLookup = true; };
+#define ENVIRONMENTMAP sampler2D envMapSampler = sampler_state { Texture = $Env; sRGBLookup = true; };
+#define ENVIRONMENTCUBEMAP samplerCUBE envMapSamplerCUBE = sampler_state { Texture = $EnvironmentCubeMap; AddressU = Clamp; AddressV = Clamp; };
+#define SUBSURFACEMAP sampler2D subsurfaceMapSampler = sampler_state { Texture = $Subsurface; };
+#define DECALMAP sampler2D decalMapSampler = sampler_state { Texture = $DecalOverlay; };
+
+#define SHADOWOCCLUDEMAP  \
+sampler2D shadowOccludeMapSampler : register (s3) \
+{ \
+ Texture = $ScreenShadowMap;  \
+ MinFilter = POINT;  \
+ MagFilter = POINT;  \
+ MipFilter = POINT;  \
+ AddressU = Clamp;  \
+ AddressV = Clamp;  \
+};  \
+
+#define LIGHTINFOMAP  \
+sampler2D LightInfoSampler_DB \
+{ \
+ Texture = $LightInfo;  \
+ MinFilter = POINT;  \
+ MagFilter = POINT;  \
+ MipFilter = NONE;  \
+ AddressU = Clamp;  \
+ AddressV = Clamp;  \
+};  \
+
+#define SCENEDEPTHMAP_POM  \
+sampler2D sceneDepthSampler_POM = sampler_state \
+{ \
+	Texture = $ZTarget; \
+	MinFilter = POINT; \
+	MagFilter = POINT; \
+	MipFilter = POINT; \
+	AddressU = Clamp; \
+	AddressV = Clamp; \
+};
+
+#define AMBIENTOCCLUSIONMAP  \
+sampler2D sceneAOTarget : register (s4)  \
+{ \
+  Texture = $AOTarget; \
+  MinFilter = POINT; \
+  MagFilter = POINT; \
+  MipFilter = POINT; \
+  AddressU = Clamp; \
+  AddressV = Clamp; \
+}; \
+
+#define SCENE_NORMALS_MAP  \
+sampler2D sceneNormalsSampler  = sampler_state \
+{ \
+  Texture = $SceneNormalsMap; \
+  MinFilter = POINT; \
+  MagFilter = POINT; \
+  MipFilter = POINT; \
+  AddressU = Clamp; \
+  AddressV = Clamp; \
+}; \
+
+#define SCENE_DIFFUSEACC_MAP  \
+sampler2D sceneDiffuseAccSampler = sampler_state \
+{ \
+  Texture = $SceneDiffuseAcc; \
+  MinFilter = POINT; \
+  MagFilter = POINT; \
+  MipFilter = POINT; \
+  AddressU = Clamp; \
+  AddressV = Clamp; \
+}; \
+
+#define SCENE_SPECULARACC_MAP  \
+sampler2D sceneSpecularAccSampler = sampler_state \
+{ \
+  Texture = $SceneSpecularAcc; \
+  MinFilter = POINT; \
+  MagFilter = POINT; \
+  MipFilter = POINT; \
+  AddressU = Clamp; \
+  AddressV = Clamp; \
+}; \
+
+#define SCENE_HDRTARGET_ENCODED_MAP  \
+sampler2D HDRTargetEncodedSampler = sampler_state \
+{ \
+  Texture = $HDRTargetEncoded; \
+  MinFilter = POINT; \
+  MagFilter = POINT; \
+  MipFilter = POINT; \
+  AddressU = Clamp; \
+  AddressV = Clamp; \
+}; \
+
+#define PROJECTIONCUBE samplerCUBE projCubeSampler = sampler_state  {  Texture = $FromLight; AddressU = Clamp; AddressV = Clamp; sRGBLookup = true; };
+#define PROJECTIONMAP sampler2D projMapSampler = sampler_state  {  Texture = $FromLight; sRGBLookup = true; };
+
+

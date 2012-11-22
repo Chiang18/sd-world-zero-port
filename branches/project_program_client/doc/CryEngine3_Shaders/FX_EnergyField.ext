@@ -1,0 +1,49 @@
+////////////////////////////////////////////////////////////////////////////
+//
+//  Crytek Engine Source File.
+//  Shader extension
+//  Copyright (C), Crytek Studios, 2001-2004.
+// -------------------------------------------------------------------------
+//  File name:   FX_EnergyField.ext
+//  Version:     v1.00
+//  Created:     22/10/2005 by Tiago Sousa
+//  Compilers:   
+//  Description: FX_EnergyField shader extension used by the editor
+//               for automatic shader generation (based on "FX_EnergyField" shader template)
+// -------------------------------------------------------------------------
+//  History:
+//
+////////////////////////////////////////////////////////////////////////////
+
+Version (1.00)
+
+Property
+{
+  Name = %BUMP_MAP
+  Mask = 0x1
+  Property    (Bump map)
+  Description (Use bump-map texture)
+  DependencySet = $TEX_Bump
+  DependencyReset = $TEX_Bump
+  Hidden
+}
+
+Property
+{
+  Name = %GLOSS_MAP
+  Mask = 0x2
+  Property    (Gloss map)
+  Description (Use gloss map as separate texture)
+  DependencySet = $TEX_Gloss
+  DependencyReset = $TEX_Gloss
+  Hidden  
+}
+
+Property
+{
+  Name = %ENVIRONMENT_MAP
+  Mask = 0x4
+  Property    (Environment map)
+  Description (Use environment map as separate texture)
+  DependencyReset = $TEX_EnvCM     
+}

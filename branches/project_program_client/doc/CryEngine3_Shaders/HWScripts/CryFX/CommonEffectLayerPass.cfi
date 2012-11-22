@@ -1,0 +1,232 @@
+////////////////////////////////////////////////////////////////////////////
+//
+//  Crytek Engine Source File.
+//  Shader extension
+//  Copyright (C), Crytek Studios, 2001-2004.
+// -------------------------------------------------------------------------
+//  File name:   CommonEffectLayerPass.cfi
+//  Version:     v1.00
+//  Created:     27/11/2009 by Tiago Sousa
+//  Compilers:   
+//  Description: Common/Shared passes bettwen shaders. Should be included after
+//    main shader technique
+//
+//
+// -------------------------------------------------------------------------
+////////////////////////////////////////////////////////////////////////////
+
+// todo: 
+//  - optimization pass
+//  - diferent modes support
+
+/// Un-Tweakables ////////////////////// 
+
+float4  EffectLayerTime = { PB_time 1.0, PB_time 0.5, PB_time 0.25, PB_time 0.125};
+half4 EffectLayerParams0 = { PB_FromRE[0], PB_FromRE[1], PB_FromRE[2], PB_FromRE[3] };
+float4 EffectLayerParams1 : PI_EffectLayerParams;
+
+sampler2D effectMaskMapSampler = sampler_state { Texture = $CustomMap; sRGBLookup = true; };
+sampler2D effectColorMapSampler = sampler_state 
+{ 
+  Texture = $CustomSecondaryMap; 
+	MinFilter = LINEAR; 
+	MagFilter = LINEAR; 
+	MipFilter = POINT; 
+  AddressU = Clamp; 
+	AddressV = Clamp; 
+  sRGBLookup = false; 
+};
+
+sampler2D effectAnimFunctionSampler = sampler_state
+{
+  Texture = Shaders/EngineAssets/Shading/layer_effect_anim_function.tif;
+  MinFilter = LINEAR;
+  MagFilter = LINEAR;
+  MipFilter = NONE;
+  AddressU = Wrap;
+  AddressV = Wrap;	
+};
+
+///////////////// vertex input/output //////////////////
+struct vert2fragEffectLayer
+{
+  OUT_P
+  float4 baseTC    : TEXCOORDN;
+  float4 baseAnimTC    : TEXCOORDN;
+  float4 vTangent  : TEXCOORDN;
+  float4 vBinormal : TEXCOORDN;
+  float4 vView     : TEXCOORDN;
+  float4 Ambient : TEXCOORDN;
+
+#if PS3
+
+  // This is only used when HDR_MODE enabled, but we skip flag checking to save permutations,
+  // should be ok since this is only used sometimes for effects (not a constant cost)
+
+  float4 screenProj : TEXCOORDN;
+
+#endif
+
+};
+
+///////////////// vertex shaders //////////////////
+vert2fragEffectLayer Common_EffectLayerPassVS(app2vertEffectLayer IN)
+{
+  vert2fragEffectLayer OUT = (vert2fragEffectLayer)0;
+  
+  streamPos vertPassPos = (streamPos)0;
+  streamPos_FromEffectLayer(IN, vertPassPos);
+
+  EffectLayerTime *= EffectLayerParams0.z;
+
+  OUT.HPosition = Pos_VS_General(g_VS_ViewProjZeroMatr, vertPassPos);
+
+  // Output world to tangent matrix and world space position  
+  
+  // Note: Normalization required for normal diffuse map in world space in case scale used - Do not remove
+  float3 worldTangentS = normalize( mul((const float3x3)vertPassPos.InstMatrix, vertPassPos.ObjToTangentSpace[0]) );
+  float3 worldTangentT = normalize( mul((const float3x3)vertPassPos.InstMatrix, vertPassPos.ObjToTangentSpace[1]) );
+  float3 worldTangentN = (cross(worldTangentS, worldTangentT)) * vertPassPos.Tangent.w;
+  
+  OUT.vTangent = float4(worldTangentS, vertPassPos.Tangent.w); 
+  OUT.vBinormal.xyz = worldTangentT;
+  OUT.vView.xyz = vertPassPos.WorldPos.xyz;
+  vertPassPos.WorldPos.xyz += g_VS_WorldViewPos.xyz;
+
+  _TCModify(vertPassPos.baseTC, OUT.baseTC, vertPassPos.Position, vertPassPos.ObjToTangentSpace[2], TS_DIFFUSE);
+  
+  // apply modificator tilling
+  OUT.baseTC.zw = OUT.baseTC.xy * EffectLayerParams0.xy; 
+
+  // Output animated coordinates at diferent frequencies
+  OUT.baseAnimTC.xyzw = OUT.baseTC.xyxy;
+  OUT.baseAnimTC.xyzw *= float4( 2, 2, 0.25 , 0.25);
+  OUT.baseAnimTC.xyzw += EffectLayerTime.wwww * float4(1,1,0.5, 0.5);
+
+  OUT.Ambient = AmbientOp;
+
+#if PS3
+
+  OUT.screenProj = HPosToScreenTC(OUT.HPosition);
+
+#endif
+
+  return OUT;            
+}
+
+///////////////// pixel shaders //////////////////
+pixout Common_EffectLayerPassPS(vert2fragEffectLayer IN)
+{
+  pixout OUT = (pixout)0;  
+
+  EffectLayerTime *= EffectLayerParams0.z;
+
+  // debug
+  //half ftest = abs(frac( EffectLayerTime.w)*2-1);
+  //EffectLayerParams1 = half4(0, 1, 0, 0);
+
+  ///////////////////////////////////////////////////////////////////////////////////////////////////
+  // Common textures/vectors/coeficients
+
+  half4 cDiffuseMap = tex2D(diffuseMapSampler, IN.baseTC.xy); 
+  half3 cBumpMap = GetNormalMap(bumpMapSampler, IN.baseTC.xy);
+
+  half3 vNormalVtx = (cross(IN.vTangent.xyz, IN.vBinormal.xyz)) * IN.vTangent.w;   
+  float3x3 mTangentToWS = float3x3(IN.vTangent.xyz, IN.vBinormal.xyz, vNormalVtx.xyz);  
+
+  half3 vNormal = normalize( mul(cBumpMap.xyz, mTangentToWS) );
+  half3 vView = normalize( -IN.vView.xyz );                   
+
+  half fInvNdotE = 1 - saturate( dot(  vNormal, vView.xyz ) );
+
+  ///////////////////////////////////////////////////////////////////////////////////////////////////
+  // Compute effect mode animated pattern
+
+  // Pick pattern mask
+  half fPatternMask = dot( tex2D(effectMaskMapSampler, IN.baseTC.zw ).xyz, EffectLayerParams1.xyz);
+
+  half fPatternAnimMask = tex2D(effectMaskMapSampler, IN.baseAnimTC.xy ).w;
+  fPatternAnimMask += tex2D(effectMaskMapSampler, IN.baseAnimTC.zw).w;
+
+  half fFinalMask = fPatternMask * (1-cDiffuseMap.w) * saturate( cBumpMap.z ); 
+
+  // Compute animated pattern (simple inverse clouds with with diferent power factors per-channel)
+  half2 vAnimPattern = EffectLayerTime.x * half2(0.8, 1.2) + fPatternMask*0.1 + cBumpMap.z * fPatternAnimMask + half2(0.8, 0.2);
+  vAnimPattern = tex2D(effectAnimFunctionSampler, vAnimPattern).x * 2;                              
+  
+  // Function texture returns for red channel:
+  //half2 vAnimPattern = frac( vAnimPattern );
+  //vAnimPattern = 1 - abs(vAnimPattern *2 - 1);
+  //vAnimPattern *= vAnimPattern;
+  //vAnimPattern.x *= vNanoPattern.x;
+  //vAnimPattern = dot(vAnimPattern.xy, 1);
+
+  // Pick channel color for mode
+  half fChannelSelect = dot( EffectLayerParams1.xyz, half3(1, 2, 3));
+  half3 cModeColor = tex2D(effectColorMapSampler, float2( fInvNdotE , saturate( fChannelSelect * 0.25 - 0.25) ) );
+
+  // Compose mode color
+  half3 cFinal = 0.5h * cModeColor * vAnimPattern.x *  fFinalMask * fInvNdotE * saturate( fChannelSelect ); 
+
+  ///////////////////////////////////////////////////////////////////////////////////////////////////
+  // Compute transition plasma/sparks
+
+  // todo: enable/disable %RT_SAMPLE0 when transition is disabled
+//if %RT_SAMPLE0
+
+  fPatternAnimMask = tex2D(effectMaskMapSampler, IN.baseTC.xy + EffectLayerTime.z ).w;
+  fPatternAnimMask += tex2D(effectMaskMapSampler, IN.baseTC.xy*0.25 + fPatternAnimMask*0.1 - EffectLayerTime.y).w;
+
+  half2 vSparks = EffectLayerTime.x * half2(1, 0.6) + saturate(cBumpMap.z)*0.2 + fPatternAnimMask + half2(0.2, 0.6);
+  vSparks = tex2D(effectAnimFunctionSampler, vSparks).y * 2;;
+
+  // Function texture returns for blue channel:
+  //vSparks = frac( vSparks );
+  //vSparks = 1 - abs( vSparks * 2-1 );
+  //vSparks = pow(vSparks, 64 * half2(0.25, 1));
+  //vSparks = dot( vSparks, 1);
+
+  vSparks *= EffectLayerParams0.w; // apply flickering ( abs(frac( Time *20 + Time)*2-1)  )
+
+  // Compute final plasma/sparks color
+  half3 cSparksColor = tex2D(effectColorMapSampler, float2( fInvNdotE , 1 ) ) * fInvNdotE;
+  // output overbrighted sparks (hdr bloom will kick in)
+  cFinal += 20 *   (1-cDiffuseMap.w) * vSparks.x * cSparksColor * saturate( cBumpMap.z ) * EffectLayerParams1.w ; 
+
+//endif
+
+  // Apply ambient
+  cFinal.xyz *= (1.0h + IN.Ambient.xyz);
+
+  OUT.Color.xyz = half4(cFinal *PS_HDR_RANGE_ADAPT_MAX, 1);
+
+#if PS3
+  #if %_RT_HDR_MODE 
+    // Custom blending for PS3 (decode and blend)
+    half4 cDstRT = DecodeHDRBuffer( tex2Dproj( HDRTargetEncodedSampler, IN.screenProj.xyzw ) ); 
+    OUT.Color += cDstRT;
+
+    OUT.Color = EncodeHDRBuffer( OUT.Color );
+  #endif
+#endif
+
+  return OUT;
+}
+
+//////////////////////////////// technique ////////////////
+
+technique EffectLayerPass
+{
+  pass p0
+  {
+    VertexShader = compile vs_Auto Common_EffectLayerPassVS() EffectLayerVS;
+    PixelShader = compile ps_Auto Common_EffectLayerPassPS() EffectLayerPS;
+
+    ZEnable = true;
+    ZWriteEnable = false;
+    CullMode = Back;
+    ZFunc = LEqual; 
+
+    ///IgnoreMaterialState = true;
+  }
+}

@@ -1,0 +1,259 @@
+////////////////////////////////////////////////////////////////////////////
+//
+//  Crytek Engine Source File.
+//  Shader extension
+//  Copyright (C), Crytek Studios, 2001-2004.
+// -------------------------------------------------------------------------
+//  File name:   PostEffectsLib.cfi
+//  Version:     v1.00
+//  Created:     13/06/2006 by Tiago Sousa
+//  Compilers:   
+//  Description: Common post-process utilities library
+//
+//  Todo: Clean stuff up
+//
+// -------------------------------------------------------------------------
+////////////////////////////////////////////////////////////////////////////
+
+//////////////////////////////// Common constants ////////////////
+
+// Common vertex and pixel shader params 
+//    - use for explicitly setting values from code
+
+float4 vsParams[16];
+float4 psParams[16];
+
+float4   RotGridScreenOffset : PB_RotGridScreenOff;
+float   AnimGenParams = { PB_time 1.0 };
+float4   WorldViewPos  : PB_CameraPos;
+
+float4   CameraUp : PB_CameraUp;
+float4   CameraRight : PB_CameraRight;
+float4   CamFront : PB_CameraFront;
+
+float4  ScrSize : PB_ScreenSize;
+
+// x, y, z - unused, w - particle lifetime
+float4  vScrParticleInfo;
+	
+//////////////////////////////// Common samplers ////////////////
+
+// Use when explicitly binding from code (_tex to void name colision)
+sampler2D _tex0 : register(s0);
+sampler2D _tex1 : register(s1);
+sampler2D _tex2 : register(s2);
+sampler2D _tex3 : register(s3);
+sampler2D _tex4 : register(s4);
+sampler2D _tex5 : register(s5);
+sampler2D _tex6 : register(s6);
+sampler2D _tex7 : register(s7);
+
+samplerCUBE _cubetex0 : register(s0);
+samplerCUBE _cubetex1 : register(s1);
+samplerCUBE _cubetex2 : register(s2);
+samplerCUBE _cubetex3 : register(s3);
+samplerCUBE _cubetex4 : register(s4);
+samplerCUBE _cubetex5 : register(s5);
+samplerCUBE _cubetex6 : register(s6);
+samplerCUBE _cubetex7 : register(s7);
+
+// Use for auto binding
+sampler2D screenMapSampler : register (s0)
+{
+  Texture = $BackBuffer;
+  MinFilter = POINT;
+  MagFilter = POINT;
+  MipFilter = POINT; 
+  AddressU = Clamp;
+  AddressV = Clamp;	
+};
+
+sampler2D depthMapSampler  : register (s1)
+{
+  Texture = $ZTarget;
+  MinFilter = POINT;
+  MagFilter = POINT;
+  MipFilter = POINT; 
+  AddressU = Clamp;
+  AddressV = Clamp;	
+};
+
+sampler2D screenMapScaledSampler_d2  : register (s2)
+{
+  Texture = $BackBufferScaled_d2;
+  MinFilter = LINEAR;
+  MagFilter = LINEAR;
+  MipFilter = POINT; 
+  AddressU = Clamp;
+  AddressV = Clamp;	
+};
+
+sampler2D screenMapScaledSampler_d4  : register (s3)
+{
+  Texture = $BackBufferScaled_d4;
+  MinFilter = LINEAR;
+  MagFilter = LINEAR;
+  MipFilter = POINT; 
+  AddressU = Clamp;
+  AddressV = Clamp;	
+};
+
+sampler2D screenMapScaledSampler_d8  : register (s4)
+{
+  Texture = $BackBufferScaled_d8;
+  MinFilter = LINEAR;
+  MagFilter = LINEAR;
+  MipFilter = POINT; 
+  AddressU = Clamp;
+  AddressV = Clamp;	
+};
+
+sampler2D screenTargetSampler : register (s0)
+{
+  Texture = $SceneTarget;
+  MinFilter = POINT;
+  MagFilter = POINT;
+  MipFilter = POINT; 
+  AddressU = Clamp;
+  AddressV = Clamp;	
+};
+
+//////////////////////////////// Common vertex shader stuff ////////////////
+
+struct pixout_MRT
+{
+  float4 Color  : COLOR0;
+  float4 Color1 : COLOR1;
+};
+
+struct vtxIn
+{
+  IN_P
+  IN_TBASE
+};
+
+struct vtxInWPOS
+{
+  IN_P
+  IN_TBASE
+  float3 CamVec : TEXCOORD1;
+};
+
+struct vtxOut
+{
+  float4 HPosition  : POSITION;
+  float4 baseTC     : TEXCOORD0;
+};
+
+struct vtxOutWPOS
+{
+  float4 HPosition   : POSITION;
+  float4 baseTC      : TEXCOORD0;
+  float4 CamVec      : TEXCOORD1;
+};
+
+///////////////// vertex shader //////////////////
+
+vtxOut BaseVS(vtxIn IN)
+{
+  vtxOut OUT = (vtxOut)0; 
+
+  float4 vPos = IN.Position;
+  OUT.HPosition = mul(vpMatrix, vPos);  
+  OUT.baseTC.xy = IN.baseTC.xy;
+
+  // output with correct aspect ratio into wz
+  OUT.baseTC.wz = (IN.baseTC.xy -0.5 ) * float2(0.75*(ScrSize.x/ScrSize.y), 1.0) + 0.5;
+
+  return OUT;
+}
+
+///////////////// vertex shader //////////////////
+
+vtxOutWPOS BaseWPOSVS(vtxInWPOS IN)
+{
+  vtxOutWPOS OUT = (vtxOutWPOS)0; 
+
+  float4 vPos = IN.Position;
+  OUT.HPosition = mul(vpMatrix, vPos);  
+  OUT.baseTC.xy = IN.baseTC.xy;
+  OUT.CamVec.xyz = IN.CamVec;
+
+  return OUT;
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
+/// Null technique - might be usefull for stencil passes, etc //////////////////////////////////////
+
+///////////////// vertex shader //////////////////
+
+struct vtxNull
+{
+  float4 HPosition  : POSITION;
+};
+
+vtxNull NullVS(vtxIn IN)
+{
+  vtxNull OUT = (vtxNull)0; 
+
+  float4 vPos = IN.Position;
+  OUT.HPosition = mul(vpMatrix, vPos);  
+  return OUT;
+}
+
+pixout NullPS(vtxNull IN)
+{
+  pixout OUT = (pixout) 0;
+  return OUT;
+}
+
+technique NullTechnique
+{
+  pass p0
+  {
+    VertexShader = compile vs_Auto NullVS();            
+    PixelShader = compile ps_Auto NullPS();
+    CullMode = None;        
+  }
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// Color grading/charts
+
+float colorChartWidthFixPS3 : PB_ColorCharts_WidthFixPS3;
+
+void LookupColorChart(in sampler2D chartSampler, inout half3 cImage)
+{
+	const float chartDim = 16.0;
+	
+	//cImage = float3(0.5, 1.0, 4.0 / chartDim); // debug lookup color to test addressing of "unwrapped" chart slices
+	
+	// convert input color into 2d color chart lookup address 
+	half3 scale = half3(chartDim - 1.0, chartDim - 1.0, chartDim - 1.0) / chartDim;
+	half3 bias = half3(0.5, 0.5, 0.0) / chartDim;
+	float3 lookup = saturate(cImage) * scale + bias;
+	
+#if PS3
+	lookup.x *= colorChartWidthFixPS3;
+#endif	
+	
+	half slice = lookup.z * chartDim;	
+	half sliceFrac = frac(slice);	
+	half sliceIdx = slice - sliceFrac;
+	
+	lookup.y = (lookup.y + sliceIdx) / chartDim;
+	
+ 	// lookup adjacent slices
+ 	half3 col0 = tex2D(chartSampler, lookup.xy); 	
+ 	lookup.y += 1.0 / chartDim;
+ 	half3 col1 = tex2D(chartSampler, lookup.xy);
+
+	// linearly blend between slices 	 	
+	cImage = col0 + (col1 - col0) * sliceFrac;
+		
+ 	//cImage = sliceFrac;
+}
+
+/////////////////////// eof ///

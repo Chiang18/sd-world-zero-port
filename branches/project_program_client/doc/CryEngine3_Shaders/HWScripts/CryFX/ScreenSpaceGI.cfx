@@ -1,0 +1,490 @@
+////////////////////////////////////////////////////////////////////////////
+//
+//  Crytek Engine Shader Source File
+//  Copyright (C), Crytek Studios, 2001-2009
+// -------------------------------------------------------------------------
+//  File name:   ScreenSpaceGI.cfx
+//  Version:     v1.00
+//  Created:     06/06/2009 by Ury Zhilinsky
+//  Description: Implementation of SSGI
+// -------------------------------------------------------------------------
+//  History:
+//
+////////////////////////////////////////////////////////////////////////////
+
+#include "Common.cfi" 
+#include "ModificatorVT.cfi"
+#include "PostEffectsLib.cfi"
+
+// Shader global descriptions
+float Script : STANDARDSGLOBAL
+<
+  string Script =
+           "NoPreview;"
+           "LocalConstants;"
+           "ShaderDrawType = Custom;"
+           "ShaderType = PostProcess;"
+>; 
+
+#include "ShadowCommon.cfi"
+
+#define pi 3.141592653589793238f
+
+struct pixout_cl
+{
+  float4 Color  : COLOR0;
+};
+
+struct vert2fragSSAO
+{
+	float4 HPosition	:	POSITION;
+
+#if %USE_SM30
+	float2 ScreenTC		:	TEXCOORD0;
+#else
+	float4 ScreenTC		:	TEXCOORD0;
+#endif
+
+};
+
+struct vert2fragSSAO_PS
+{
+#if D3D10
+	float4 ScreenPos	: SV_POSITION;
+	float2 ScreenTC		:	TEXCOORD0;
+#else
+
+#if %USE_SM30
+	float4 ScreenPos  : VPOS;
+	float2 ScreenTC		:	TEXCOORD0;
+#else
+	float4 ScreenTC		:	TEXCOORD0;
+#endif
+#endif
+};
+
+struct app2vertShadow
+{
+  IN_P
+  IN_TBASE
+  float3 viewDir : TEXCOORD1;
+};
+
+
+///////////////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////////////
+
+// SSGI helper shaders
+float3x4	SSGI_WorldToView;
+float4		SSGI_DownsampleOffset0;
+float4		SSGI_DownsampleOffset1;
+
+vert2fragSSAO SSGI_DownsampleVS(app2vertShadow IN)
+{
+	vert2fragSSAO OUT;
+	OUT = (vert2fragSSAO)0; 
+
+	OUT.HPosition = IN.Position;
+	OUT.HPosition.xy = IN.Position.xy * float2(2.f, -2.f) - float2(1.f, -1.f);
+	OUT.ScreenTC.xy = IN.baseTC.xy;
+
+	return OUT;
+}
+
+pixout_cl SSGI_DownsampleNormalPS(vert2fragSSAO_PS IN)
+{
+	pixout_cl OUT; 
+
+	float3 normal = 0;
+	float2 addr[5];
+
+	addr[0] = IN.ScreenTC;
+	addr[1] = IN.ScreenTC + SSGI_DownsampleOffset0.xy;
+	addr[2] = IN.ScreenTC + SSGI_DownsampleOffset0.zw;
+	addr[3] = IN.ScreenTC + SSGI_DownsampleOffset1.xy;
+	addr[4] = IN.ScreenTC + SSGI_DownsampleOffset1.zw;
+
+	for (int i = 0; i < 5; ++i) normal += tex2D(_tex0, addr[i]);
+
+	normal = 2/5.f * normal - 1;
+	normal = normalize(mul(SSGI_WorldToView, normal));
+
+	OUT.Color.rgb = 0.5f * (normal + 1);
+	OUT.Color.a = 0;
+
+	return OUT;
+}
+
+pixout_cl SSGI_DownsampleIrradiancePS(vert2fragSSAO_PS IN)
+{
+	pixout_cl OUT; 
+
+	float4 value = 0;
+	float2 addr[5];
+
+	addr[0] = IN.ScreenTC;
+	addr[1] = IN.ScreenTC + SSGI_DownsampleOffset0.xy;
+	addr[2] = IN.ScreenTC + SSGI_DownsampleOffset0.zw;
+	addr[3] = IN.ScreenTC + SSGI_DownsampleOffset1.xy;
+	addr[4] = IN.ScreenTC + SSGI_DownsampleOffset1.zw;
+
+	for (int i = 0; i < 5; ++i) value += tex2D(_tex0, addr[i]) * tex2D(_tex1, addr[i]);
+
+	OUT.Color = value / 5;
+	return OUT;
+}
+
+pixout_cl SSGI_DownsampleDepthPS(vert2fragSSAO_PS IN)
+{
+	// Not yet implemented
+	pixout_cl OUT = (pixout_cl) 0; 
+	return OUT;
+}
+
+// SSGI implementation
+
+vert2fragSSAO SSGI_ComputeVS(app2vertShadow IN)
+{
+	vert2fragSSAO OUT;
+	OUT = (vert2fragSSAO)0; 
+
+	OUT.HPosition = IN.Position;
+	OUT.HPosition.xy = IN.Position.xy * float2(2.f, -2.f) - float2(1.f, -1.f);
+	OUT.ScreenTC.xy = IN.baseTC.xy;
+
+	return OUT;
+}
+
+half2 SSGI_GetDitherCoord(vert2fragSSAO_PS IN, int iterNum)
+{
+	half2 ditherCoord;
+
+#if !%USE_SM30
+	ditherCoord = IN.ScreenTC.wz;
+#else
+	ditherCoord = floor(IN.ScreenPos)/4;
+#endif;
+
+	//ditherCoord.x += iterNum/4.;
+	//ditherCoord.y += iterNum/4.;
+
+	return ditherCoord;
+}
+
+half2 SSGI_GetDitherRot(vert2fragSSAO_PS IN, int iterNum)
+{
+	half2 ditherRot, screenPos;
+
+#if !%USE_SM30
+	screenPos = floor(IN.ScreenTC.wz * 4) % 4;
+#else
+	screenPos = floor(IN.ScreenPos) % 4;
+#endif
+
+	float angle = 2 * pi * (screenPos.x + screenPos.y * 4) / 16;
+	sincos(angle, ditherRot.x, ditherRot.y);
+
+	return ditherRot;
+}
+
+sampler2D normalMap			: register(s0);
+sampler2D irradianceMap : register(s1);
+sampler2D depthMap			: register(s2);
+
+sampler2D depthFullMap	: register(s3);
+sampler2D normalFullMap : register(s4);
+
+sampler2D sRotSampler4x4_16 = sampler_state
+{
+	Texture = Shaders/EngineAssets/ScreenSpace/PointsOnSphere4x4.tif;
+	MinFilter = POINT;
+	MagFilter = POINT;
+	MipFilter = NONE; 
+	AddressU = Wrap;
+	AddressV = Wrap;	
+	sRGBLookup = false;
+}; 
+
+// SSGI parameters
+// x - amount, y - radius, z - iteration
+float4 SSGI_params;	
+
+// Fade in parameters. Used with Irradiance volumes.
+float4 SSGI_fadeIn;
+
+pixout_cl SSGI_ComputePoissonPS(vert2fragSSAO_PS IN)
+{  
+	pixout_cl OUT = (pixout_cl) 0;
+
+	
+	/////////////////////
+	// Tweakables
+	static const int samplesNum = 32;
+
+	float baseRadius	= 0.001f * SSGI_params.y;
+	static const float overlap = 0.7f;
+	static const int iterNum = round(SSGI_params.z);
+
+	//float iterStep = 0.4 * SSGI_params.z;
+	float effectAmount = SSGI_params.x / samplesNum;
+
+	// Poisson-disk distribution
+	static const float3 kernel[32] = { 
+		float3(0.928506f, 0.371318f, 0.878906f), float3(0.560662f, -0.828045f, 0.355469f), float3(0.503539f, -0.863973f, 0.669922f), float3(-0.012271f, -0.999925f, 0.149414f), float3(-0.189068f, -0.981964f, 0.999023f), float3(-0.993212f, 0.116318f, 0.513672f), float3(-0.996820f, -0.079683f, 0.250977f), float3(0.773011f, -0.634393f, 0.975586f), float3(-0.854558f, -0.519357f, 0.861328f), float3(-0.769103f, 0.639124f, 0.553711f), float3(-0.278520f, 0.960430f, 0.808594f), float3(0.728464f, 0.685084f, 0.988281f), float3(-0.953306f, -0.302006f, 0.651367f), float3(0.085797f, 0.996313f, 0.908203f), float3(0.550458f, 0.834863f, 0.769531f), float3(-0.926210f, 0.377007f, 0.773437f), float3(0.951435f, -0.307850f, 0.419922f), float3(0.219101f, 0.975702f, 0.076172f), float3(0.999322f, 0.036808f, 0.699219f), float3(0.906596f, 0.422001f, 0.628906f), float3(0.030675f, -0.999529f, 0.487305f), float3(-0.780737f, -0.624860f, 0.420898f), float3(-0.575808f, 0.817585f, 0.929688f), float3(0.945607f, -0.325310f, 0.842773f), float3(0.183039f, 0.983106f, 0.583984f), float3(-0.471396f, -0.881921f, 0.732422f), float3(0.098017f, -0.995185f, 0.765625f), float3(0.926210f, 0.377008f, 0.322266f), float3(-0.993212f, 0.116318f, 0.981445f), float3(-0.605511f, 0.795837f, 0.279297f), float3(0.416430f, -0.909168f, 0.955078f), float3(-0.676092f, -0.736817f, 0.895508f) 
+	};
+
+	const float2 screenTC = IN.ScreenTC.xy;
+
+	// screen-space attenuation
+	const half2 SSAttenTC = abs(IN.ScreenTC.xy * 2 - 1);
+	half SSAtten = 1.f - max(SSAttenTC.x, SSAttenTC.y);
+	SSAtten = pow(SSAtten, .5h);
+
+	float3 centerNormal = normalize(tex2D(normalFullMap, screenTC)*2 - 1);
+	
+	// Compute dithering vector 
+	float2 ditherRot = SSGI_GetDitherRot(IN, iterNum);
+
+	// Get the pixel depth.
+	float centerDepth = tex2D(depthFullMap, screenTC);
+
+	// Init the occlusion
+	float3 colorBleeding = 0;
+
+	// Compute the base radius and offset
+	baseRadius = min(0.4, baseRadius / centerDepth) * pow(2, iterNum);
+	float baseOffset = overlap*(1 - 1./pow(2, iterNum));
+
+	float2 centerPos = screenTC*2 - 1;
+
+	for (int i = 0; i < samplesNum; i++)
+	{
+		float2 sample;
+		float sampleDepth, tapDepth;
+		float radius = baseRadius * (baseOffset + kernel[i].z);
+		
+		/////////////////////////
+		// Construct the sample
+		sample.x = kernel[i].x * ditherRot.y - kernel[i].y * ditherRot.x;
+		sample.y = kernel[i].x * ditherRot.x + kernel[i].y * ditherRot.y;
+
+		sample = sample * radius;
+
+		/////////////////////////
+		// Find the offset
+		float2 samplePos = (centerPos + sample);
+		float2 sampleTC  = samplePos*0.5 + 0.5;
+
+		/////////////////////////
+		// Get tap data
+		float3 tapNormal, tapIrradiance;
+
+		tapDepth = tex2D(depthMap, sampleTC);
+		tapNormal = normalize(tex2D(normalMap, sampleTC)*2 - 1);
+		tapIrradiance = tex2D(irradianceMap, sampleTC);
+
+		// Compute the direction vector between the point and the bleeder
+		float3 D = float3(samplePos, 1) * tapDepth - float3(centerPos, 1) * centerDepth;
+
+		static const float minDist = 0.00005;
+		float r = max(minDist, length(D));
+
+		D = normalize(D);
+
+		static const float s = 0.0001;
+		// Compute distance-based attenuation
+		float distAtten = 
+			pow(min(1, s/r), 2)
+			// 1
+			;
+
+		float factor = 40
+			// Reflector size multiplier
+			* pow(4, iterNum)
+			// Reflector lambertian term
+			* max(0, -dot(D, tapNormal))
+			// Incident radiance projection term
+			* dot(D, centerNormal) 
+			// distance-based attenuation term
+			* distAtten
+			;
+
+		factor = max(0, factor);
+
+		float3 radiance = factor * tapIrradiance;
+		colorBleeding += radiance;
+	}
+
+	colorBleeding *= effectAmount * SSAtten;
+
+	OUT.Color.rgb = max(0, colorBleeding);
+	OUT.Color.a   = 0;
+
+#if %_RT_SAMPLE0
+	// attenuate
+	//OUT.Color.rgb *= smoothstep(0, 0.01, centerDepth);
+	OUT.Color.rgb *= saturate(centerDepth * SSGI_fadeIn.x + SSGI_fadeIn.y);
+#endif
+
+	return OUT;
+}
+
+pixout_cl SSGI_ComputePS(vert2fragSSAO_PS IN)
+{
+	pixout_cl OUT = (pixout_cl) 0;
+
+	/////////////////////
+	// Tweakables
+	static const int samplesNum = 32;
+
+	float baseRadius	= 0.001f * SSGI_params.y;
+	static const float overlap = 0.7f;
+	static const int iterNum = round(SSGI_params.z);
+
+	//float iterStep = 0.4 * SSGI_params.z;
+	float effectAmount = SSGI_params.x / samplesNum;
+
+	// Hemisphere
+	static const float3 kernel[32] = {
+		float3(-0.556641,-0.037109,-0.654297), float3(0.173828,0.111328,0.064453), float3(0.001953,0.082031,-0.060547), float3(0.220703,-0.359375,-0.062500), float3(0.242188,0.126953,-0.250000), float3(0.070313,-0.025391,0.148438), float3(-0.078125,0.013672,-0.314453), float3(0.117188,-0.140625,-0.199219), float3(-0.251953,-0.558594,0.082031), float3(0.308594,0.193359,0.324219), float3(0.173828,-0.140625,0.031250), float3(0.179688,-0.044922,0.046875), float3(-0.146484,-0.201172,-0.029297), float3(-0.300781,0.234375,0.539063), float3(0.228516,0.154297,-0.119141), float3(-0.119141,-0.003906,-0.066406), float3(-0.218750,0.214844,-0.250000), float3(0.113281,-0.091797,0.212891), float3(0.105469,-0.039063,-0.019531), float3(-0.705078,-0.060547,0.023438), float3(0.021484,0.326172,0.115234), float3(0.353516,0.208984,-0.294922), float3(-0.029297,-0.259766,0.089844), float3(-0.240234,0.146484,-0.068359), float3(-0.296875,0.410156,-0.291016), float3(0.078125,0.113281,-0.126953), float3(-0.152344,-0.019531,0.142578), float3(-0.214844,-0.175781,0.191406), float3(0.134766,0.414063,-0.707031), float3(0.291016,-0.833984,-0.183594), float3(-0.058594,-0.111328,0.457031), float3(-0.115234,-0.287109,-0.259766),  
+	};
+
+	const float2 screenTC = IN.ScreenTC.xy;
+
+	const half2 SSAttenTC = abs(IN.ScreenTC.xy * 2 - 1);
+	half SSAtten = 1.f - max(SSAttenTC.x, SSAttenTC.y);
+	SSAtten = pow(SSAtten, .5h);
+
+	float3 centerNormal = normalize(tex2D(normalFullMap, screenTC)*2 - 1);
+	
+	// Compute dithering vector 
+	float3 normalDither = normalize(tex2D(sRotSampler4x4_16, SSGI_GetDitherCoord(IN, iterNum)).xyz * 2.h - 1.h);
+
+	// Get the pixel depth.
+	float centerDepth = tex2D(depthFullMap, screenTC);
+
+	// Init the occlusion
+	float3 colorBleeding = 0;
+
+	// Compute the base radius and offset
+	baseRadius = min(0.4, baseRadius / centerDepth) * pow(2, iterNum);
+	float baseOffset = overlap*(1 - 1./pow(2, iterNum));
+
+	for (int i = 0; i < samplesNum; i++)
+	{
+		float3 sample;
+
+		float sampleDepth, tapDepth;
+		float alpha, gamma;
+		float radius = baseRadius * (baseOffset + length(kernel[i]));
+		
+		/////////////////////////
+		// Construct the sample
+		sample = normalize(kernel[i]);
+		sample = reflect(sample * radius, normalDither);
+		sample = sample * (dot(sample, centerNormal) < 0 ? -1:1);
+
+		/////////////////////////
+		// Find the offset
+		gamma = 1. / (1 + sample.z);
+		float2 centerPos = (screenTC*2) - float2(1, 1);
+		float2 samplePos = (centerPos + sample.xy) * (gamma * 0.5) + 0.5;
+
+		/////////////////////////
+		// Get tap data
+		float3 tapNormal, tapIrradiance;
+
+		tapDepth  = tex2D(depthMap, samplePos);
+		alpha = gamma * tapDepth;
+
+		tapNormal = normalize(tex2D(normalMap, samplePos)*2 - 1);
+		tapIrradiance = tex2D(irradianceMap, samplePos);
+
+		// Compute the direction vector between the point and the bleeder
+		float3 D = float3(centerPos, 1) * (alpha - centerDepth) + sample * alpha;
+
+		static const float minDist = 0.00005;
+		float r = max(minDist, length(D));
+
+		D = normalize(D);
+
+		static const float s = 0.0001;
+		// Compute attenuation
+		float atten = 
+			pow(min(1, s/r), 2)
+			// 1
+			;
+
+		float factor = 40
+			// Visibility
+			* ((centerDepth * (1 + sample.z) - tapDepth) > 0)
+			// Reflector size multiplier
+			* pow(4, iterNum)
+			// Reflector lambertian term
+			* max(0, -dot(D, tapNormal))
+			// Incident radiance projection term
+			* dot(D, centerNormal) 
+			// Attenuation term
+			* atten
+			;
+
+		factor = max(0, factor);
+
+		float3 radiance = factor * tapIrradiance;
+		colorBleeding += radiance;
+	}
+
+	colorBleeding *= effectAmount * SSAtten;
+
+	OUT.Color.rgb = max(0, colorBleeding);
+	OUT.Color.a   = 0;
+
+#if %_RT_SAMPLE0
+	// attenuate
+	//OUT.Color.rgb *= smoothstep(0, 0.01, centerDepth);
+	//OUT.Color.rgb *= saturate(centerDepth * SSGI_fadeIn.x + SSGI_fadeIn.y);
+#endif
+
+	return OUT;
+}
+
+///////////////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////////////
+
+technique SSGI_Compute
+{
+	pass p0
+	{
+		VertexShader = compile vs_Auto SSGI_ComputeVS();
+		// PixelShader = compile ps_3_0 SSGI_ComputePS();
+
+		PixelShader = compile ps_3_0 SSGI_ComputePoissonPS();
+	}
+}
+
+technique SSGI_DownsampleNormal
+{
+	pass p0
+	{
+		VertexShader = compile vs_Auto SSGI_DownsampleVS();
+		PixelShader = compile ps_3_0 SSGI_DownsampleNormalPS();
+	}
+}
+
+technique SSGI_DownsampleIrradiance
+{
+	pass p0
+	{
+		VertexShader = compile vs_Auto SSGI_DownsampleVS();
+		PixelShader = compile ps_3_0 SSGI_DownsampleIrradiancePS();
+	}
+}
+
+technique SSGI_DownsampleDepth
+{
+	pass p0
+	{
+		VertexShader = compile vs_Auto SSGI_DownsampleVS();
+		PixelShader = compile ps_3_0 SSGI_DownsampleDepthPS();
+	}
+}

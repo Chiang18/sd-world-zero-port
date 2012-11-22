@@ -1,0 +1,129 @@
+////////////////////////////////////////////////////////////////////////////
+//
+//  Crytek Engine Source File.
+//  Shader extension
+//  Copyright (C), Crytek Studios, 2001-2004.
+// -------------------------------------------------------------------------
+//  File name:   CommonMotionBlurPass.cfi
+//  Version:     v1.00
+//  Created:     30/01/2006 by Tiago Sousa
+//  Compilers:   
+// -------------------------------------------------------------------------
+////////////////////////////////////////////////////////////////////////////
+
+/// Un-Tweakables ////////////////////// 
+
+float4 FurParams : PB_FurParams;
+
+sampler2D furSceneMapSampler = sampler_state
+{
+  Texture = $SceneTarget;
+  MinFilter = POINT
+  MagFilter = POINT;
+  MipFilter = POINT; 
+  AddressU = Clamp;
+  AddressV = Clamp;	
+};
+
+///////////////// vertex input/output //////////////////
+struct vert2fragFur
+{
+  OUT_P
+  float4 baseTC : TEXCOORD0;
+  float4 vFurStart : TEXCOORD1_centroid;
+  float4 vFurEnd : TEXCOORD2_centroid;
+};
+
+
+///////////////// vertex shaders //////////////////
+vert2fragFur Common_FurPassVS(app2vertZGeneral IN)
+{
+  vert2fragFur OUT;
+#ifndef OPENGL  
+  OUT = (vert2fragFur)0;
+#endif
+  
+  streamPos vertPassPos = (streamPos)0;
+  streamPos_FromZ(IN, vertPassPos);
+
+  OUT.baseTC = vertPassPos.baseTC;
+
+  float3 vPosOrig = vertPassPos.Position.xyz;
+  vertPassPos.Position.xyz += vertPassPos.ObjToTangentSpace[2].xyz * (FurParams.w / 64.0);
+      
+  OUT.HPosition = Pos_VS_General(g_VS_ViewProjZeroMatr, vertPassPos);  
+    
+  vertPassPos.Position.xyz = vPosOrig;
+  float4 HPositionOrig = Pos_VS_General(g_VS_ViewProjZeroMatr, vertPassPos);  
+  
+  OUT.vFurEnd = HPosToScreenTC( OUT.HPosition );
+  OUT.vFurStart = HPosToScreenTC( HPositionOrig );
+
+  // Output world to tangent matrix and world space position  
+  float3 worldTangentS = normalize( mul((const float3x3)vertPassPos.InstMatrix, vertPassPos.ObjToTangentSpace[0]) );
+  float3 worldTangentT = normalize( mul((const float3x3)vertPassPos.InstMatrix, vertPassPos.ObjToTangentSpace[1]) );
+  float3 worldTangentN = normalize(cross(worldTangentS, worldTangentT)) * vertPassPos.Tangent.w;
+
+
+  return OUT;            
+}
+
+///////////////// pixel shaders //////////////////
+pixout Common_FurPassPS(vert2fragFur IN)
+{
+  pixout OUT = (pixout)0;  
+    
+  int nQuality = GetShaderQuality();
+
+  float fSamples = 8.0;
+  //if( nQuality == QUALITY_HIGH )
+    //fSamples = 16;
+
+  const float fWeight = (1.0 / fSamples);  
+  const float fWeightStep = (2.0 / fSamples);
+
+  half3 bumpColor = GetNormalMap(bumpMapSampler, IN.baseTC.xy);
+//  half2 vVelocity = bumpColor.xy;
+      
+  float2 vVelocityPrev = ( (IN.vFurStart.xy/IN.vFurStart.w));  
+  float2 vVelocity = (IN.vFurEnd.xy/IN.vFurEnd.w);									// 1 div      
+  float2 vVelocityDiv = vVelocity; 
+  float2 vVelocityLerp = vVelocityPrev - vVelocity;										// 1 sub							
+
+	//OUT.Color = float4( 1, 1, 1, 1); // */vVelNorm.xy, fLenght.xx );		  // Just output velocity for post processing
+
+    
+//else
+	{
+	  float4 accum = 0;
+	  for(float s = -1.0; s < 1.0 ; s += fWeightStep)										// 1 add
+	  {																						
+		  float2 tcFinal =  vVelocityDiv.xy - vVelocityLerp.xy * s;							// 1 mad
+	    accum += tex2D(furSceneMapSampler, tcFinal );											// 1 texld, 1 add
+	  }
+	  accum *= fWeight;																		// 1 mul	
+	  
+	
+	  OUT.Color = accum;
+	  OUT.Color.w = 1; // no alpha testing 
+  }
+    
+  return OUT;
+}
+
+//////////////////////////////// technique ////////////////
+
+technique FurPass
+{
+  pass p0
+  {
+    VertexShader = compile vs_Auto Common_FurPassVS() FurVS;
+    PixelShader = compile ps_Auto Common_FurPassPS() FurPS;
+
+    ZEnable = true;
+    ZWriteEnable = true;
+    CullMode = Back;
+
+    ZFunc = LEqual;
+  }
+}

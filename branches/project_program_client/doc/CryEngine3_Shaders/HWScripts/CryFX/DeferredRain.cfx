@@ -1,0 +1,283 @@
+
+#include "Common.cfi"
+#include "ShadeLib.cfi"
+#include "PostEffectsLib.cfi"
+
+float Script : STANDARDSGLOBAL
+<
+  string Script =
+           "NoPreview;"
+           "LocalConstants;"
+           "ShaderDrawType = Custom;"
+           "ShaderType = PostProcess;"
+>; 
+
+half4 g_RainVolumeParams < psregister = c0; > ;
+half4 g_RainVolumeMultipliers < psregister = c1; > ;
+half4 g_fWaterLevel : PB_WaterLevel < psregister = c2; > ;
+float4 g_WorldViewPos < psregister = c3; > ;
+float4 g_RainPuddleParams < psregister = c4; >;
+float4 g_RainAnimParams = { PB_time 0.333, PB_time 0.1665, PB_time 0.0832, PB_time 0.0416} ; // (1, 0.5, 0.25, 0.125) * 0.333
+
+sampler2D sceneDepthMapSampler = sampler_state
+{
+  Texture = $ZTarget;
+  MinFilter = POINT;
+  MagFilter = POINT;
+  MipFilter = POINT; 
+  AddressU = Clamp;
+  AddressV = Clamp;	
+};
+
+sampler2D sceneTargetSampler = sampler_state
+{
+  Texture = $SceneTarget;  
+  MinFilter = POINT;
+  MagFilter = POINT;
+  MipFilter = POINT;
+  AddressU = Clamp;
+  AddressV = Clamp;
+  sRGBLookup = true; 
+};
+
+sampler2D reflTargetSampler = sampler_state
+{
+  Texture = $BackBufferScaled_d4;  
+  MinFilter = LINEAR;
+  MagFilter = LINEAR;
+  MipFilter = POINT;
+	AddressU = Clamp;
+	AddressV = Clamp;
+};
+
+sampler2D rainBumpShiftMap = sampler_state
+{    
+  Texture = textures/defaults/perlinNoiseNormal.dds;
+  MinFilter = LINEAR;
+  MagFilter = LINEAR;
+  MipFilter = LINEAR; 
+  AddressU = Wrap;
+  AddressV = Wrap;
+};
+
+sampler2D rainEnvMap = sampler_state
+{    
+  Texture = textures/defaults/frost_refl2.dds;
+  MinFilter = LINEAR;
+  MagFilter = LINEAR;
+  MipFilter = LINEAR; 
+  AddressU = Wrap;
+  AddressV = Wrap;
+};
+
+sampler2D rainWavesMap = sampler_state
+{    
+  //Texture = $WaterPuddlesDDN;
+  Texture = textures/defaults/rain/puddle#06_32(0.0333).tif;
+  MinFilter = LINEAR;
+  MagFilter = LINEAR;
+  MipFilter = POINT; 
+  AddressU = Wrap;
+  AddressV = Wrap;
+};
+
+sampler2D rainWavesMap2 = sampler_state
+{    
+  //Texture = $WaterPuddlesDDN;
+  Texture = textures/defaults/rain/puddle0.tif;
+
+  MinFilter = LINEAR;
+  MagFilter = LINEAR;
+  MipFilter = POINT; 
+  AddressU = Wrap;
+  AddressV = Wrap;
+};
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////////////////////////
+
+float3 GetWorldPos( float fDepth, float3 vCamVec )
+{
+  float3 cameraToWorldPos = fDepth * vCamVec;
+  return ( cameraToWorldPos + g_WorldViewPos.xyz ); // Return world space position
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////////////////////////
+
+vtxOutWPOS DeferredRainVS(vtxInWPOS IN)
+{
+  vtxOutWPOS OUT = (vtxOutWPOS)0;
+
+  float4 vPos = IN.Position;
+
+  vPos.y = 1 -vPos.y;
+  OUT.HPosition = float4(vPos.xy*2-1, vPos.z, 1.0);
+  OUT.baseTC =  HPosToScreenTC(OUT.HPosition);
+  OUT.CamVec.xyz = IN.CamVec;
+
+  float4 vScreenPos = OUT.HPosition;;
+  vScreenPos.zw = 1;
+  
+  OUT.CamVec.xyz =  IN.CamVec.xyz;
+
+  return OUT;
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////////////////////////
+
+#if XENON 
+[reduceTempRegUsage(10)]
+#endif
+pixout DeferredRainPS( vtxOutWPOS IN )
+{
+  pixout OUT = (pixout) 0;
+#if PS3  
+  #pragma sce-cgc("-texformat default COMPRESSED_RGBA_S3TC_DXT5");
+#endif
+
+  /*half4 cScene = tex2D( sceneTargetSampler, IN.baseTC.xy); 
+#if	PS3 && %_RT_HDR_MODE
+	cScene = DecodeHDRBuffer( cScene );
+#endif*/
+	
+  // try to keep some rain detail in bright areas
+  //half fLum = saturate( (saturate(dot(cScene.xyz, 0.333))*0.75+0.25) );
+
+//  OUT.Color.xyz = cScene*saturate(g_RainVolumeMultipliers.xyz)*0.8;
+//  OUT.Color.xyz = cScene * g_RainVolumeMultipliers;
+
+  OUT.Color.a = g_RainVolumeMultipliers;
+
+  float fDepth = GetLinearDepth( sceneDepthMapSampler, IN.baseTC.xy );
+  
+  // Fran:
+  // - 0.0025f is roughly equivalent to 10m. It's better to pass this value through a constant and compute it on the CPU based on world space distance
+  // - Better solution is to do a hi-stencil pass to cut out sky and distant portions of the screen from processing
+  
+#if XENON   
+//  [branch]
+#endif
+//  if (fDepth < 0.0025f)		
+  {  
+		float3 vPosition = GetWorldPos( fDepth, IN.CamVec );
+		half4 vNormal = GetWorldSpaceNormals( sceneNormalsSampler, IN.baseTC.xy, false);
+		half3 vOrigNormal = vNormal;
+		half3 vEye = normalize( -(vPosition.xyz- g_WorldViewPos.xyz)  );
+
+		half OrigNdotE = saturate( dot(vOrigNormal.xyz, vEye.xyz) );
+
+		///////////////////////////////////////////////////////////////////////////////////////////////////////
+		// Volume attenuation
+
+		float3 vRainVolWS = ((g_WorldViewPos.xyz + g_RainVolumeParams.xyz) - (vPosition.xyz));  
+		half fAttenuation = saturate( 10 * GetAttenuation(vRainVolWS.xyz, g_RainVolumeParams.w) ); 
+		fAttenuation *= saturate(vPosition.z - (g_fWaterLevel.x  - 0.5));
+
+		//////////////////////////////////////////////////////////////////////////////////////////////////
+		// Input params
+
+		half fPuddlesBlendAmount = 0.5*saturate(vNormal.z);//IN.vBinormal.w;
+		half RainShiftTile = 3;
+		half PuddlesTile = 1;
+		float2 tcBase = vPosition.xy * PuddlesTile;
+
+		float4 tcShifting = 0;
+		tcShifting.xyz = vPosition * RainShiftTile;
+
+		// Output texture coordinates for rain variation
+		float4 tcVariation = tcShifting.xyxy * 0.01 * float4(0.5, 0.5, 2.0, 2.0) + float4(0.1, 0.1, 0.2, 0.2);
+
+		// Output texture coordinates for rain shifting, using diferent z offsets
+		tcShifting = tcShifting.xyzz * half4(0.4, 0.4, 0.2, 0.4) + float4(0, 0, g_RainAnimParams.yz);
+
+		//////////////////////////////////////////////////////////////////////////////////////////////////
+		// Horizontal rain using wave propagation  
+
+		half3 cWaves = GetBumpMap(rainWavesMap2, tcBase);
+		cWaves.xy += GetBumpMap(rainWavesMap, tcBase+ g_RainPuddleParams.xy*0.25 );
+		cWaves.xy = cWaves.xy - 1;
+		cWaves.z =1;
+
+		//half3 cWaves = GetNormalMap(rainWavesMap2, tcBase);
+		//cWaves.xy *= 0.5;
+		//cWaves.xy += GetNormalMap(rainWavesMap, tcBase+ g_RainPuddleParams.xy*0.25 )*0.5;
+		//cWaves.z =1;
+
+		vNormal.xy += cWaves.xyz*2*fPuddlesBlendAmount;
+	//  vNormal.xyz = normalize( vNormal.xyz );
+
+		//////////////////////////////////////////////////////////////////////////////////////////////////
+		// Vertical shifting rain layers
+
+		float3 tcRainShiftLow = tcShifting.xyz;
+		float3 tcRainShiftHi = tcShifting.xyw * float3(2.5, 2.5, 1);
+	  
+		float3 vRainShiftY = GetNormalMap( rainBumpShiftMap, tcRainShiftLow.yz);
+		vRainShiftY.xyz += GetNormalMap( rainBumpShiftMap, tcRainShiftHi.yz ).xyz;
+
+		float3 vRainShiftZ = GetNormalMap( rainBumpShiftMap, tcRainShiftLow.xz);
+		vRainShiftZ.xyz += GetNormalMap( rainBumpShiftMap, tcRainShiftHi.xz).xyz;;
+
+		// Blend normals
+		half2 vRainShiftBlend = abs( vNormal.xy );
+		half3 vRainShiftN = ( vRainShiftY * vRainShiftBlend.x + vRainShiftZ * vRainShiftBlend.y ); //opt: no normalize
+
+		half fShiftLerp = 0.5 - fPuddlesBlendAmount; // 2 inst
+		vNormal.xy += ( vRainShiftN.xyz ) * fShiftLerp;
+
+		vNormal.xyz = normalize( vNormal.xyz );
+
+		//////////////////////////////////////////////////////////////////////////////////////////////////
+		// Main shading
+
+		half NdotE = ( dot(vNormal.xyz, vEye.xyz) );
+		half OneMinusNdotE = saturate(1 - NdotE);
+		half fFresnel = OneMinusNdotE * OneMinusNdotE * 1.5 + 0.8; // Fran: only square once to save ALU, might need to tweak values
+		
+//		half fFresnel = pow(saturate(1-NdotE), 4)*1.5+0.8;
+		
+		fFresnel *= fAttenuation;
+
+		half3 vReflectionWS = (2.0 * NdotE * vNormal) - vEye.xyz;
+
+		// Cheap hacky reflections: fetch samples along vertical axis - blend reflection only for surfaces pointing up
+		half3 envMap =  tex2D( reflTargetSampler , IN.baseTC.xy + vNormal*0.1);
+		// Only show screenspace reflections on surfaces pointing up
+		envMap *= saturate(vNormal.z*2-1) * saturate(1-NdotE);;
+
+		// Add fake reflection for global reflection
+		half3 cDiffuse = saturate( dot(g_PS_SunLightDir.xyz, vNormal.xyz) )* g_PS_SunColor + 0.5*g_PS_SkyColor;// * g_PS_SunColor /** fShadowOcclMap*/ ;
+		envMap += cDiffuse * saturate(tex2D(rainEnvMap, vReflectionWS + g_RainAnimParams.w*0.4 ) * 2.0 - 1.0 ) * saturate( vNormal.z * 0.5 + 0.5 );//*2 ;// * (fPuddlesBlendAmount*0.75+0.25);
+		envMap *= fFresnel;
+
+		// Hack for GDC - for surfaces where rain doenst look good - if glossiness 0, attenuate reflectivity alot
+		envMap *= saturate( 0.025 + (vNormal.w-1.0/255) * 255);
+
+
+	//  OUT.Color.xyz *= saturate(1-fFresnel);
+		OUT.Color.xyz += envMap *saturate(fDepth*2000)* g_RainVolumeMultipliers.w;
+
+	}
+	
+#if PS3 && %_RT_HDR_MODE
+	OUT.Color = EncodeHDRBuffer( OUT.Color );
+#endif
+
+  return OUT;
+}
+
+//////////////////////////////// technique ////////////////
+
+technique General
+{
+  pass p0
+  {
+    VertexShader = compile vs_Auto DeferredRainVS();            
+    PixelShader = compile ps_Auto DeferredRainPS();
+    CullMode = None;        
+  }
+}
+
+/////////////////////// eof ///
