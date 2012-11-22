@@ -1,0 +1,51 @@
+#include "Common.cfi"
+#include "vertexLib.cfi"
+
+DIFFUSEMAP
+
+float Script : STANDARDSGLOBAL
+<
+  string Script =        
+				"Public;"
+				"ShaderType = General;"
+				"ShaderDrawType = General;"
+				"AfterHDRPostProcess;"
+				"ForceDrawLast;"
+>;
+
+half4 AmbientOpPB        : PB_AmbientOpacity;
+
+vert2FragGeneral
+DebugLightVS( app2vertGeneral IN )
+{
+  vert2FragGeneral OUT = (vert2FragGeneral) 0;
+
+	streamPos vertPassPos = (streamPos)0;
+  vs_shared_output(IN, OUT, vertPassPos, false);
+  
+  return OUT;
+}
+
+float4
+DebugLightPS( in vert2FragGeneral IN ) : COLOR
+{ 
+  float4 cColor = tex2D( diffuseMapSampler, IN.baseTC );
+  cColor.w *= AmbientOpPB.w;
+
+	return cColor;
+}
+
+technique General
+<
+  string Script =
+        "TechniqueZ=ZPass;"
+>
+{
+  pass p0
+  {     
+    VertexShader = compile vs_Auto DebugLightVS();
+    PixelShader = compile ps_Auto DebugLightPS();
+  }
+}
+
+#include "CommonZPass.cfi"

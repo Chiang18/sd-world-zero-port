@@ -1,0 +1,33 @@
+////////////////////////////////////////////////////////////////////////////
+//
+//  Crytek Engine Source File.
+//  Shader extension
+//  Copyright (C), Crytek Studios, 2001-2004.
+// -------------------------------------------------------------------------
+//  File name:   Scopes.ext
+//  Version:     v1.00
+//  Created:     21/06/2007 by Tiago Sousa
+//  Compilers:   
+//
+// -------------------------------------------------------------------------
+//  History:
+//
+////////////////////////////////////////////////////////////////////////////
+
+Version (1.00)
+
+Property
+{
+  Name = %REFLEX_SIGHT
+  Mask = 0x1
+  Property    (Reflex sight)
+  Description (Use diffuse for reflex sight)
+}
+
+Property
+{
+  Name = %REFLEX_SIGHT_NEW
+  Mask = 0x2
+  Property    (Reflex sight new)
+  Description (New reflex sight version - we keep old one for backward compatibility)
+}

@@ -1,0 +1,89 @@
+//--------------------------------------------------------------------------------------------------  		   
+// Common Deferred shadows functions
+//--------------------------------------------------------------------------------------------------
+
+#if D3D10
+Texture2D DefShadowSampler : register(t3);
+#endif
+
+float4 CalcShadowSpace(float4 HPos)
+{
+  float4 P0 = HPos;
+//RT_HW_PCF_COMPARE
+#if %_RT_POINT_LIGHT
+
+	#if D3D10
+	P0.xyz /= P0.w;
+	#else
+	P0.xy /= P0.w;
+	P0.z = P0.z * fOneDivFarDist.x;
+	#endif
+#else
+	P0.xy /= P0.w;
+
+	P0.z *= fOneDivFarDist.x;
+	//we do slope scale bias during shadowgen only
+	//make constant bias for sun
+	P0.z -= fDepthTestBias.x; 
+#endif
+  return P0;
+}
+
+half CalcShadow(float4 vShPos, float2 vNoisePos, int nChunk)
+{
+  float4 P0 = vShPos;
+
+//clamp depth in shadows space for all FP shadowmaps
+//comparison sampler doesn't do clamping internally for FP formats
+#if D3D10 || %_RT_SHADOW_MIXED_MAP_G16R16
+	P0.z = clamp(P0.z, 0.0f, 0.999999f);
+#endif
+
+//scale for noise projecton should be computed based on the size of shadow frustums(increase if it's bigger) 
+//and distance to viewer((decrease if it's father)) 
+#if %_RT_POINT_LIGHT 
+	//TOFIX: compute proper scale range for point LS noise
+	float2 NoiseP = P0.xy*20;
+#else
+	//reconstruct noise projection
+	float2 NoiseP = vNoisePos.xy;
+#endif
+
+	half fInShadow = 1;
+
+
+#if %_RT_VARIANCE_SM
+	//terrain shadows
+	fInShadow = GetVarianceShadow(varianceMapSampler0, P0.xyz);
+#elif %_RT_SHADOW_JITTERING
+  if (GetShadowQuality()!=QUALITY_LOW)
+  {
+    irregular_filter(depthMapSampler0, P0, NoiseP.xy, GetKernelSize(), fInShadow, nChunk);
+  }
+	else
+	{
+		//one-tap sampling
+		//shadow_sample(depthMapSampler0, P0, fInShadow);
+		#if !D3D10 && !%_RT_HW_PCF_COMPARE
+			fInShadow += fDepthShift.x;
+			fInShadow = (fInShadow > P0.z);
+		#endif
+	}
+#else 
+	//debug one-tap sampling
+	shadow_sample(depthMapSampler0, P0, fInShadow);
+	#if !D3D10 && !%_RT_HW_PCF_COMPARE
+		fInShadow += fDepthShift.x;
+		fInShadow = (fInShadow > P0.z);
+	#endif
+#endif
+
+
+#ifdef %_RT_LIGHT_TEX_PROJ
+ 	half3 vFilterColor = tex2D(projMapSampler, P0.xy).xyz;
+	half fProjectorColor = dot(vFilterColor,  half3(0.2, 0.7, 0.1));	
+	//fInShadow *= fProjectorColor;
+#endif
+
+  return fInShadow;
+}

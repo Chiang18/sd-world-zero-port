@@ -1,0 +1,73 @@
+////////////////////////////////////////////////////////////////////////////
+//
+//  Crytek Engine Source File.
+//  Shader extension
+//  Copyright (C), Crytek Studios, 2001-2004.
+// -------------------------------------------------------------------------
+//  File name:   Water.ext
+//  Version:     v1.00
+//  Created:     13/02/2005 by Tiago Sousa
+//  Compilers:   
+//  Description: Water extension used by the editor
+//               for automatic shader generation (based on "Water" shader template)
+//
+// -------------------------------------------------------------------------
+//  History:
+//
+////////////////////////////////////////////////////////////////////////////
+
+Version (1.00)
+
+Property
+{
+  Name = %BUMP_MAP
+  Mask = 0x1
+  Property    (Bump map)
+  Description (Use bump-map texture)
+  DependencySet = $TEX_Bump
+  DependencyReset = $TEX_Bump
+  Hidden
+}
+
+Property
+{
+  Name = %ENVIRONMENT_MAP
+  Mask = 0x4
+  Property    (Environment map)
+  Description (Use environment map as separate texture)
+  DependencySet = $TEX_EnvCM
+  DependencyReset = $TEX_EnvCM
+  Hidden
+}
+
+Property
+{
+  Name = %WATER_VOLUME
+  Mask = 0x10
+  Property    (Water Volume)
+  Description (Use shader in water volumes, like for example in river/indoor water rendering. Requires cube map)
+}
+
+Property
+{
+  Name = %SUN_SHINE
+  Mask = 0x20
+  Property    (Sunshine)
+  Description (Activate for water sunshine)
+}
+
+Property
+{
+  Name = %FAKE_CAMERA_MOVEMENT
+  Mask = 0x100
+  Property    (Fake camera movement)
+  Description (Activate fake camera movement for scenes in ocean)
+}
+
+Property
+{
+  Name = %NO_REFRACTION_BUMP
+  Mask = 0x200
+  Property    (No refraction bump)
+  Description (Disables refraction bump)
+}

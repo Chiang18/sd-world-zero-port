@@ -1,0 +1,217 @@
+
+// This is a direct port from CommonCausticsPass into a deferred pass - this will need some optimization
+
+#include "Common.cfi"
+#include "ShadeLib.cfi"
+#include "PostEffectsLib.cfi"
+
+float Script : STANDARDSGLOBAL
+<
+  string Script =
+           "NoPreview;"
+           "ShaderDrawType = Custom;"
+           "ShaderType = PostProcess;"
+>; 
+
+half4 CausticParams	: PB_CausticsParams < vsregister = VS_REG_PB_8; >;
+half4 CausticSmoothSunDir	: PB_CausticsSmoothSunDirection; 
+half4 g_fWaterLevel : PB_WaterLevel;
+float4  CausticsAnimGenParams = { PB_time 1.0, PB_time 0.5, PB_time 0.25, PB_time 0.125};
+
+sampler2D sceneDepthMapSampler = sampler_state
+{
+  Texture = $ZTarget;
+  MinFilter = POINT;
+  MagFilter = POINT;
+  MipFilter = POINT; 
+  AddressU = Clamp;
+  AddressV = Clamp;	
+};
+
+sampler2D sceneTargetSampler = sampler_state
+{
+  Texture = $SceneTarget;  
+  MinFilter = POINT;
+  MagFilter = POINT;
+  MipFilter = POINT;
+  AddressU = Clamp;
+  AddressV = Clamp;   
+  sRGBLookup = true; 
+};
+
+sampler2D wavesSampler = sampler_state
+{
+  Texture = textures/defaults/oceanwaves_ddn.dds;
+  MinFilter = LINEAR;
+  MagFilter = LINEAR;
+  MipFilter = LINEAR;
+  AddressU = Wrap;
+  AddressV = Wrap;	
+};
+
+sampler2D causticsSampler = sampler_state
+{
+  Texture = textures/defaults/caustics_sampler.dds;
+  MinFilter = LINEAR;
+  MagFilter = LINEAR;
+  MipFilter = NONE;
+  AddressU = Clamp;
+  AddressV = Clamp;	
+};
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////////////////////////
+
+float3 GetWorldPos( float fDepth, float3 vCamVec )
+{
+  float3 cameraToWorldPos = fDepth * vCamVec;
+  return ( cameraToWorldPos + PS_WorldViewPos.xyz ); // Return world space position
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////////////////////////
+
+vtxOutWPOS DeferredCasticsVS(vtxInWPOS IN)
+{
+  vtxOutWPOS OUT = (vtxOutWPOS)0;
+
+  float4 vPos = IN.Position;
+
+  vPos.y = 1 -vPos.y;
+  OUT.HPosition = float4(vPos.xy*2-1, vPos.z, 1.0);
+  OUT.baseTC =  HPosToScreenTC(OUT.HPosition);
+  OUT.CamVec.xyz = IN.CamVec;
+
+  float4 vScreenPos = OUT.HPosition;;
+  vScreenPos.zw = 1;
+  
+  OUT.CamVec.xyz =  IN.CamVec.xyz;
+
+  return OUT;
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////////////////////////
+
+pixout DeferredCasticsPS( vtxOutWPOS IN )
+{
+#if PS3
+  #pragma sce-cgc("-texformat default COMPRESSED_RGBA_S3TC_DXT5"); 
+#endif
+
+  pixout OUT = (pixout) 0;
+
+  float fDepth = GetLinearDepth( sceneDepthMapSampler, IN.baseTC.xy );
+  float3 vPosition = GetWorldPos( fDepth, IN.CamVec );
+	half4 vNormal = GetWorldSpaceNormals( sceneNormalsSampler, IN.baseTC.xy, false);
+	OUT.Color += (vPosition.xyzz + vNormal) * 0.0001h;
+
+  // Generate projection matrix based on sun direction  
+  half3 dirZ = -CausticSmoothSunDir; //float3(0,0.01,-0.7); //.xyz;
+  half3 up = float3(0,0,1);
+  half3 dirX = normalize( cross(up, dirZ) );
+  half3 dirY = normalize( cross(dirZ, dirX) );
+
+  half3x3 mLightView;
+  mLightView[0] = dirX.xyz;
+  mLightView[1] = dirY.xyz;
+  mLightView[2] = dirZ.xyz;
+
+  // Get uvs    
+  float3 vProj = mul(mLightView, vPosition.xyz);
+
+  //CausticAnimGenParams.w = 0;
+  // Output caustics procedural texture generation 
+	float4 waveTC = 0;
+  waveTC.xy =  vProj.xy * 2 * 0.01 * 0.012 + CausticsAnimGenParams.w * 0.06;
+  waveTC.wz =  vProj.xy * 2 * 0.01 * 0.01 + CausticsAnimGenParams.w * 0.05;
+
+	float4 causticTC0 = 0;
+  causticTC0.xy =  vProj.xy * 0.01 * 0.5 + CausticsAnimGenParams.w * 0.1;
+  causticTC0.wz =  vProj.yx * 0.01 * 0.5 - CausticsAnimGenParams.w * 0.11;  
+
+	float4 causticTC1 = 0;
+  causticTC1.xy =  vProj.xy * 0.01 * 2.0 + CausticsAnimGenParams.w * 0.1;
+  causticTC1.wz =  vProj.yx * 0.01 * 2.0 - CausticsAnimGenParams.w * 0.11;  
+  
+  // break movement, with random patterns
+  half2 wave = FetchNormalMap( wavesSampler, waveTC.xy).xy;                                                
+  wave.xy += FetchNormalMap( wavesSampler, waveTC.wz).xy;                                                 // 1 alu
+  
+  // put in normalized range (with constant scale)
+  wave.xy = wave.xy*0.04 - 0.04;                                                                    // 1 alu
+  
+  half3 causticMapR = 1.0;
+  causticMapR.xy = FetchNormalMap( wavesSampler, causticTC0.xy + wave.xy);     // 1 tex + 2 alu
+  causticMapR.xy += FetchNormalMap( wavesSampler, causticTC0.wz + wave.xy).xy;     // 1 tex + 3 alu
+  
+  half2 causticHighFreq = 0;
+  causticHighFreq = FetchNormalMap( wavesSampler, causticTC1.xy + wave.xy ).xy;   // 1 tex  + 1 alu
+  causticHighFreq += FetchNormalMap( wavesSampler, causticTC1.wz + wave.xy ).xy;   // 1 tex  + 2 alu
+
+  causticMapR.xy = (causticMapR.xy + causticHighFreq * 2.0 - 3.0);
+
+  causticMapR.xy = ( causticMapR.xy + vNormal.xy * 0.25) ;     // just perturb xy, saves about 5 alu
+//
+  // Get main vectors/coeficients	       
+  half3 normalVec = normalize( causticMapR );;       // 3 alu
+
+  half3 vSunTS = ( g_PS_SunLightDir.xyz );        // 3 alu
+
+	// height attenuation
+  half fAttenCaustics =  g_fWaterLevel.z - vPosition.z;
+  half fAtten =  fAttenCaustics;
+  fAttenCaustics = 1-exp(-fAttenCaustics * 0.2); // softer attenuation for caustics
+
+  half fDistToCam = length( PS_WorldViewPos.xyz - vPosition.xyz );                                 // 2 alu
+  fAtten = saturate(fAtten) * saturate( CausticParams.x /( 0.075 * fDistToCam * fDistToCam ) );     // todo:  pass attenuation factor per constant - maybe affected by fog params  
+
+  // about 10 alu
+  half2 vRefrR = refract( vSunTS.xyz, normalVec.xyz, 0.9 ).xy;                              // Displace refraction vectors to simulate color dispersion   
+  half2 vRefrG = vRefrR - normalVec.xy * 0.05; 
+  half2 vRefrB = vRefrR - normalVec.xy * 0.1;   
+
+  half3 cCaustic = half3( tex2D(causticsSampler, vRefrR.xy*0.5+0.5).x,
+                            tex2D(causticsSampler, vRefrG.xy*0.5+0.5).x,
+                            tex2D(causticsSampler, vRefrB.xy*0.5+0.5).x );
+
+  half3 cCausticOrig = cCaustic;  
+    
+  // Power-up caustic to make it sharper, and apply sun color                                       // 3 alu
+  cCaustic = pow( cCaustic, 16 );// * fHighlightAtten;	
+	//OUT.Color.xyz = saturate( dot(  normalVec.xyz, CausticSmoothSunDir.xyz ) ) * cCaustic * g_PS_SunColor * 0.5;     // 4 alu
+	cCaustic = saturate( dot(  normalVec.xyz, CausticSmoothSunDir.xyz ) ) * cCaustic * g_PS_SunColor * 0.5;     // 4 alu
+	
+	OUT.Color = (cCaustic.xyzz); //float4(1, 0, 0, 0) + frac(vPosition.xyz).xyzz;
+
+	OUT.Color.w =  saturate( dot(1 - cCausticOrig, 0.25 ));
+
+	OUT.Color.xyz *= CausticParams.y * fAttenCaustics;
+	OUT.Color *= fAtten;
+
+#if PS3
+  #if %_RT_HDR_MODE 
+    // Custom blending for PS3 (decode and blend)
+    half4 cDstRT = DecodeHDRBuffer( tex2D( HDRTargetEncodedSampler, IN.baseTC.xy ) ); 
+    OUT.Color += cDstRT * (1 - OUT.Color.w );
+
+    OUT.Color = EncodeHDRBuffer( OUT.Color );
+  #endif
+#endif
+
+  return OUT;
+}
+
+//////////////////////////////// technique ////////////////
+
+technique General
+{
+  pass p0
+  {
+    VertexShader = compile vs_Auto DeferredCasticsVS();            
+    PixelShader = compile ps_Auto DeferredCasticsPS();
+    CullMode = None;        
+  }
+}
+
+/////////////////////// eof ///

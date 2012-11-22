@@ -1,0 +1,132 @@
+
+
+#include "Common.cfi"
+#include "ShadeLib.cfi"
+#include "ModificatorVT.cfi"
+#include "ModificatorTC.cfi"
+#include "PostEffectsLib.cfi"
+
+// Shader global descriptions
+float Script : STANDARDSGLOBAL
+<
+  string Script =
+           "NoPreview;"
+           "LocalConstants;"
+           "ShaderDrawType = Custom;"
+           "ShaderType = PostProcess;"
+>;
+
+struct app2Vert
+{
+  IN_P
+
+  float4 baseTC   : TEXCOORDN; 
+
+  IN_C0
+
+  //IN_TANG_STREAM
+
+};
+
+struct vert2Frag
+{  
+  OUT_P
+  float4 baseTC     : TEXCOORDN;
+	float4 screenProj : TEXCOORDN;
+};
+
+
+float4x4 mViewProj < vsregister = c0; >;
+float4 HudTexCoordParams < vsregister = c4; >;  // uv adjustment to match hud viewport
+
+float4 HudParams < psregister = c0; >;
+float4 HudEffectParams < psregister = c1; >;  // x= dof amount, y= glow amount, z= motion blur amount, w = unused
+
+///////////////// vertex shaders //////////////////
+
+vert2Frag HUD3D_VS(app2Vert IN)
+{
+  vert2Frag OUT = (vert2Frag) 0;
+
+	OUT.HPosition = mul(mViewProj, float4(IN.Position.xyz, 1));
+	OUT.baseTC = IN.baseTC; 
+
+	// adjust uvs to match real hud view port (instead of render target size)
+	OUT.baseTC.xy = (OUT.baseTC.xy )* HudTexCoordParams.xy;// - HudTexCoordParams.zw;
+
+  OUT.screenProj = HPosToScreenTC(OUT.HPosition);
+
+  return OUT;
+}
+
+///////////////// pixel shader //////////////////
+
+pixout Downsample2x2_PS(vert2Frag IN)
+{
+  pixout OUT = (pixout) 1;  
+
+	float2 tcProj = IN.baseTC.xy;//IN.screenProj.xy / IN.screenProj.w;
+
+	// todo: rotated grid
+	half4 c0 = tex2D(_tex0, tcProj - float2(ScrSize.z, 0) * 2); 
+	half4 c1 = tex2D(_tex0, tcProj - float2(0, ScrSize.w) * 2);
+	half4 c2 = tex2D(_tex0, tcProj + float2(ScrSize.z, 0) * 2);
+	half4 c3 = tex2D(_tex0, tcProj + float2(0, ScrSize.w) * 2);
+
+	OUT.Color = (c0 + c1 + c2 + c3) * 0.25h;
+	OUT.Color.w = 0;
+  
+  return OUT;  
+}
+
+
+pixout HUD3D_PS(vert2Frag IN)
+{
+  pixout OUT = (pixout) 1;  
+	
+	float2 tcProj = IN.screenProj.xy / IN.screenProj.w;
+
+	half4 cDiffuseDownsampled  = tex2D(_tex1, tcProj);// - float2(1.0h / ScrSize.x, 0)*2 );
+	//cDiffuseDownsampled.xz= tex2D(_tex1, (tcProj - 0.5)*(1 + (1 + HudEffectParams.w + HudEffectParams.x * 0.5)*0.0035 ) + 0.5).xz;
+
+	half4 cDiffuse = tex2D(_tex0, IN.baseTC);
+	//cDiffuse.xz = tex2D(_tex0, (IN.baseTC -0.5) * (1 + (1 + HudEffectParams.w + HudEffectParams.x * 0.5)*0.0015) +0.5).xz;
+	
+	OUT.Color = lerp(cDiffuse + cDiffuse* HudEffectParams.y, cDiffuseDownsampled , HudEffectParams.x );  // simple 2d dof
+	OUT.Color.xyz += cDiffuseDownsampled * HudEffectParams.y * 2 *(1 - OUT.Color.xyz); // add glow
+	OUT.Color *= HudParams;
+
+  return OUT;  
+}
+  
+//////////////////////////////// techniques ////////////////
+
+technique Downsample2x2
+{
+  pass p0
+  {
+    VertexShader = compile vs_Auto HUD3D_VS() HUD3DVS;
+    PixelShader = compile ps_Auto Downsample2x2_PS() HUD3DPS;
+    
+    ZEnable = true;
+    ZWriteEnable = false;
+    ZFunc = LEqual;
+    CullMode = Back;
+  }     
+}
+
+technique General
+{
+  pass p0
+  {
+    VertexShader = compile vs_Auto HUD3D_VS() HUD3DVS;
+    PixelShader = compile ps_Auto HUD3D_PS() HUD3DPS;
+    
+    ZEnable = true;
+    ZWriteEnable = false;
+    ZFunc = LEqual;
+    CullMode = Back;
+  }     
+}
+
+/////////////////////// eof ///

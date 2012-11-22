@@ -1,0 +1,807 @@
+////////////////////////////////////////////////////////////////////////////
+//
+//  Crytek Engine header File.
+//  Shader extension
+//  Copyright (C), Crytek Studios, 2001-2010.
+// -------------------------------------------------------------------------
+//  File name:   IrradianceVolume.cfi
+//  Version:     v1.00
+//  Created:     27/02/2010 by Anton Kaplanyan
+//  Compilers:   
+//  Description: Volumetric irradiance propagation framework
+//
+// -------------------------------------------------------------------------
+////////////////////////////////////////////////////////////////////////////
+
+
+#if PS3 || XENON
+	#define PRECISION_AMP (1.h)
+#endif
+
+#if !PS3
+	#define FLOAT float
+	#define FLOAT2 float2
+	#define FLOAT3 float3
+	#define FLOAT4 float4
+	#define FLOAT4x4 float4x4
+#else
+	#define FLOAT half
+	#define FLOAT2 half2
+	#define FLOAT3 half3
+	#define FLOAT4 half4
+	#define FLOAT4x4 half4x4
+#endif
+
+#if PS3
+	#define NULL_COLOR {0.5, 0.5, 0.5, 0.5}
+#else
+	#define NULL_COLOR {0, 0, 0, 0}
+#endif
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
+// SH framework
+
+struct SHCoeffs
+{
+	half4 c : COLOR0;
+};
+
+struct SHSpectralCoeffs
+{
+	half4 r : COLOR0;
+	half4 g : COLOR1;
+	half4 b : COLOR2;
+};
+
+half3 SHDot(const in SHSpectralCoeffs a, const in SHCoeffs b)
+{
+	half3 res;
+	res.r = dot(a.r, b.c);
+	res.g = dot(a.g, b.c);
+	res.b = dot(a.b, b.c);
+	return res;
+}
+
+SHSpectralCoeffs SHAdd(const in SHSpectralCoeffs a, const in SHSpectralCoeffs b)
+{
+	SHSpectralCoeffs res;
+	res.r = a.r + b.r;
+	res.g = a.g + b.g;
+	res.b = a.b + b.b;
+	return res;
+}
+
+SHSpectralCoeffs SHMul(const in SHCoeffs a, const in half3 color)
+{
+	SHSpectralCoeffs res;
+	res.r = a.c * color.r;
+	res.g = a.c * color.g;
+	res.b = a.c * color.b;
+	return res;
+}
+
+SHCoeffs SHLerp(const in SHCoeffs a, const in SHCoeffs b, const in half t)
+{
+	SHCoeffs res;
+	res.c = lerp(a.c, b.c, t);
+	return res;
+}
+
+SHSpectralCoeffs SHLerp(const in SHSpectralCoeffs a, const in SHSpectralCoeffs b, const in half t)
+{
+	SHSpectralCoeffs res;
+	res.r = lerp(a.r, b.r, t);
+	res.g = lerp(a.g, b.g, t);
+	res.b = lerp(a.b, b.b, t);
+	return res;
+}
+
+SHCoeffs SHSampleConst(const in float intensity)
+{
+	SHCoeffs res;
+	res.c = half4(intensity, 0, 0, 0);
+	return res;
+}
+
+half2 GenerateZHSpericalLightCoeffs(half angle)
+{
+	half2 vZHCoeffs;
+	vZHCoeffs.x = sqrt(PI)*(1.h - cos(angle));
+	vZHCoeffs.y = sqrt(3.h*PI/4.h)*(sin(angle) * sin(angle));
+	return vZHCoeffs;
+}
+
+SHCoeffs Rotate(half3 vcDir, half2 vZHCoeffs)
+{
+	SHCoeffs vResult;
+
+	half2 theta12_cs;
+	if(dot(vcDir.xy, vcDir.xy) > 0.0001f)
+		theta12_cs.xy = normalize(vcDir.xy);
+	else
+		theta12_cs.xy = 0;
+
+	half2 phi12_cs;
+	phi12_cs.y = vcDir.z;
+	phi12_cs.x = sqrt(1.h-vcDir.z*vcDir.z);
+
+	vResult.c.x = vZHCoeffs.x;
+
+	vResult.c.y = vZHCoeffs.y*phi12_cs.x*theta12_cs.y;
+	vResult.c.z = -vZHCoeffs.y*phi12_cs.y;
+	vResult.c.w = vZHCoeffs.y*phi12_cs.x*theta12_cs.x;
+
+  return vResult;
+}
+
+SHCoeffs GenerateSHCoeffs(half3 vcDir, half angle)
+{
+	half2 vZHCoeffs = GenerateZHSpericalLightCoeffs(angle);
+	SHCoeffs vResult = Rotate(-vcDir, vZHCoeffs);
+	return vResult;
+}
+
+SHSpectralCoeffs SHCSub(const in SHSpectralCoeffs a, const in SHSpectralCoeffs b)
+{
+	SHSpectralCoeffs res;
+	res.r = a.r - b.r;
+	res.g = a.g - b.g;
+	res.b = a.b - b.b;
+	return res;
+}
+
+SHSpectralCoeffs SHCMul(const in SHSpectralCoeffs a, const in half3 color)
+{
+	SHSpectralCoeffs res;
+	res.r = a.r * color.r;
+	res.g = a.g * color.g;
+	res.b = a.b * color.b;
+	return res;
+}
+
+SHSpectralCoeffs SHMulSpectral(const in SHCoeffs a, const in half3 color)
+{
+	SHSpectralCoeffs res;
+	res.r = a.c * color.r;
+	res.g = a.c * color.g;
+	res.b = a.c * color.b;
+	return res;
+}
+
+half3 SHCDot(const in SHSpectralCoeffs a, const in SHSpectralCoeffs b)
+{
+	half3 res;
+	res.r = dot(a.r, b.r);
+	res.g = dot(a.g, b.g);
+	res.b = dot(a.b, b.b);
+	return res;
+}
+
+#if PS3 || XENON
+	#define EPS_THRESHOLD (0.05h)
+#else
+	#define EPS_THRESHOLD (0.05f)
+#endif
+
+void SHCNormalizeBands(inout SHSpectralCoeffs res)
+{
+	// extract direction
+	half lr = dot(res.r.gba, res.r.gba);
+	res.r.gba /= max(EPS_THRESHOLD, sqrt(lr));
+	half lg = dot(res.g.gba, res.g.gba);
+	res.g.gba /= max(EPS_THRESHOLD, sqrt(lg));
+	half lb = dot(res.b.gba, res.b.gba);
+	res.b.gba /= max(EPS_THRESHOLD, sqrt(lb));
+}
+
+SHSpectralCoeffs SHCNormalizeDir(in SHSpectralCoeffs res)
+{
+	SHCNormalizeBands(res);
+
+	static const half c = 0.282094792h;	//	1.f / sqrt(4.f * 3.141592652f))
+	static const half k = 0.488602512h;	//	sqrt(3.f / (4.f * 3.141592652f))
+
+	res.r.gba *= k;
+	res.g.gba *= k;
+	res.b.gba *= k;
+
+	res.r.r = c;
+	res.g.r = c;
+	res.b.r = c;
+
+	return res;
+}
+
+SHSpectralCoeffs SHCNormalizeCone90(in SHSpectralCoeffs res)
+{
+	SHCNormalizeBands(res);
+
+	static const half c = 0.146447h;	//	1/2 (1 - 1/Sqrt[2])
+	static const half k = 0.375h;			//	3 / 8
+
+	res.r.gba *= k;
+	res.g.gba *= k;
+	res.b.gba *= k;
+
+	res.r.r = c;
+	res.g.r = c;
+	res.b.r = c;
+
+	return res;
+}
+
+SHSpectralCoeffs SHCNormalizeCosine(in SHSpectralCoeffs res)
+{
+	SHCNormalizeBands(res);
+
+	static const half c = .25h;	//	1 / 4
+	static const half k = 0.5h;			//	1 / 2
+
+	res.r.gba *= k;
+	res.g.gba *= k;
+	res.b.gba *= k;
+
+	res.r.r = c;
+	res.g.r = c;
+	res.b.r = c;
+
+	return res;
+}
+
+SHSpectralCoeffs SHCNormalize(in SHSpectralCoeffs res)
+{
+	SHCNormalizeBands(res);
+	res.r.r = 1.0;
+	res.g.r = 1.0;
+	res.b.r = 1.0;
+	return res;
+}
+
+half3 SHExtractDir(in half4 res)
+{
+	return half3(-res.w, -res.y, res.z);
+}
+
+half3 SHExtractNormalizedDir(in half4 res)
+{
+	half l = dot(res.yzw, res.yzw);
+	return l > 0.0001h ? normalize(SHExtractDir(res)) : 0.h;
+}
+
+SHCoeffs GetSHDir(in half3 dir, bool norm)
+{
+	static const half c = 0.282094792h;	//	1.f / sqrt(4.f * 3.141592652f))
+	static const half k = 0.488602512h;	//	sqrt(3.f / (4.f * 3.141592652f))
+	if(norm)
+		dir = normalize(dir);
+	SHCoeffs ret;
+	ret.c.x = c;
+	ret.c.yzw = half3(-k, k, -k) * dir.yzx;
+	return ret;
+}
+
+SHCoeffs SHProjectCone(in half3 vcDir, half angle)
+{
+	static const half2 vZHCoeffs = half2(.5h * (1.h - cos(angle)), 0.75h * sin(angle) * sin(angle));	// 1/2 (1 - Cos[\[Alpha]]),   3/4 Sin[\[Alpha]]^2
+	SHCoeffs ret;
+	ret.c = half4(vZHCoeffs.x, vZHCoeffs.yyy * half3(-vcDir.y, vcDir.z, -vcDir.x));
+	return ret;
+}
+
+SHCoeffs SHCone90Degree(in half3 vcDir)
+{
+	static const half2 vZHCoeffs = half2(0.146447h, 0.375h); //// ( 1/2 (1 - 1/Sqrt[2]),  3 / 8 )
+	SHCoeffs ret;
+	ret.c = half4(vZHCoeffs.x, vZHCoeffs.yyy * half3(-vcDir.y, vcDir.z, -vcDir.x));
+	return ret;
+}
+
+SHCoeffs SHCone60Degree(in half3 vcDir)
+{
+	static const half2 vZHCoeffs = half2(0.0669873h, 0.1875h); //// ( 1/2 (1 - Sqrt[3]/2),  3 / 16 )
+	SHCoeffs ret;
+	ret.c = half4(vZHCoeffs.x, vZHCoeffs.yyy * half3(-vcDir.y, vcDir.z, -vcDir.x));
+	return ret;
+}
+
+SHCoeffs GetSHCosine(in half3 dir, bool norm)
+{
+	static const half c = 0.25h;	//1.77245385h;	// sqrt( PI )								//
+	static const half k = 0.5h;		//1.1816359h;		// sqrt( 4.0f * PI ) / 3.0f	//
+
+	if(norm)
+		dir = normalize(dir);
+
+	SHCoeffs ret;
+	ret.c.x = c; 
+	ret.c.yzw = half3(-k, k, -k) * dir.yzx;
+
+	return ret;
+}
+
+void SHPack(inout SHSpectralCoeffs coeffs)
+{
+#if PS3 || XENON
+	coeffs = SHCMul(coeffs, PRECISION_AMP);
+#endif
+
+#if PS3
+	coeffs.r = clamp(coeffs.r, -1.h, 1.h);
+	coeffs.g = clamp(coeffs.g, -1.h, 1.h);
+	coeffs.b = clamp(coeffs.b, -1.h, 1.h);
+	coeffs.r = coeffs.r * .5h + 127.h / 255.h;
+	coeffs.g = coeffs.g * .5h + 127.h / 255.h;
+	coeffs.b = coeffs.b * .5h + 127.h / 255.h;
+#endif
+}
+
+void SHPackAddBlend(inout SHSpectralCoeffs coeffs)
+{
+#if PS3 || XENON
+	coeffs = SHCMul(coeffs, PRECISION_AMP);
+#endif
+
+#if PS3
+	coeffs.r = clamp(coeffs.r, -1.h, 1.h);
+	coeffs.g = clamp(coeffs.g, -1.h, 1.h);
+	coeffs.b = clamp(coeffs.b, -1.h, 1.h);
+	coeffs.r = coeffs.r * .5h + half4(sign(coeffs.r) < 0);
+	coeffs.g = coeffs.g * .5h + half4(sign(coeffs.g) < 0);
+	coeffs.b = coeffs.b * .5h + half4(sign(coeffs.b) < 0);
+#endif
+}
+
+void SHUnpack(inout SHSpectralCoeffs coeffs)
+{
+#if PS3
+	coeffs.r = (coeffs.r - 127.h / 255.h) * 2.h;
+	coeffs.g = (coeffs.g - 127.h / 255.h) * 2.h;
+	coeffs.b = (coeffs.b - 127.h / 255.h) * 2.h;
+#endif
+
+#if PS3 || XENON
+	coeffs = SHCMul(coeffs, 1.h/PRECISION_AMP);
+#endif
+}
+
+half3 SHEnergy(in SHSpectralCoeffs c)
+{
+	half3 l = 0;
+	l.r = dot(abs(c.r.rgba), 1.h);
+	l.g = dot(abs(c.g.rgba), 1.h);
+	l.b = dot(abs(c.b.rgba), 1.h);
+	return l;
+}
+
+//////////////////////////////////////////////////////////////////////////////////////
+// Samplers
+//////////////////////////////////////////////////////////////////////////////////////
+
+sampler2D depthMapSamplerBorder = sampler_state
+{
+  Texture = $ZTarget;
+  MinFilter = POINT;
+  MagFilter = POINT;
+  MipFilter = NONE; 
+  AddressU = Border;
+  AddressV = Border;
+  BorderColor = {0, 0, 0, 0};
+	sRGBLookup = false;
+};
+
+sampler2D normalsMapSampler = sampler_state
+{
+  Texture = $SceneNormalsMap;
+  MinFilter = POINT;
+  MagFilter = POINT;
+  MipFilter = POINT; 
+  AddressU = Border;
+  AddressV = Border;
+  BorderColor = {0, 0, 0, 0};
+	sRGBLookup = false;
+};
+
+sampler2D irradVolRSampler = sampler_state
+{
+  Texture = $IrradVolumeRed;
+  MinFilter = LINEAR;
+  MagFilter = LINEAR;
+  MipFilter = NONE; 
+  AddressU = Border;
+  AddressV = Border;
+  BorderColor = NULL_COLOR;
+	sRGBLookup = false;
+};
+
+sampler3D irradVolRSampler3D = sampler_state
+{
+  Texture = $IrradVolumeRed;
+  MinFilter = LINEAR;
+  MagFilter = LINEAR;
+  MipFilter = NONE; 
+  AddressU = Border;
+  AddressV = Border;
+  AddressW = Border;
+  BorderColor = NULL_COLOR;
+	sRGBLookup = false;
+};
+
+sampler2D irradVolRSamplerPoint = sampler_state
+{
+  Texture = $IrradVolumeRed;
+  MinFilter = POINT;
+  MagFilter = POINT;
+  MipFilter = NONE; 
+  AddressU = Border;
+  AddressV = Border;
+  BorderColor = NULL_COLOR;
+	sRGBLookup = false;
+};
+
+sampler2D irradVolGSampler = sampler_state
+{
+  Texture = $IrradVolumeGreen;
+  MinFilter = LINEAR;
+  MagFilter = LINEAR;
+  MipFilter = NONE; 
+  AddressU = Border;
+  AddressV = Border;
+  BorderColor = NULL_COLOR;
+	sRGBLookup = false;
+};
+
+sampler3D irradVolGSampler3D = sampler_state
+{
+  Texture = $IrradVolumeGreen;
+  MinFilter = LINEAR;
+  MagFilter = LINEAR;
+  MipFilter = NONE; 
+  AddressU = Border;
+  AddressV = Border;
+  AddressW = Border;
+  BorderColor = NULL_COLOR;
+	sRGBLookup = false;
+};
+
+sampler2D irradVolGSamplerPoint = sampler_state
+{
+  Texture = $IrradVolumeGreen;
+  MinFilter = POINT;
+  MagFilter = POINT;
+  MipFilter = NONE; 
+  AddressU = Border;
+  AddressV = Border;
+  BorderColor = NULL_COLOR;
+	sRGBLookup = false;
+};
+
+sampler2D irradVolBSampler = sampler_state
+{
+  Texture = $IrradVolumeBlue;
+  MinFilter = LINEAR;
+  MagFilter = LINEAR;
+  MipFilter = NONE; 
+  AddressU = Border;
+  AddressV = Border;
+  BorderColor = NULL_COLOR;
+	sRGBLookup = false;
+};
+
+sampler3D irradVolBSampler3D = sampler_state
+{
+  Texture = $IrradVolumeBlue;
+  MinFilter = LINEAR;
+  MagFilter = LINEAR;
+  MipFilter = NONE; 
+  AddressU = Border;
+  AddressV = Border;
+  AddressW = Border;
+  BorderColor = NULL_COLOR;
+	sRGBLookup = false;
+};
+
+sampler2D irradVolBSamplerPoint = sampler_state
+{
+  Texture = $IrradVolumeBlue;
+  MinFilter = POINT;
+  MagFilter = POINT;
+  MipFilter = NONE; 
+  AddressU = Border;
+  AddressV = Border;
+  BorderColor = NULL_COLOR;
+	sRGBLookup = false;
+};
+
+sampler2D irradVolColorSampler = sampler_state
+{
+  Texture = $IrradVolumeColor;
+  MinFilter = POINT;
+  MagFilter = POINT;
+  MipFilter = NONE; 
+  AddressU = Clamp;
+  AddressV = Clamp;
+};
+
+sampler2D irradVolNormalSampler = sampler_state
+{
+  Texture = $IrradVolumeNormal;
+  MinFilter = POINT;
+  MagFilter = POINT;
+  MipFilter = NONE; 
+  AddressU = Clamp;
+  AddressV = Clamp;
+	sRGBLookup = false;
+};
+
+sampler2D irradVolDepthSampler = sampler_state
+{
+  Texture = $IrradVolumeDepth;
+  MinFilter = POINT;
+  MagFilter = POINT;
+  MipFilter = NONE; 
+  AddressU = Clamp;
+  AddressV = Clamp;
+	sRGBLookup = false;
+};
+
+//////////////////////////////////////////////////////////////////////////////////////
+// Constants
+//////////////////////////////////////////////////////////////////////////////////////
+
+float4x4 	g_invGridMatrix 	< vsregister = c0; >;
+float4x4 	g_gridMatrix			< vsregister = c4; psregister = c0; >;
+float4x4	g_mCamera					< vsregister = c8; >;
+float4		g_WorldViewPos  	: PB_CameraPos < vsregister = c9; psregister = c4; >;
+FLOAT4		g_gridSize				< vsregister = c10; psregister = c5; >;
+FLOAT4		g_invGridSize			< vsregister = c11; psregister = c6; >;
+
+//////////////////////////////////////////////////////////////////////////////////////
+// Grid space framework
+//////////////////////////////////////////////////////////////////////////////////////
+
+SHSpectralCoeffs SHSampleValue(const in half2 gridCoord)
+{
+	SHSpectralCoeffs c;
+	c.r = tex2D(irradVolRSampler, gridCoord);
+	c.g = tex2D(irradVolGSampler, gridCoord);
+	c.b = tex2D(irradVolBSampler, gridCoord);
+	SHUnpack(c);
+	return c;
+}
+
+SHSpectralCoeffs SHSampleValueNoFiltering(const in half2 gridCoord)
+{
+	SHSpectralCoeffs c;
+	c.r = tex2D(irradVolRSamplerPoint, gridCoord);
+	c.g = tex2D(irradVolGSamplerPoint, gridCoord);
+	c.b = tex2D(irradVolBSamplerPoint, gridCoord);
+	SHUnpack(c);
+	return c;
+}
+
+float3 IVWorldPos(const in half3 gridPos)
+{
+	return mul((float3x4)g_invGridMatrix, float4(gridPos, 1));
+}
+
+half3 IVWorldDir(const in half3 vDirection)
+{
+	return mul((half3x3)g_invGridMatrix, vDirection);
+}
+
+half3 IVGridPos(const in float3 worldPos)
+{
+	return mul((float3x4)g_gridMatrix, float4(worldPos, 1));
+}
+
+half3 IVGridDir(const in half3 vDirection)
+{
+	return mul((half3x3)g_gridMatrix, vDirection);
+}
+
+float4 IVScreenPos(const in float3 gridPos)
+{
+	float2 tiledPos = gridPos.xy;
+	tiledPos.x = tiledPos.x * g_invGridSize.z + gridPos.z;
+	tiledPos = tiledPos * float2(2, -2) - float2(1, -1);		// to [-1;1]
+#if !D3D10 && !PS3	// half-texel offset for DX9 rasterizer
+	tiledPos += float2(-1.h, 1.h) * float2(g_invGridSize.x*g_invGridSize.z, g_invGridSize.y);
+#endif
+	return float4(tiledPos, 0, 1);
+}
+
+half2 IVGetTiledTexcoord(const in half3 gridPos)
+{
+	half2 texCoord = gridPos.xy;
+	texCoord.x *= g_invGridSize.z;
+	texCoord.x += gridPos.z;
+	return texCoord;
+}
+
+half2 IVGetTiledTexcoordWithOffset(const in half3 gridPos, const in half3 nOffset)
+{
+	return IVGetTiledTexcoord(gridPos + nOffset * g_invGridSize.xyz);
+}
+
+half2 IVTiledTexCoordAndInterpolant(const in half3 gridPos, out half zt)
+{
+	const float zq = floor(gridPos.z * g_gridSize.z) * g_invGridSize.z;
+	zt = (gridPos.z - zq) * g_gridSize.z;
+	return IVGetTiledTexcoord(half3(gridPos.xy, zq));
+}
+
+bool IsPointInGrid(const in half3 gridPos)
+{
+	const float3 diffLength = (float3)gridPos - saturate((float3)gridPos);
+	return dot(diffLength, diffLength) < 0.0000001f;
+}
+
+void IVClipGridPos(const in half3 gridPos, bool bTexCenterBoundaries)
+{
+	half3 check = half3(.5h, .5h, .5h) - abs(gridPos - half3(.5h, .5h, .5h));
+	if(bTexCenterBoundaries)
+		check -= g_invGridSize.xyz * 0.5h;
+#if !PS3
+	clip(check);
+#else	// work-around for CG compiler (awesome stuff)
+	clip(check.x);
+	clip(check.y);
+	clip(check.z);
+#endif
+}
+
+//////////////////////////////////////////////////////////////////////////////////////
+// Deferred apply framework
+//////////////////////////////////////////////////////////////////////////////////////
+FLOAT4		g_gridSpaceCamPos	< psregister = c21; >;
+
+struct IVApplyPsIn
+{
+	float4 position 	: POSITION;
+	float3 screenPos 	: TEXCOORD0;
+	half3 GridCamVec 	: TEXCOORD1;
+#if !PS3 && !XENON
+	half3 CamVec 			: TEXCOORD2;
+#endif
+};
+
+SHSpectralCoeffs SHSampleValueTrilinear(const in half3 gridCoord)
+{
+#if %_RT_SAMPLE2 // volume texture
+	SHSpectralCoeffs c;
+	c.r = tex3D(irradVolRSampler3D, gridCoord);
+	c.g = tex3D(irradVolGSampler3D, gridCoord);
+	c.b = tex3D(irradVolBSampler3D, gridCoord);
+	SHUnpack(c);
+	return c;
+#else
+	half zt;	// SH grid look-up + trilinear interpolation for 3D grid
+	const half2 roundedGridCoord = IVTiledTexCoordAndInterpolant(gridCoord, zt);
+	const SHSpectralCoeffs coeffs0 = SHSampleValue(roundedGridCoord);
+	const SHSpectralCoeffs coeffs1 = SHSampleValue(roundedGridCoord + IVGetTiledTexcoord(half3(0, 0, g_invGridSize.z)));
+	return SHLerp(coeffs0, coeffs1, zt);
+#endif
+}
+
+SHSpectralCoeffs SHSampleValueBilateral(const in half3 gridCoord, const in half3 vNormal)
+{
+	SHSpectralCoeffs cPoint = SHSampleValueTrilinear(gridCoord);
+	// for PC version use aniso difference-based dumpening
+	half3 vGridSpaceNormal = normalize(IVGridDir(vNormal)) * g_invGridSize.xyz * 0.5h;
+	SHSpectralCoeffs cDir = SHSampleValueTrilinear(gridCoord + vGridSpaceNormal);
+	SHSpectralCoeffs cGrad = SHCSub(cDir, cPoint);
+	half3 vAtten = saturate(SHCDot(SHCNormalize(cPoint), SHCNormalize(cGrad)));
+	vAtten = max(vAtten.r, max(vAtten.g, vAtten.b));
+	return SHCMul(cPoint, vAtten);//cPoint;//
+}
+
+half3 GetPosFromDepth( const in sampler2D smpDepth, const in half2 tc,
+												const in half3 vCamVec, const in float3 vCamPos )
+{
+  const float fDepth = GetLinearDepth( smpDepth, tc );
+  return fDepth * vCamVec + vCamPos; // Return position
+}
+
+half3 GetDifuseIrradiance(const in IVApplyPsIn In, out half4 normal, out half3 gridPos)
+{
+	// get world space pos
+	gridPos = GetPosFromDepth(depthMapSamplerBorder, In.screenPos.xy, In.GridCamVec, g_gridSpaceCamPos.xyz);
+#if !%_RT_SAMPLE2// for volume texture border clipping
+	IVClipGridPos(gridPos, true);
+#endif
+  normal = GetWorldSpaceNormals(normalsMapSampler, In.screenPos.xy, false);
+
+	// SH grid look-up + tirilinear interpolation for 3D grid
+#if %_RT_SAMPLE1 && !XENON && !PS3 // sticked to camera
+	SHSpectralCoeffs coeffs = SHSampleValueBilateral(gridPos, normal.xyz);	// bilateral upsampling for GI
+#else
+	SHSpectralCoeffs coeffs = SHSampleValueTrilinear(gridPos);
+#endif
+	// calc final SH dot product
+#if !PS3 && !XENON
+	SHCoeffs normalCoeffs = GetSHDir(-normal.xyz, true);
+#else
+	SHCoeffs normalCoeffs = GetSHDir(-normal.xyz, false);
+#endif
+	half3 result = SHDot(coeffs, normalCoeffs);
+#if !PS3 && !XENON
+	result = max(0, result);
+#else
+	result = saturate(result);
+#endif
+	return result;
+}
+
+half3 DEBUGGetIlluminationEnergy(inout IVApplyPsIn In)
+{
+	half3 gridPixelPos = GetPosFromDepth(depthMapSamplerBorder, In.screenPos.xy, In.GridCamVec, g_gridSpaceCamPos.xyz);
+
+	// calc irradiance energy in this direction
+	half3 energy = 0;
+#define NUM_DEBUG_TRAVERSE_SAMPLES 32
+	half3 vcGridSpaceRayStep = normalize(gridPixelPos - g_gridSpaceCamPos.xyz) * g_invGridSize.xyz;
+	for(half k=0;k<NUM_DEBUG_TRAVERSE_SAMPLES;k++)
+	{
+		half3 stepGridPos = g_gridSpaceCamPos.xyz + vcGridSpaceRayStep * k;				// Grid space position
+		SHSpectralCoeffs specCoeffs = SHSampleValueTrilinear(stepGridPos);		// sampled value
+		if(IsPointInGrid(stepGridPos))
+		{
+			half t = saturate(length(gridPixelPos - g_gridSpaceCamPos.xyz) - length(stepGridPos - g_gridSpaceCamPos.xyz));
+			#if %_RT_SAMPLE1 // sticked to camera
+				half3 worldPos = IVWorldPos(stepGridPos);
+				t *= saturate(distance((half3)g_gridCenter.xyz, worldPos) * (half)g_vAttenuation.x + (half)g_vAttenuation.y);
+			#endif
+			energy += SHEnergy(specCoeffs) * t;															// collect irradiance along eye ray
+		}
+	}
+	return energy / (NUM_DEBUG_TRAVERSE_SAMPLES / 2.h);
+}
+
+half3 GetSpecularIrradiance(const in IVApplyPsIn In, const in half4 normal, const in half3 gridPos)
+{
+#define STEP_DISTANCE 1.h
+#define SPEC_AMP 5.h
+#define SPEC_NUM_STEPS 3
+
+	// calc specular component
+	half3 specular = 0;
+
+	// specular is disabled on consoles
+#if !PS3 && !XENON
+	const float3 worldPos = GetPosFromDepth( depthMapSamplerBorder, In.screenPos.xy, In.CamVec, g_WorldViewPos.xyz );
+	const half3 vcReflectedEye = normalize(reflect(half3(worldPos - g_WorldViewPos.xyz), normal.xyz));
+	const SHCoeffs dirCoeffs = GetSHDir(-vcReflectedEye, false);
+
+	const half specPower = normal.a*255.h;
+
+	const half3 vcReflectedRayStepOffsetGridSpace = IVGridDir(vcReflectedEye * STEP_DISTANCE) * (specPower / 16.h);
+	// TODO: make proper steps and optimize
+	for(half k=.1;k<SPEC_NUM_STEPS;k++)
+	{
+		const half3 stepOffset = vcReflectedRayStepOffsetGridSpace * k;											// calc next step's offset
+		const half3 stepGridPos = gridPos + stepOffset;																			// Grid space position
+		if(IsPointInGrid(stepGridPos))
+		{
+			const SHSpectralCoeffs specCoeffs = SHSampleValueTrilinear(stepGridPos);						// sampled value
+			const half att = saturate(SPEC_AMP / (k * k * STEP_DISTANCE * STEP_DISTANCE));			// distant atenuation
+			const half3 irrSample = SHDot(specCoeffs, dirCoeffs) * att;													// collect specular along reflected eye ray
+			specular += max(half3(0, 0, 0), irrSample);
+		}
+	}
+#endif
+
+	specular/=SPEC_NUM_STEPS;
+	return specular;
+}
+
+void PrepareInData(inout IVApplyPsIn In)
+{
+	float rW = 1.f / In.screenPos.z;
+	In.screenPos.xy *= rW;
+	In.GridCamVec *= rW;
+#if !PS3 && !XENON
+	In.CamVec *= rW;
+#endif
+}
+
+//////////////////////////////////////////////////////////////////////////////////////

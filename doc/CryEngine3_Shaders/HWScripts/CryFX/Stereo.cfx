@@ -1,0 +1,155 @@
+#include "Common.cfi"
+#include "ModificatorVT.cfi"
+
+// Shader global descriptions
+float Script : STANDARDSGLOBAL
+<
+  string Script = "ShaderDrawType = Custom;";
+>;
+
+float4x4 CompMatrix : PI_Composite;
+
+
+sampler2D StereoL = sampler_state
+{
+	Texture = $StereoL;
+	MinFilter = POINT;
+	MagFilter = POINT;
+	MipFilter = POINT;
+	AddressU = Clamp;
+	AddressV = Clamp;
+	sRGBLookup = true;
+};
+
+sampler2D StereoR = sampler_state
+{
+	Texture = $StereoR;
+	MinFilter = POINT;
+	MagFilter = POINT;
+	MipFilter = POINT;
+	AddressU = Clamp;
+	AddressV = Clamp;
+	sRGBLookup = true;
+};
+
+
+struct a2v
+{
+	float4 Position : POSITION; 
+	float2 baseTC   : TEXCOORD0;
+};
+
+struct v2f
+{
+	float4 Position  : POSITION;
+	float2 baseTC    : TEXCOORDN;
+};
+
+struct psout
+{
+	float4 Primary   : COLOR0; // Primary panel
+	float4 Secondary : COLOR1; // Secondary panel
+};
+
+///////////////// vertex shader //////////////////
+
+v2f StereoVS(a2v IN)
+{
+	v2f OUT = (v2f)0; 
+	OUT.Position = mul(CompMatrix, IN.Position);
+	OUT.baseTC = IN.baseTC.xy;
+	return OUT;
+}
+
+///////////////// pixel shader //////////////////
+
+psout DualHeadPS(v2f IN)
+{
+	psout OUT = (psout ) 0;
+ 
+	OUT.Primary = tex2D( StereoL, IN.baseTC );
+	OUT.Secondary = tex2D( StereoR, IN.baseTC );
+	
+	return OUT;
+}
+
+psout SideBySidePS(v2f IN)
+{
+	psout OUT = (psout ) 0;
+	
+	half2 left_texcoord = saturate(IN.baseTC * float2(2.0, 1.0));
+	half2 right_texcoord = saturate((IN.baseTC - float2(0.5, 0.0)) * float2(2.0, 1.0));
+	
+	half4 cL = tex2D( StereoL, left_texcoord );
+	half4 cR = tex2D( StereoR, right_texcoord );	
+ 
+	if (IN.baseTC.x < 0.5)
+		OUT.Primary = cL;
+	else
+		OUT.Primary = cR;
+	
+	OUT.Secondary = 0;
+	
+	return OUT;
+}
+
+psout IZ3DPS(v2f IN)
+{	
+	psout OUT = (psout ) 0;
+  
+	half4 cL = tex2D( StereoL, IN.baseTC );
+	half4 cR = tex2D( StereoR, IN.baseTC );
+	
+	// Algorithm for iZ3D screens without color filter
+	float rcR = dot( cR.rgb, 1.0 );
+	float rcSum = dot( (cL + cR).rgb, 1.0 );
+	float rVal = rcR / rcSum;
+	
+	OUT.Primary = (cL + cR) * 0.5;
+	OUT.Secondary = (rcSum >= 0.003 ? rVal : 0.5);
+	
+	return OUT;
+}
+
+//////////////////////////////// technique ////////////////
+
+technique DualHead
+{
+  pass p0
+  {
+    VertexShader = compile vs_Auto StereoVS();
+    PixelShader = compile ps_Auto DualHeadPS();
+    
+    ZEnable = true;
+    ZWriteEnable = false;
+    CullMode = None;
+  }
+}
+
+technique SideBySide
+{
+  pass p0
+  {
+    VertexShader = compile vs_Auto StereoVS();
+    PixelShader = compile ps_Auto SideBySidePS();
+    
+    ZEnable = true;
+    ZWriteEnable = false;
+    CullMode = None;
+  }
+}
+
+technique IZ3D
+{
+  pass p0
+  {
+    VertexShader = compile vs_Auto StereoVS();
+    PixelShader = compile ps_Auto IZ3DPS();
+    
+    ZEnable = true;
+    ZWriteEnable = false;
+    CullMode = None;
+  }
+}
+
+/////////////////////// eof ///

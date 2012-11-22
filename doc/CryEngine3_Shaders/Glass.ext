@@ -1,0 +1,91 @@
+////////////////////////////////////////////////////////////////////////////
+//
+//  Crytek Engine Source File.
+//  Shader extension
+//  Copyright (C), Crytek Studios, 2001-2004.
+// -------------------------------------------------------------------------
+//  File name:   Glass.ext
+//  Version:     v1.00
+//  Created:     19/07/2004 by Tiago Sousa
+//  Compilers:   
+//  Description: Glass shader extension used by the editor
+//               for automatic shader generation (based on "Glass" shader template)
+// -------------------------------------------------------------------------
+//  History:
+//
+////////////////////////////////////////////////////////////////////////////
+
+
+
+Version (1.00)
+
+UsesCommonGlobalFlags
+
+Property
+{
+  Name = %ENVIRONMENT_MAP
+  Mask = 0x10
+  Property    (Environment map)
+  Description (Use environment map as separate texture)
+  DependencyReset = $TEX_EnvCM   
+}
+
+Property
+{
+  Name = %VERTCOLORS
+  Mask = 0x20
+  Property    (Vertex Colors)
+  Description (Use vertex colors)
+  Hidden 
+}
+
+Property
+{
+  Name = %REFRACTION_MAP
+  Mask = 0x100
+  Property    (Refraction map)
+  Description (Use refraction map as separate texture - if disabled artist should use alpha blending)  
+}
+
+Property
+{
+  Name = %GRADIENT_COLORING
+  Mask = 0x200
+  Property    (Gradient coloring)
+  Description (Use subsurface map as a gradient texture)    
+  DependencyReset = $TEX_Subsurface
+}
+
+Property
+{
+  Name = %BILINEAR_FP16
+  Mask = 0x400
+  DependencySet = $HW_BilinearFP16
+  DependencyReset = $HW_BilinearFP16
+  Hidden
+}
+
+Property
+{
+  Name = %REALTIME_MIRROR_REFLECTION
+  Mask = 0x800
+  Property    (Realtime mirror reflection)
+  Description (Use realtime mirror reflection map)  
+  DependencyReset = $TEX_EnvCM  
+}
+
+Property
+{
+  Name = %TWO_SIDED_SORTING
+  Mask = 0x1000
+  Property    (Two sided sorting)
+  Description (Render two sided with sorting aproximation)    
+}
+
+Property
+{
+  Name = %DISABLE_RAIN_PASS
+  Mask = 0x2000
+  Property    (Disable rain layer)
+  Description (Disables rain layer)
+}

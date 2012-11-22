@@ -1,0 +1,142 @@
+////////////////////////////////////////////////////////////////////////////
+//
+//  Crytek Engine Source File.
+//  Shader extension
+//  Copyright (C), Crytek Studios, 2001-2004.
+// -------------------------------------------------------------------------
+//  File name:   CommonViewsPass.cfi
+//  Version:     v1.00
+//  Created:     19/07/2007 by Tiago Sousa
+//  Compilers:   
+//  Description: Common/Shared passes bettwen shaders. Should be included after
+//    main shader technique
+//
+//  NOTE: ALWAYS MAKE SURE VERTEX INPUTS MATCH CORRECTLY BEFORE INCLUDING THIS!
+//  TODO: Add support for texture modifiers, since Illum and others require it
+//  "Common_" name convention - for shader sharing in cache files
+//
+//
+// -------------------------------------------------------------------------
+////////////////////////////////////////////////////////////////////////////
+
+/// Un-Tweakables ////////////////////// 
+
+float4 VisionParams : PI_VisionParams;
+
+///////////////// vertex input/output //////////////////
+struct vert2fragCustomRender
+{
+  OUT_P
+  float4 baseTC     : TEXCOORDN;
+  float4 screenProj : TEXCOORDN_centroid;   //z used for instanced alpha test value
+  float4 cVision : TEXCOORDN;
+  float4 vView     : TEXCOORDN;       
+};
+
+///////////////// vertex shaders //////////////////
+vert2fragCustomRender Common_CustomRenderPassVS(app2vertCustomViews IN)
+{
+  vert2fragCustomRender OUT = (vert2fragCustomRender)0;
+  
+  streamPos vertPassPos = (streamPos)0;
+  streamPos_FromCustomViews(IN, vertPassPos);
+
+#if %_RT_INSTANCING_ATTR
+  OUT.cVision = vertPassPos.InstVisionParams;
+#else
+  OUT.cVision = VisionParams;
+#endif
+
+  OUT.HPosition = Pos_VS_General(g_VS_ViewProjZeroMatr, vertPassPos);
+
+  OUT.vView.xyz = vertPassPos.WorldPos.xyz;
+
+  // reminder for Andrey, texture modifiers should work on all cases
+  _TCModify(vertPassPos.baseTC, OUT.baseTC, vertPassPos.Position, vertPassPos.ObjToTangentSpace[2], TS_DIFFUSE);
+
+  OUT.baseTC.z = OUT.HPosition.w;
+
+  float3 worldPos = float3(vertPassPos.InstMatrix[0].w, vertPassPos.InstMatrix[1].w, vertPassPos.InstMatrix[2].w);
+  OUT.baseTC.w = frac( length( worldPos.xyz + g_VS_WorldViewPos.xyz) ) + 0.01;
+
+  // Output the screen-space texture coordinates - for shadows and general projections
+  OUT.screenProj = HPosToScreenTC(OUT.HPosition);
+
+  return OUT;            
+}
+
+sampler2D depthMapSampler = sampler_state
+{
+  Texture = $ZTarget;
+  MinFilter = POINT;
+  MagFilter = POINT;
+  MipFilter = POINT; 
+  AddressU = Clamp;
+  AddressV = Clamp;	
+};
+
+sampler2D PNoiseSampler = sampler_state
+{
+  Texture = textures/defaults/perlinNoise2D.dds;
+  MinFilter = LINEAR;
+  MagFilter = LINEAR;
+  MipFilter = LINEAR;
+  AddressU = Wrap;
+  AddressV = Wrap;	
+};
+
+///////////////// pixel shaders //////////////////
+pixout Common_CustomRenderPassPS(vert2fragCustomRender IN)
+{
+  pixout OUT = (pixout)0;  
+
+#if %_RT_SAMPLE0
+
+
+  half3 vNormal = GetWorldSpaceNormals( tex2Dproj( sceneNormalsSampler, IN.screenProj.xyzw), true );
+  half3 vView = normalize( -IN.vView.xyz );
+
+  half fEdotN = saturate( dot( vView.xyz, vNormal ) );
+  fEdotN  = (1.0 - fEdotN) ;
+
+  // Smooth interlace
+  half fInterlace = abs( frac( (IN.screenProj.y / IN.screenProj.w )  * PS_ScreenSize.y * 0.35 ) *2-1 )*0.5+0.5;
+
+  // Test using inverse cloud noise for interesting electrical look
+  half fNoise = tex2D(PNoiseSampler, IN.baseTC.xy).x; 
+  half fAnimNoise = abs( frac( fNoise + IN.cVision.w ) - 0.5 ); 
+
+  OUT.Color.xyz = fInterlace * IN.cVision.xyz * fEdotN *  fAnimNoise;
+
+#else
+
+  float fDepth = DecodeSceneDepth(depthMapSampler, IN.screenProj) ;
+
+  half fMask = 1.0f;
+#if !%TEMP_EYES
+  fMask =  saturate( 1 - abs(IN.baseTC.z - fDepth )*0.333 ) ;
+#endif
+
+  OUT.Color = half4(fMask.xxx * IN.cVision , IN.baseTC.w) ;
+#endif
+
+  return OUT;
+}
+
+//////////////////////////////// technique ////////////////
+
+technique CustomRenderPass
+{
+  pass p0
+  {
+    VertexShader = compile vs_Auto Common_CustomRenderPassVS() CustomRenderVS;
+    PixelShader = compile ps_Auto Common_CustomRenderPassPS() CustomRenderPS;
+
+    ZEnable = true;
+    ZWriteEnable = false;
+    CullMode = Back;
+    ZFunc = LEqual; 
+
+    IgnoreMaterialState = true;
+  }
+}

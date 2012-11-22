@@ -1,0 +1,65 @@
+////////////////////////////////////////////////////////////////////////////
+//
+//  Crytek Engine Source File.
+//  Shader extension
+//  Copyright (C), Crytek Studios, 2001-2005.
+// -------------------------------------------------------------------------
+//  File name:   Methagen.ext
+//  Version:     v1.00
+//  Created:		 21/12/2005 by Nick Kasyan 
+//  Compilers:   
+//  Description: Methagen shader extension used by the editor
+//               for automatic shader generation
+// -------------------------------------------------------------------------
+//  History:
+//
+////////////////////////////////////////////////////////////////////////////
+
+Version (1.00)
+
+UsesCommonGlobalFlags
+
+Property
+{
+  Name = %GLOSS_MAP
+  Mask = 0x10
+  Property    (Gloss map)
+  Description (Use gloss map as separate texture)
+  DependencySet = $TEX_Gloss
+  DependencyReset = $TEX_Gloss
+  Hidden
+}
+
+Property
+{
+  Name = %USE_PRECOMPUTED_SCATTERING
+  Mask = 0x20
+  Property    (Precomputed scattering map)
+  Description (Use Precomputed scattering map)
+}
+
+Property
+{
+  Name = %ENVCMSPEC
+  Mask = 0x80
+  Property    (Specular EnvCM)
+  Description (Use per-pixel Env. CM reflections with fresnel)
+  DependencyReset = $TEX_EnvCM
+}
+
+Property
+{
+  Name = %SPECULARPOW_GLOSSALPHA
+  Mask = 0x800
+  Property    (PerPixel Spec. Shinines)
+  Description (Use specular shininess coef. as alpha channel of gloss texture)
+  DependencyReset = $TEX_Gloss
+}
+
+Property
+{
+  Name = %ALPHA_OCCLUDERS
+  Mask = 0x1000000
+  Property    (Use occlusion from alpha to modulate scattering)
+  Description (Use occlusion from alpha to modulate scattering)
+}

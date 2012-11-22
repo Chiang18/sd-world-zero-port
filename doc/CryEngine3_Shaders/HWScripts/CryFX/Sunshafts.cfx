@@ -1,0 +1,762 @@
+////////////////////////////////////////////////////////////////////////////
+//
+//  Crytek Engine Source File.
+//  Shader extension
+//  Copyright (C), Crytek Studios, 2001-2004.
+// -------------------------------------------------------------------------
+//  File name:   PostEffects.cfx
+//  Version:     v1.00
+//  Created:     14/06/2006 by Tiago Sousa
+//  Compilers:   
+//  Description: Engine specific post processing
+//
+//  Todo: Rename/clean up stuff
+//
+// -------------------------------------------------------------------------
+////////////////////////////////////////////////////////////////////////////
+
+#include "Common.cfi"
+#include "ShadeLib.cfi"
+#include "PostEffectsLib.cfi"
+
+// Shader global descriptions
+float Script : STANDARDSGLOBAL
+<
+  string Script =
+           "NoPreview;"
+           "LocalConstants;"
+           "ShaderDrawType = Custom;"
+           "ShaderType = PostProcess;"
+>; 
+
+
+half GetScaledDepth(float4 rawDepth)
+{
+#if XENON || PS3
+	// unpack from R8G8
+	// we scale depth to get it normalized to 1
+	return dot(rawDepth.xy, float2(0.00390625h, 255.h / 256.h));//(data.x / 255 + data.y);
+#else
+	return rawDepth.x;
+#endif
+}
+
+sampler2D rainSampler : register(s4);
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
+/// OcclusionCheckQuad technique ///////////////////////////////////////////////////////////////////
+
+struct vtxOcclCheck
+{
+  float4 HPosition  : POSITION;
+};
+
+float4 OcclCheckParams;
+
+vtxOcclCheck OcclCheckVS(vtxInWPOS IN)
+{
+
+  vtxOcclCheck OUT = (vtxOcclCheck)0; 
+
+  float4 vPos = IN.Position;
+  vPos.y = 1 -vPos.y;
+  OUT.HPosition = float4(vPos.xy*2-1, vPos.z, 1.0);
+
+  return OUT;
+
+}
+
+pixout OcclCheckPS(vtxOcclCheck IN)
+{
+
+  pixout OUT = (pixout) 0;
+  OUT.Color = float4(1,0,0,1);
+  return OUT;
+
+}
+
+technique OcclCheckTechnique
+{
+  pass p0
+  {
+    VertexShader = compile vs_Auto OcclCheckVS();            
+    PixelShader = compile ps_Auto OcclCheckPS();
+    CullMode = None;        
+  }
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
+/// For merged edgeAA + SunShafts technique ////////////////////////////////////////////////////////
+
+float4 texToTexParams0;
+float4 texToTexParams1;
+
+struct vtxOutAAOpt
+{
+  float4 HPosition:POSITION;
+  float4 baseTC:TEXCOORD0;
+  float4 baseTC0:TEXCOORD1;
+};
+
+vtxOutAAOpt EdgeAAOptVS(vtxIn IN)
+{
+  vtxOutAAOpt OUT = (vtxOutAAOpt)0; 
+
+  float4 vPos = IN.Position;
+  OUT.HPosition = mul(vpMatrix, vPos);  
+  OUT.baseTC.xy = IN.baseTC.xy;
+  
+  // using a rotated triangle for sampling
+ // OUT.baseTC0.xy = IN.baseTC.xy - 2 * g_VS_ScreenSize.zw * (float2(-0.939, 0.342) + float2(0.342, -0.939));
+ // OUT.baseTC1.xy = IN.baseTC.xy + 2 * g_VS_ScreenSize.zw * float2(-0.939, 0.342);
+ // OUT.baseTC2.xy = IN.baseTC.xy +2 *g_VS_ScreenSize.zw * float2(0.342, -0.939);
+
+  OUT.baseTC.xyzw = IN.baseTC.xyxy + float4(0,0, -2*g_VS_ScreenSize.zw*(float2(-0.939,0.342)+float2(0.342,-0.939)));
+  OUT.baseTC0.xyzw =IN.baseTC.xyxy + 2*g_VS_ScreenSize.zwzw*float4( float2(-0.939,0.342), float2(0.342,-0.939) );
+
+  OUT.baseTC.xy = IN.baseTC.xy;
+  OUT.baseTC.zw = 2*g_VS_ScreenSize.zw;
+ 
+  return OUT;
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
+/// SunShafts technique //////////////////////////////////////////////////////////////////////////
+
+/// Specific data ////////////////////////
+
+/// Constants ////////////////////////////
+
+float4 PI_sunShaftsParams < psregister = c0; >;
+float4x4 SunShafts_ViewProj;
+float4 SunShafts_SunPos;
+float4 SunShafts_SunCol;
+float4x4 mColorMatrix;
+
+struct vtxOutSunShaftsGen
+{
+  float4 HPosition  : POSITION; 
+  float2 baseTC       : TEXCOORD0;
+  float4 sunPos       : TEXCOORD1;  
+};
+
+/// Samplers ////////////////////////////
+
+vtxOutSunShaftsGen SunShaftsGenVS(vtxIn IN)
+{
+  vtxOutSunShaftsGen OUT = (vtxOutSunShaftsGen)0; 
+
+  // Position in screen space.
+  float4 vPos = IN.Position;
+  OUT.HPosition = mul(vpMatrix, vPos);  
+  
+  OUT.baseTC.xy = IN.baseTC.xy;
+  
+  float4 SunPosH = mul(SunShafts_ViewProj, SunShafts_SunPos);
+  OUT.sunPos.x = (SunPosH.x + SunPosH.w) * 0.5 ;
+  OUT.sunPos.y = (-SunPosH.y + SunPosH.w) * 0.5 ;
+  OUT.sunPos.z = SunPosH.w;
+  
+  OUT.sunPos.w = (dot(normalize(SunShafts_SunPos).xyz, SunShafts_ViewProj[2].xyz));
+
+  return OUT;
+}
+
+///////////////// pixel shader //////////////////
+
+pixout SunShaftsMaskGenPS(vtxOut IN)
+{
+  pixout OUT;
+
+#ifdef PS3
+
+  // use register count suggested by gpad
+  #pragma sce-cgc("-regcount 46"); 
+  #pragma sce-cgc("-po NumTemps=46"); 
+  #pragma sce-cgc("-texformat default COMPRESSED_RGBA_S3TC_DXT5");
+
+#endif
+
+  
+  int nQuality = GetShaderQuality();
+
+#if %_RT_SAMPLE0
+  half3 scene0 = tex2D(_tex0, IN.baseTC.xy);
+  half3 scene1 = tex2D(_tex0, IN.baseTC.xy+texToTexParams0.xy);
+  half3 scene2 = tex2D(_tex0, IN.baseTC.xy+texToTexParams0.zw);
+  half3 scene3 = tex2D(_tex0, IN.baseTC.xy+texToTexParams1.xy);
+  half3 scene4 = tex2D(_tex0, IN.baseTC.xy+texToTexParams1.zw);
+  half3 scene = (scene0 + scene1 + scene2 + scene3 + scene4) * 0.2;
+
+	// Opt version: fetches from resized Z-Target      
+  half sceneDepth = GetScaledDepth(tex2D(_tex1, IN.baseTC.xy));
+  
+  OUT.Color = half4(scene.xyz * sceneDepth, 1 - sceneDepth);
+#else
+  half4 scene = 0;
+  half sceneDepth = 0;
+#ifndef PS3
+  if( nQuality == QUALITY_HIGH )
+  {
+    half sceneDepth0 = GetLinearDepth(_tex0, IN.baseTC.xy);
+    half sceneDepth1 = GetLinearDepth(_tex0, IN.baseTC.xy+texToTexParams0.xy);
+    half sceneDepth2 = GetLinearDepth(_tex0, IN.baseTC.xy+texToTexParams0.zw);
+    half sceneDepth3 = GetLinearDepth(_tex0, IN.baseTC.xy+texToTexParams1.xy);
+    half sceneDepth4 = GetLinearDepth(_tex0, IN.baseTC.xy+texToTexParams1.zw);    
+    sceneDepth = (sceneDepth0 + sceneDepth1 + sceneDepth2 + sceneDepth3 + sceneDepth4) * 0.2;
+    
+    half4 scene0 = tex2D(_tex1, IN.baseTC.xy);
+    half4 scene1 = tex2D(_tex1, IN.baseTC.xy+texToTexParams0.xy);
+    half4 scene2 = tex2D(_tex1, IN.baseTC.xy+texToTexParams0.zw);
+    half4 scene3 = tex2D(_tex1, IN.baseTC.xy+texToTexParams1.xy);
+    half4 scene4 = tex2D(_tex1, IN.baseTC.xy+texToTexParams1.zw);
+    scene = (scene0 + scene1 + scene2 + scene3 + scene4) * 0.2;
+  }
+  else
+#endif 
+  {
+    scene = tex2D(_tex1, IN.baseTC.xy);
+    sceneDepth = GetLinearDepth(_tex0, IN.baseTC.xy);
+  }
+
+  //half fMask = saturate( 8*(1-abs(sceneDepth*2-1)) ); 
+  ///half fCloudsMask = 1 - saturate(tex2D(_tex1, IN.baseTC.xy).w*2-1);  
+  half fShaftsMask = (1 - sceneDepth); //*fCloudsMask;  
+  
+  OUT.Color = half4( scene.xyz * saturate(sceneDepth), fShaftsMask );
+#endif
+
+  return OUT;
+}
+
+pixout SunShaftsMaskGenOptPS(vtxOut IN)
+{
+  pixout OUT;
+
+	// Opt version: fetches from resized Z-Target and uses multiplicative blending
+      
+  half4 scene = 0;
+  //half sceneDepth = GetLinearDepth(_tex0, IN.baseTC.xy);
+  half sceneDepth = tex2D(_tex0, IN.baseTC.xy).x;
+  
+  
+	half fShaftsMask = ( 1-sceneDepth);
+  OUT.Color = saturate( half4( sceneDepth.xxx, fShaftsMask ) );
+    
+  return OUT;
+}
+
+pixout SunShaftsGenPS(vtxOutSunShaftsGen IN)
+{
+  pixout OUT;
+
+
+#ifdef PS3
+
+  // use register count suggested by gpad  
+  #pragma sce-cgc("-texformat default COMPRESSED_RGBA_S3TC_DXT5");
+
+#endif
+
+  float2 sunPosProj = SunShafts_SunPos.xy; //((IN.sunPos.xy / IN.sunPos.z));
+
+	//OUT.Color = fSunInfluence;
+	//return OUT;
+  
+  float fSign = SunShafts_SunPos.w; //(IN.sunPos.w);
+  
+  float2 sunVec = ( sunPosProj.xy - IN.baseTC.xy);
+  
+  float fAspectRatio =  1.333 * PS_ScreenSize.y /PS_ScreenSize.x;
+  
+  float sunDist = saturate(fSign) * saturate( 1 - saturate(length(sunVec * float2(1, fAspectRatio))*PI_sunShaftsParams.y));// * 
+                            //saturate(saturate(fSign)*0.6+0.4  ) );
+                            // *(1.0 - 0.2*(1- sin(AnimGenParams) ) pass variation per constant
+  float2 sunDir =  ( sunPosProj.xy - IN.baseTC.xy);
+   
+  
+  half4 accum = 0; 
+  sunDir.xy *= PI_sunShaftsParams.x* (fSign);
+  
+//if D3D10
+//  [unroll]
+//endif
+//  for(int i=0; i<8; i++)
+//  {
+//    half4 depth = tex2D(_tex0, (IN.baseTC.xy + sunDir.xy * i) );      
+//    accum += depth * (1.0-i/8.0);
+//  }
+
+	//float fScale += jitter;
+	
+  
+  half2 jitter = 0;
+#if %_RT_SAMPLE0
+	//sunDir.xy*= 0.5;
+	//half2 jitter_tc = IN.baseTC.xy * (PS_ScreenSize.xy / 64.0);
+	//jitter = tex2D(_tex1, jitter_tc * 0.707 + 0.707 * half2(-jitter_tc.y, jitter_tc.x) ).x-0.5;
+#endif
+
+  half4 depth = tex2D(_tex0, IN.baseTC.xy );      
+  accum += depth;
+
+
+  depth = tex2D(_tex0, IN.baseTC.xy + sunDir.xy * (1.0+jitter) );      
+  accum += depth * (1.0-1.0/8.0);
+
+	depth = tex2D(_tex0, (IN.baseTC.xy + sunDir.xy * (2.0+jitter)) );      
+  accum += depth * (1.0-2.0/8.0);
+  
+	depth = tex2D(_tex0, (IN.baseTC.xy + sunDir.xy * (3.0+jitter)) );      
+  accum += depth * (1.0-3.0/8.0);
+  
+	depth = tex2D(_tex0, (IN.baseTC.xy + sunDir.xy * (4.0+jitter)) );      
+  accum += depth * (1.0-4.0/8.0);
+  
+	depth = tex2D(_tex0, (IN.baseTC.xy + sunDir.xy * (5.0+jitter)) );      
+  accum += depth * (1.0-5.0/8.0);
+  
+	depth = tex2D(_tex0, (IN.baseTC.xy + sunDir.xy * (6.0+jitter)) );      
+  accum += depth * (1.0-6.0/8.0);
+
+	depth = tex2D(_tex0, (IN.baseTC.xy + sunDir.xy * (7.0+jitter)) );      
+  accum += depth * (1.0-7.0/8.0);
+
+  accum /= 8.0;
+
+  OUT.Color = accum * 2  * float4(sunDist.xxx, 1);
+  OUT.Color.w += 1.0 - saturate( saturate( fSign * 0.1 + 0.9 ) );
+
+    
+  return OUT;
+}
+
+//todo: add usefull blend modes into shade lib
+half3 blendSoftLight(half3 a, half3 b)
+{
+  //float3 c = 2 * a * b + a * a * (1 - 2 * b);
+  //float3 d = sqrt(a) * (2 * b - 1) + 2 * a * (1 - b);
+  //
+  //return ( b < 0.5 )? c : d;
+
+// 12 inst
+
+  half3 c = 2 * a * b * ( 1 + a * (  1 - b ) ); // 4 inst
+ 
+  half3 a_sqrt = sqrt( a );  // 1
+  half3 d = ( a  +  b * (a_sqrt - a )) * 2 - a_sqrt; // 3 inst
+
+  return( b < 0.5 )? c : d; // 1
+}
+
+pixout SunShaftsDisplayPS(vtxOutAAOpt IN)
+{
+  pixout OUT = (pixout) 0;
+
+#if PS3
+  // suggested by gpad
+  // updated from 3 to 9, suggested by gpad for new TangentAA
+  #pragma sce-cgc("-regcount 9"); 
+  #pragma sce-cgc("-po NumTemps=9"); 
+  #pragma sce-cgc("-texformat default COMPRESSED_RGBA_S3TC_DXT5");
+#endif
+
+
+#if D3D10	
+  // temporary workaround for d3d10 hlsl compiler bug
+  OUT.Color = tex2D(_tex0, IN.baseTC.xy);
+  OUT.Color += tex2D(_tex1, IN.baseTC.xy);
+  OUT.Color += tex2D(_tex2, IN.baseTC.xy);
+#endif
+
+   half4 cScreen = tex2D(_tex0, IN.baseTC.xy);    
+	 OUT.Color = cScreen;
+
+#if %_RT_SAMPLE1
+/*	 {	 
+			//merged edge aa
+			half4 samples = 2;  
+			half4 samples2 = 2;
+
+			half sampleDepthUp	   = tex2D(_tex2, IN.baseTC.zw).x;;   
+			half sampleDepthRight = tex2D(_tex2, IN.baseTC0.xy).x;    
+			half sampleDepthDown  = tex2D(_tex2, IN.baseTC0.zw).x;    
+			half sampleDepthCenter	= tex2D(_tex2, IN.baseTC.xy).x; //(sampleDepthUp + sampleDepthRight + sampleDepthDown ) * 0.3333333;
+			half dep = sampleDepthCenter.x;	  
+			samples.xyz = float3(sampleDepthUp.x, sampleDepthRight.x, sampleDepthDown.x);
+			samples.xyz -= dep;
+
+			samples2.xyz = - float3( sampleDepthUp.x, sampleDepthRight.x, sampleDepthDown.x );	  
+			samples2.xyz += dep;
+
+			half threshold = 0.003 * dep;
+			
+			samples2.xyz = (samples2.xyz>threshold);		
+			samples.xyz = (samples.xyz>threshold);	
+			samples.xyz = saturate(samples.xyz + samples2.xyz);
+		  
+			half fRecipSum = 1.0 / dot(samples,1);  
+			
+			half4 cSampleAvg = tex2D(_tex0, (IN.baseTC.xy*2 + 
+																				IN.baseTC.zw * samples.x +// + 
+																				IN.baseTC0.xy * samples.y+ // + 
+																				IN.baseTC0.zw * samples.z)*fRecipSum );
+			                                            
+			cScreen = cSampleAvg; 
+			OUT.Color = cScreen;
+   }*/
+
+
+	 {	 
+			//Tangent AA
+			                    
+
+			half3 GRAY	=	float3(0.456f,0.5f,0.1f);			                                            
+			float2 Offset	=	IN.baseTC.zw;
+			float OScale	=	2.f;
+			
+			//float G00	=	dot(GRAY,half3(tex2D(_tex0, IN.baseTC.xy+Offset*float2(-OScale,-OScale)).xyz));
+			//float G20	=	dot(GRAY,half3(tex2D(_tex0, IN.baseTC.xy+Offset*float2( OScale,-OScale)).xyz));
+			//float G02	=	dot(GRAY,half3(tex2D(_tex0, IN.baseTC.xy+Offset*float2(-OScale, OScale)).xyz));
+			//float G22	=	dot(GRAY,half3(tex2D(_tex0, IN.baseTC.xy+Offset*float2( OScale, OScale)).xyz));
+			//float G10	=	dot(GRAY,half3(tex2D(_tex0, IN.baseTC.xy+Offset*float2( 0.f,	-OScale)).xyz));
+			//float G01	=	dot(GRAY,half3(tex2D(_tex0, IN.baseTC.xy+Offset*float2(-OScale, 0.f)).xyz));
+			//float G21	=	dot(GRAY,half3(tex2D(_tex0, IN.baseTC.xy+Offset*float2( OScale, 0.f)).xyz));
+			//float G12	=	dot(GRAY,half3(tex2D(_tex0, IN.baseTC.xy+Offset*float2( 0.f,	 OScale)).xyz));
+			half4 G0	=	half4(	dot(GRAY,half3(tex2D(_tex0, IN.baseTC.xy+Offset*float2(-OScale,-OScale)).xyz)),
+									dot(GRAY,half3(tex2D(_tex0, IN.baseTC.xy+Offset*float2( OScale,-OScale)).xyz)),
+									dot(GRAY,half3(tex2D(_tex0, IN.baseTC.xy+Offset*float2(-OScale, OScale)).xyz)),
+									dot(GRAY,half3(tex2D(_tex0, IN.baseTC.xy+Offset*float2( OScale, OScale)).xyz)));
+			half4 G1	=	half4(	dot(GRAY,half3(tex2D(_tex0, IN.baseTC.xy+Offset*float2(	   0.f,-OScale)).xyz)),
+									dot(GRAY,half3(tex2D(_tex0, IN.baseTC.xy+Offset*float2(-OScale,    0.f)).xyz)),
+									dot(GRAY,half3(tex2D(_tex0, IN.baseTC.xy+Offset*float2( OScale,    0.f)).xyz)),
+									dot(GRAY,half3(tex2D(_tex0, IN.baseTC.xy+Offset*float2(    0.f,	OScale)).xyz)));
+			
+			//DO NOT NORMALIZE, Normal&Tangent include edge weights
+			//float2 Nrm	=	float2((G00+G01+G02)-(G20+G21+G22),(G00+G10+G20)-(G02+G12+G22));
+			//float2 Tan	=	float2(Nrm.y,-Nrm.x).xy*Offset;	
+			//float2	Tan	=	float2((G00+G10+G20)-(G02+G12+G22),(G20+G21+G22)-(G00+G01+G02))*Offset;
+			float2 Tan		=	float2(	dot(G0,half4(1.h,1.h,-1.h,-1.h))+G1.x-G1.w,
+										dot(G0,half4(-1.h,1.h,1.h,-1.h))+G1.z-G1.y)*Offset;
+
+			float4 C0	=	tex2D(_tex0, IN.baseTC.xy+Tan*1.4f);
+			float4 C1	=	tex2D(_tex0, IN.baseTC.xy+Tan*0.7f);
+			float4 C2	=	tex2D(_tex0, IN.baseTC.xy-Tan*0.7f);
+			float4 C3	=	tex2D(_tex0, IN.baseTC.xy-Tan*1.4f);
+
+
+			cScreen 	=	(C0+C1+C2+C3)*0.25f;
+			OUT.Color 	= 	cScreen;
+			//OUT.Color	=	abs(Average-G11)*10.f;//float4(abs(Tan)/Offset,0.f,1.f);
+			//OUT.Color	=	float4(abs(Tan)/Offset,0.f,1.f);
+			//OUT.Color	=	abs(Nrm.x)*5.f;
+			//OUT.Color	=	G11;
+			
+   }
+#endif
+
+
+#if %_RT_SAMPLE0
+
+	half4 cSunShafts = tex2D(_tex1, IN.baseTC.xy);
+
+  half fShaftsMask = saturate(1.00001- cSunShafts.w) * 2.0 * PI_sunShaftsParams.x;
+        
+  // Apply "very" subtle (but always visible) sun shafts mask 
+  half fBlend = cSunShafts.w;
+  
+  // normalized sun color
+	half3 sunColor = SunShafts_SunCol;
+  
+	//OUT.Color.xyz =cSunShafts.xyz;//cSunShafts.w; ///*cScreen*fShaftsMask;/float4(cSunShafts.xxx,0); // */ cScreen + cSunShafts.xyz * PI_sunShaftsParams.y * sunColor * ( 1 - cScreen );
+  //return OUT;
+	// Blend with backbuffer
+  OUT.Color.xyz = cScreen + cSunShafts.xyz * PI_sunShaftsParams.y * sunColor * ( 1 - cScreen );
+  OUT.Color.xyz = blendSoftLight(OUT.Color, sunColor * fShaftsMask *0.5+0.5);
+	OUT.Color.w = 1;
+
+  //OUT.Color = fShaftsMask;
+
+#endif
+
+#if %_RT_SAMPLE3
+
+	float3 rain = tex2D(rainSampler, IN.baseTC.xy).rgb;
+	OUT.Color.rgb += rain;
+	
+#endif
+
+#if %_RT_SAMPLE2
+	// Apply color charts/correction
+  LookupColorChart(_tex3, OUT.Color.xyz);
+#endif
+   
+  return OUT;
+}
+
+////////////////// technique /////////////////////
+
+technique SunShaftsMaskGen
+{
+  pass p0
+  {
+    VertexShader = compile vs_Auto BaseVS();
+    PixelShader = compile ps_Auto SunShaftsMaskGenPS();    
+    CullMode = None;        
+  }
+}
+
+technique SunShaftsMaskGenOpt
+{
+  pass p0
+  {
+    VertexShader = compile vs_Auto BaseVS();
+    PixelShader = compile ps_Auto SunShaftsMaskGenOptPS();    
+    CullMode = None;        
+  }
+}
+
+technique SunShaftsGen
+{
+  pass p0
+  {
+    VertexShader = compile vs_Auto SunShaftsGenVS();
+    PixelShader = compile ps_Auto SunShaftsGenPS();    
+    CullMode = None;        
+  }
+}
+
+technique SunShaftsDisplay
+{
+  pass p0
+  {
+    VertexShader = compile vs_Auto EdgeAAOptVS();
+    PixelShader = compile ps_Auto SunShaftsDisplayPS();    
+    CullMode = None;        
+  }
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
+/// Omni light shafts technique ////////////////////////////////////////////////////////////////////
+
+struct vtxOutLightShaftsGen
+{
+  float4 HPosition  : POSITION; 
+  float2 baseTC       : TEXCOORD0;
+  float4 lightPos       : TEXCOORD1;  
+  float4 CamVec      : TEXCOORD2;
+};
+
+float4x4 mViewProj;
+float4 LightPos < psregister = c9; > ;      
+float4 LightCol < psregister = c8; > ;
+float3 cameraFrontVector	: PB_CameraFront;
+
+sampler2D depthScaledMapSampler = sampler_state
+{
+  Texture = $ZTargetScaled;
+  MinFilter = LINEAR;
+  MagFilter = LINEAR;
+  MipFilter = POINT; 
+  AddressU = Clamp;
+  AddressV = Clamp;	
+};
+
+sampler2D jitterSampler = sampler_state
+{  
+  Texture = textures/defaults/dither_pattern_2d.dds;
+  MinFilter = POINT;
+  MagFilter = POINT;
+  MipFilter = POINT; 
+  AddressU = Wrap;
+  AddressV = Wrap;
+  AddressW = Wrap;
+};
+
+half FetchScaledDepth(half2 uv)
+{
+	float4 data = tex2D(depthScaledMapSampler, uv);
+	return GetScaledDepth(data);
+}
+
+vtxOutLightShaftsGen OmniLighShaftsVS(vtxInWPOS IN)
+{
+  vtxOutLightShaftsGen OUT = (vtxOutLightShaftsGen)0; 
+
+  // Position in screen space.
+  float4 vPos = IN.Position;
+
+  vPos.y = 1 -vPos.y;
+  OUT.HPosition = float4(vPos.xy*2-1, vPos.z, 1.0);
+  OUT.baseTC =  HPosToScreenTC(OUT.HPosition);
+
+  
+  float4 LightPosH = mul(mViewProj, float4(LightPos.xyz, 1));
+  OUT.lightPos.x = (LightPosH.x + LightPosH.w) * 0.5 ;
+  OUT.lightPos.y = (-LightPosH.y + LightPosH.w) * 0.5 ;
+  OUT.lightPos.z = LightPosH.w;
+  OUT.lightPos.w = 1;
+
+  OUT.CamVec.xyz =  IN.CamVec.xyz;
+
+  return OUT;
+}
+
+pixout OmniLightShaftsPS(vtxOutLightShaftsGen IN)
+{
+  pixout OUT = (pixout) 0;
+
+  half2 jitter_tc = IN.baseTC.xy * (PS_ScreenSize.xy / 4.0);
+	half2 jitter = tex2D(jitterSampler, jitter_tc ).xy-0.5;
+    
+  float2 lightPosProj = (IN.lightPos.xy / IN.lightPos.z);// * sign(IN.sunPos.z);
+  float2 lightDir = normalize(float3((lightPosProj.xy) - IN.baseTC.xy, 1));;
+
+  float fCenterDepth = FetchScaledDepth(IN.baseTC.xy);
+  float3 vCamVec = normalize(IN.CamVec.xyz);
+
+  float fRadius = 1.0 / LightPos.w;
+  float fSqrRadius = fRadius * fRadius;
+  float3 vOrigToSphere = (PS_WorldViewPos - LightPos);
+  float b = 2.0 * dot(vCamVec.xyz, vOrigToSphere) ;
+  //clip(-b);
+  float c = dot(vOrigToSphere, vOrigToSphere) - fSqrRadius;
+  float d= b*b*sign(-b) - 4.0f*c; 
+  clip(d);
+
+  // closest hit  
+  vOrigToSphere = -normalize( vOrigToSphere );
+  
+  float fout = (-b - sqrt(d) )* 0.5;     
+  float fin =  max(fout,  (-b + sqrt(d)) * 0.5 );     
+
+  half fSoftBorder = saturate(  abs(   (-b - sqrt(d) )* 0.5 - (-b + sqrt(d)) * 0.5  )*LightPos.w*0.5 );
+  fSoftBorder *= fSoftBorder;
+
+  float3 vOut = PS_WorldViewPos + vOrigToSphere * fin;
+  float3 vIn = PS_WorldViewPos + vOrigToSphere* fout;
+
+  half4 accum = 0; 
+  const float nSamples = 128;;
+  const float nRecipSamples = 1.0 /nSamples;
+  lightDir.xy *= nRecipSamples;//*PI_sunShaftsParams.x*10;//*(1/ SunShafts_SunPos.w);
+
+  float fDepth = FetchScaledDepth(IN.baseTC.xy);
+  float fmin = (IN.lightPos.z -fRadius);
+  float fmax = (IN.lightPos.z );
+
+  float fMask =(saturate( (fDepth*PS_NearFarClipDist.y -fmin)/ (fmax - fmin) ));
+  accum.xyz =pow(fMask, 8);
+
+  //////////////////////////////////////////////////////////////////////////////////////////////////
+  half fRealAtten = length(vOut - vIn )*LightPos.w*0.5;
+  fRealAtten *= fSoftBorder;
+  
+  OUT.Color.xyz = fRealAtten;
+	OUT.Color.xyz = lerp(0, OUT.Color.xyz, fMask);
+
+  OUT.Color.w = accum.x;
+	OUT.Color.w = lerp(1, OUT.Color.w, fMask);
+
+  return OUT;
+}
+
+pixout ShaftsBlurPS(vtxOutLightShaftsGen IN)
+{
+  pixout OUT;
+
+  const float nSamples = 8;
+  const float nRecipSamples = 1.0 /nSamples;
+
+  half fJitter = tex2D( _tex1, IN.baseTC.xy * (PS_ScreenSize.xy/64.0) ).xy-0.5;
+
+
+  float2 lightPosProj = (IN.lightPos.xy / IN.lightPos.z);
+  float2 lightDir = normalize( float3( (lightPosProj.xy) - IN.baseTC.xy, 1) );       
+  lightDir.xy *= nRecipSamples * LightPos.w;
+
+  half fAcc = 0; 
+  fAcc += tex2D( _tex0, IN.baseTC.xy  ).w ;    
+  fAcc += tex2D( _tex0, IN.baseTC.xy + lightDir.xy * (1+fJitter) ).w;
+  fAcc += tex2D( _tex0, IN.baseTC.xy + lightDir.xy * (2+fJitter) ).w;
+  fAcc += tex2D( _tex0, IN.baseTC.xy + lightDir.xy * (3+fJitter) ).w;
+
+  fAcc += tex2D( _tex0, IN.baseTC.xy + lightDir.xy * (4+fJitter) ).w;
+  fAcc += tex2D( _tex0, IN.baseTC.xy + lightDir.xy * (5+fJitter) ).w;
+  fAcc += tex2D( _tex0, IN.baseTC.xy + lightDir.xy * (6+fJitter) ).w;
+  fAcc += tex2D( _tex0, IN.baseTC.xy + lightDir.xy * (7+fJitter) ).w;
+
+  fAcc /= (nSamples);
+
+  
+  OUT.Color = half4( tex2D( _tex0, IN.baseTC.xy ).xyz,  fAcc);
+
+  return OUT;
+}
+
+pixout ShaftsAddPS(vtxOutLightShaftsGen IN)
+{
+  pixout OUT;
+
+#if %_RT_SAMPLE0
+  half4 cShafts = tex2D( _tex0, IN.baseTC.xy );;
+  half4 cDst = tex2D( _tex1, IN.baseTC.xy );  
+  OUT.Color = cDst + LightCol * cShafts * saturate(cShafts.w) * (1-cDst);  ;
+#else
+  half4 cShafts = tex2D( _tex0, IN.baseTC.xy );
+  OUT.Color =  LightCol*cShafts * saturate(cShafts.w);  
+#endif
+
+  return OUT;
+}
+
+pixout ShaftsBlendPS(vtxOut IN)
+{
+  pixout OUT;
+
+  OUT.Color = tex2D(_tex0, IN.baseTC.xy);     
+  OUT.Color.xyz +=tex2D(_tex1, IN.baseTC.xy).xyz  * (1-OUT.Color);     
+  return OUT;
+}
+
+technique OmniLightShafts
+{
+  pass p0
+  {
+    VertexShader = compile vs_Auto OmniLighShaftsVS();
+    PixelShader = compile ps_Auto OmniLightShaftsPS();    
+    CullMode = None;        
+  }
+}
+
+technique ShaftsBlur
+{
+  pass p0
+  {
+    VertexShader = compile vs_Auto OmniLighShaftsVS();
+    PixelShader = compile ps_Auto ShaftsBlurPS();    
+    CullMode = None;        
+  }
+}
+
+technique ShaftsAdd
+{
+  pass p0
+  {
+    VertexShader = compile vs_Auto OmniLighShaftsVS();
+    PixelShader = compile ps_Auto ShaftsAddPS();    
+    CullMode = None;        
+  }
+}
+
+technique ShaftsBlend
+{
+  pass p0
+  {
+    VertexShader = compile vs_Auto BaseVS();
+    PixelShader = compile ps_Auto ShaftsBlendPS();    
+    CullMode = None;        
+  }
+}
+
+/////////////////////// eof ///

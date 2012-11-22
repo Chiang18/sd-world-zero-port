@@ -1,0 +1,45 @@
+//=== Base stream definitions ==================================================
+
+#define IN_P    float4 Position  : POSITION;
+#define IN_C0   float4 Color     : COLOR;
+#define IN_TBASE float2 baseTC   : TEXCOORD0; 
+
+// ==== Additional streams ==================================
+
+#define IN_TANG_STREAM                \
+          float4 Tangent  : TANGENT;  \
+          float4 Binormal : BINORMAL; \
+          
+#define IN_SKIN_STREAM float4 BlendWeights : BLENDWEIGHT; float4 BlendIndices : BLENDINDICES; float4 BoneSpace : POSITION4;
+
+#define IN_SHAPEDEFORM_STREAM			\
+		float4 ShapeDeformInfo : COLOR1;\
+		float3 Thin : TEXCOORD4;		\
+		float3 Fat  : TEXCOORD5;			\
+
+#define IN_MORPHTARGET_STREAM				\
+		float3 MorphTargetDelta : POSITION3;\
+
+  
+//=== Vertex shader output ===================================================
+
+#ifdef XENON
+ #define OUT_P    [isolate] float4 HPosition : POSITION;
+#else
+ #define OUT_P    float4 HPosition : POSITION;
+#endif
+#define OUT_C0   half4 Color     : COLOR0;
+#define OUT_C1   half4 Color1    : COLOR1;
+
+//=== Pixel shader output structure ==========================================
+
+struct pixout
+{
+  half4 Color  : COLOR0;
+};
+
+struct pixout_fp
+{
+  float4 Color  : COLOR0;
+};
+

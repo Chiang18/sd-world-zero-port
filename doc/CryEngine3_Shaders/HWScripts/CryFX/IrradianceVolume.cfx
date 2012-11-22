@@ -1,0 +1,909 @@
+////////////////////////////////////////////////////////////////////////////
+//
+//  Crytek Engine Source File.
+//  Shader extension
+//  Copyright (C), Crytek Studios, 2001-2008.
+// -------------------------------------------------------------------------
+//  File name:   IrradianceVolume.cfx
+//  Version:     v1.00
+//  Created:     20/05/2008 by Anton Kaplanyan
+//  Compilers:   
+//  Description: Volumetric irradiance propagation framework
+//
+// -------------------------------------------------------------------------
+////////////////////////////////////////////////////////////////////////////
+
+#include "Common.cfi"
+#include "ShadeLib.cfi"
+#include "IrradianceVolume.cfi"
+#include "PostEffectsLib.cfi"
+
+// Shader global descriptions
+float Script : STANDARDSGLOBAL
+<
+  string Script =
+           "NoPreview;"
+           "LocalConstants;"
+           "ShaderDrawType = Custom;"
+           "ShaderType = PostProcess;"
+>; 
+
+//////////////////////////////////////////////////////////////////////////////////////
+// Light source injection shader
+//////////////////////////////////////////////////////////////////////////////////////
+
+struct IVLightPsIn
+{
+	float4 position : POSITION;
+	half3 dirToCell	: TEXCOORDN;
+	half3 attT			: TEXCOORDN;
+};
+
+FLOAT4 g_lightColor < psregister = c11; >;
+float4 g_lightPosition < vsregister = c12; psregister = c12; >;
+
+IVLightPsIn IVLightInjectionVS(const in half3 octant 	: POSITION)// {0, 0, 0}, {0, 0, 1}, ....
+{
+	IVLightPsIn Out;
+
+	const float3 lightPos = g_lightPosition.xyz;
+
+	// align this pixel to the nearest cell in the dir of normal
+	// calc dir from original placement of pixel to this cell
+	const half3 gridPos = IVGridPos(lightPos);
+	const half3 alignedGridPos = floor(gridPos * g_gridSize + octant) * g_invGridSize;
+
+	// calc direction to this cell from lightsource
+	const float3 alignedWorldPos = IVWorldPos(alignedGridPos);
+	Out.dirToCell = alignedWorldPos - lightPos;
+
+	// TODO: calc physically correct lerp
+	half3 deltaGrid = abs(alignedGridPos - gridPos + half3(.5, .5, .5) * g_invGridSize.xyz) * g_gridSize;
+	deltaGrid = half3(1, 1, 1) - deltaGrid;
+	Out.attT.x = deltaGrid.x*deltaGrid.y*deltaGrid.z;
+	Out.attT.y = Out.attT.x;
+	Out.attT.y = pow(Out.attT.y, .5h);
+	Out.attT.x = pow(Out.attT.x, .5h);
+	//const half att = 1.h / min(1.h, length(Out.dirToCell));
+	//Out.attT.x *= att;
+
+	half fDiameter = max(length(IVWorldDir(half3(1, 0, 0) * g_invGridSize)),
+								max(length(IVWorldDir(half3(0, 1, 0) * g_invGridSize)), 
+										length(IVWorldDir(half3(0, 0, 1) * g_invGridSize))));
+	Out.attT.z = PI * fDiameter * fDiameter;
+
+	// calc tiled pixel position
+	Out.position = IVScreenPos(alignedGridPos);
+
+	// cull the vertex out if it's not in the grid
+	if(!IsPointInGrid(alignedGridPos))
+		Out.position.xy = -2;
+
+	// DEBUG: uncomment for one point
+	//if(octant.x!=1||octant.y!=1||octant.z!=1)
+	//	Out.position.xy = -2;
+
+	return Out;
+}
+
+SHSpectralCoeffs IVLightInjectionPS(const in IVLightPsIn In)
+{
+	SHCoeffs dirCoeffs = GetSHCosine(In.dirToCell, true);	// eval SH coeffs for dir to ls
+	const SHCoeffs constCoeffs = SHSampleConst(1);			// eval SH const function
+	const SHCoeffs lightCoeffs = SHLerp(constCoeffs, dirCoeffs, In.attT.x);	// lerp regarting to lerp factor
+	SHSpectralCoeffs res = SHMul(constCoeffs, g_lightColor.xyz / In.attT.z);	// apply light color and lerp attenuation
+
+	SHPackAddBlend(res);
+	return res;
+}
+
+technique IVInjectLight
+{
+  pass p0
+  {
+    VertexShader = compile vs_Auto IVLightInjectionVS();
+    PixelShader = compile ps_Auto IVLightInjectionPS();
+  }
+}
+
+//////////////////////////////////////////////////////////////////////////////////////
+// Reflective shadow-map smart downsampling before injection
+//////////////////////////////////////////////////////////////////////////////////////
+FLOAT4 g_lightDir < vsregister = c12; psregister = c11; >;
+FLOAT4 g_vSrcRSMSize < vsregister = c13; psregister = c12; >;
+FLOAT4 g_vDestRSMSize < vsregister = c14; psregister = c13; >;
+FLOAT4 g_vRSMRatio < vsregister = c15; psregister = c14; >;
+FLOAT4x4 g_invRSMMatrix < vsregister = c16; psregister = c15; >;
+
+struct IVDownsampleRSMPsIn
+{
+	float4 position	: POSITION;
+	half2 texCoord	: TEXCOORDN;
+};
+
+IVDownsampleRSMPsIn IVDownsampleRSMVS(const in half3 srcPosition	: POSITION)
+{
+	IVDownsampleRSMPsIn Out;
+	Out.position = half4(srcPosition.xy * 2.h - 1.h, 0, 1.h);
+#if !D3D10 && !PS3
+	Out.position.xy += half2(-1.h, 1.h) * g_vDestRSMSize.zw;
+#endif
+	Out.texCoord = srcPosition.xy;
+	Out.texCoord.y = 1.h - Out.texCoord.y;
+	return Out;
+}
+
+struct RSMTexel
+{
+	float fDepth;
+	half3 vNormal;
+	half3 vColor;
+};
+
+struct RSMTexelOut
+{
+	float4 fDepth : COLOR0;
+	half4 vNormal : COLOR1;
+	half4 vColor  : COLOR2;
+};
+
+RSMTexel FetchRSM(const in half2 texCoord)
+{
+	RSMTexel Out;
+#if !PS3
+	Out.fDepth  = tex2Dlod(irradVolDepthSampler,  half4(texCoord, 0, 0)).r;
+#else
+	Out.fDepth  = pack_4byte(tex2Dlod(irradVolDepthSampler,  half4(texCoord, 0, 0)));
+#endif
+	Out.vColor  = tex2Dlod(irradVolColorSampler,  half4(texCoord, 0, 0)).rgb;
+	Out.vNormal = tex2Dlod(irradVolNormalSampler, half4(texCoord, 0, 0)).rgb;
+	return Out;
+}
+
+half3 GetGridCell(const in half2 texCoord, const float fDepth)
+{
+	// calc grid cell pos
+	const float4 texelPos = float4(texCoord * half2(2.h, -2.h) - half2(1.h, -1.h), fDepth, 1.f);
+	const float4 homogPos = mul(g_invRSMMatrix, texelPos);
+	const float3 worldPos = homogPos.xyz/homogPos.w;
+	const half3 gridPos = IVGridPos(worldPos) * g_gridSize.xyz;
+	return gridPos;
+}
+
+half GetTexelLum(const in RSMTexel texel)
+{
+	return GetLuminance(texel.vColor) * max(0.h, dot(texel.vNormal * 2.h - 1.h, g_lightDir.xyz));
+}
+
+RSMTexelOut IVDownsampleRSMPS(in IVDownsampleRSMPsIn In)
+{
+	// choose the brightest texel
+	half3 vChosenGridCell = 0;
+	{
+		half fMaxLum = 0;
+		for(int i=0;i<2;i++)
+		{
+			for(int j=0;j<2;j++)
+			{
+				const half2 vTexCoords = In.texCoord + half2(i, j) * g_vSrcRSMSize.zw;
+				const RSMTexel texel = FetchRSM(vTexCoords);
+				const half fCurTexLum = GetTexelLum(texel);
+				if(fCurTexLum > fMaxLum)
+				{
+					vChosenGridCell = GetGridCell(vTexCoords, texel.fDepth);
+					fMaxLum = fCurTexLum;
+				}
+			}
+		}
+	}
+
+	// fliter 
+	RSMTexel cRes = (RSMTexel)0;
+	half nSamples = 0;
+	for(int i=0;i<2;i++)
+	{
+		for(int j=0;j<2;j++)
+		{
+			const half2 vTexCoords = In.texCoord + half2(i, j) * g_vSrcRSMSize.zw;
+			const RSMTexel texel = FetchRSM(vTexCoords);
+			const half3 vTexelGridCell = GetGridCell(vTexCoords, texel.fDepth);
+			const half3 dGrid = vTexelGridCell - vChosenGridCell;
+			if(dot(dGrid, dGrid) < 3)
+			{
+				cRes.fDepth += texel.fDepth;
+				cRes.vColor += texel.vColor;
+				cRes.vNormal += texel.vNormal;
+				nSamples++;
+			}
+		}
+	}
+
+	// normalize
+	if(nSamples > 0)
+	{
+		cRes.fDepth  /= nSamples;
+		cRes.vColor  /= 4;
+		cRes.vNormal /= nSamples;
+	}
+
+	RSMTexelOut Out = (RSMTexelOut)0;
+	
+	Out.fDepth.r		= cRes.fDepth;
+	Out.vColor.rgb  = cRes.vColor;
+	Out.vNormal.rgb = cRes.vNormal;
+
+	// output
+	return Out;
+}
+
+technique IVDownsampleRSM
+{
+  pass p0
+  {
+#if !D3D10 || PS3
+    VertexShader = compile vs_3_0 IVDownsampleRSMVS();
+    PixelShader = compile ps_3_0 IVDownsampleRSMPS();
+#else
+    VertexShader = compile vs_4_0 IVDownsampleRSMVS();
+    PixelShader = compile ps_4_0 IVDownsampleRSMPS();
+#endif
+  }
+}
+
+//////////////////////////////////////////////////////////////////////////////////////
+// Reflective shadow-map injection shader
+//////////////////////////////////////////////////////////////////////////////////////
+
+#define NORMAL_DEPTH_BIAS (0.7h)
+#define LIGHT_DEPTH_BIAS (0.7h)
+#define JITTERING_BIAS (0.2h)
+#define COLOR_AMPLIFICATION (10.0h)
+
+float4 g_dirToLightGridSpace < vsregister = c12; >
+float4 g_smSize < vsregister = c13; >;
+float4x4 g_injectionMatrix < vsregister = c14; >;	 //	g_invLightMatrix * g_gridMatrix
+FLOAT4 g_dirToLight < psregister = c11; >
+FLOAT4 g_smInvPixelSize < psregister = c12; >;
+
+sampler2D irradVolDepthVertexSampler : register(s0);	// vertex texture
+sampler2D irradVolNormalVertexSampler : register(s1);	// vertex texture
+
+struct IVColorMapVsIn
+{
+	float2 pixelID : POSITION;
+#if %_RT_SAMPLE0 // r2vb
+	half4 normal 	: NORMAL;
+	float depth 	: TEXCOORDN;
+#endif
+};
+
+struct IVColorMapPsIn
+{
+	float4 position : POSITION;
+	half2 texCoord : TEXCOORDN;
+	half3 normal 		: TEXCOORDN;
+	//half2 att 				: TEXCOORDN;	// TODO: optimize interpolators
+};
+
+IVColorMapPsIn IVColorMapInjectionVS(const in IVColorMapVsIn In)
+{
+	IVColorMapPsIn Out;
+
+	// get texture coords by vertex ID
+	float2 texelPos = float2(fmod(In.pixelID.x, g_smSize.x), In.pixelID.x * g_smSize.z) * g_smSize.zw;
+	Out.texCoord = texelPos;
+	half2 screenPos = texelPos * float2(2.f, -2.f) - float2(1.f, -1.f);
+#if !D3D10 && !PS3
+	screenPos += float2(-1.f, 1.f) * g_smSize.zw;
+#endif
+
+	// sample depth and normal data
+#if %_RT_SAMPLE0 // r2vb
+	const float depth = In.depth;
+	Out.normal = In.normal.xyz;
+#else
+	const float depth = tex2Dlod(irradVolDepthVertexSampler, float4(Out.texCoord, 0, 0)).r;	
+	Out.normal = tex2Dlod(irradVolNormalVertexSampler, float4(Out.texCoord, 0, 0)).rgb;
+#endif
+
+	Out.normal = Out.normal * 2.h - 1.h;
+
+	// get world space position of the texel in the colored shadow map
+	float4 homogGridPos = mul(g_injectionMatrix, float4(screenPos, depth, 1));
+	// TODO: calc texel area coverage and precalc grid cell projection's area in light direction
+	float3 gridPos = homogGridPos.xyz/homogGridPos.w;
+
+	// align this pixel to the nearest cell in the dir to light
+	// calc dir from original placement of pixel to this cell
+	// TODO: optimize it
+	half3 gridSpaceNormal = normalize(IVGridDir(Out.normal)) * g_invGridSize.xyz;
+	half3 alignedGridPos = gridPos;
+	// TODO: make proper rounding direction and only one cell shift
+	alignedGridPos += gridSpaceNormal * NORMAL_DEPTH_BIAS;
+	alignedGridPos += g_dirToLightGridSpace.xyz * (LIGHT_DEPTH_BIAS/* + (In.pixelID.y * JITTERING_BIAS)*/);
+	alignedGridPos.z = floor(alignedGridPos.z * g_gridSize.z) * g_invGridSize.z;
+
+	// calc attenuation
+	//Out.att = 1;//saturate(length((alignedGridPos - gridPos) * g_gridSize.xyz*2 )/sqrt(3));
+
+	Out.position = IVScreenPos(alignedGridPos);
+
+	if(!IsPointInGrid(alignedGridPos))
+		Out.position.xy = -2;
+
+	return Out;
+}
+
+SHSpectralCoeffs IVColorMapInjectionPS(const in IVColorMapPsIn In)
+{
+#if PS3
+	#pragma sce-cgc("-texformat default RGBA8");
+#endif
+
+	half3 vAlbedo = tex2D(irradVolColorSampler, In.texCoord).rgb;
+	half3 vFlux = vAlbedo * COLOR_AMPLIFICATION * g_smInvPixelSize.x;
+	// TODO: add initial light color(not only the g_PS_SunColor)
+	half3 vcDiffuse = g_PS_SunColor.rgb * vFlux * saturate(dot(In.normal, g_dirToLight))/* * In.att.x*/;		// calc diffuse of VLS
+	SHSpectralCoeffs res = SHMul(GetSHCosine(In.normal, true), vcDiffuse);																				// calc output SH coeffs
+	SHPackAddBlend(res);
+	return res;
+}
+
+technique IVInjectColorMap
+{
+  pass p0
+  {
+#if !D3D10 || PS3
+    VertexShader = compile vs_3_0 IVColorMapInjectionVS();
+    PixelShader = compile ps_3_0 IVColorMapInjectionPS();
+#else
+    VertexShader = compile vs_4_0 IVColorMapInjectionVS();
+    PixelShader = compile ps_4_0 IVColorMapInjectionPS();
+#endif
+  }
+}
+
+//////////////////////////////////////////////////////////////////////////////////////
+// Occlusion injection shader
+//////////////////////////////////////////////////////////////////////////////////////
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////////////////////////
+float4		g_vFrustrumLB < vsregister = c18; >;
+float4		g_vFrustrumLT < vsregister = c19; >;
+float4		g_vFrustrumRB < vsregister = c20; >;
+float4		g_vFrustrumRT < vsregister = c21; >;
+
+float3 GetWorldPos( float fDepth, float3 vCamVec )
+{
+  float3 cameraToWorldPos = fDepth * vCamVec;
+  return ( cameraToWorldPos + g_WorldViewPos.xyz ); // Return world space position
+}
+
+struct IVOcclusionVsIn
+{
+	float2 pixelID : POSITION;
+#if %_RT_SAMPLE0 // r2vb
+	half4 normal 	: NORMAL;
+	float depth 	: TEXCOORDN;
+#endif
+};
+
+struct IVOcclusionPsIn
+{
+	float4 position			: POSITION;
+	half2 texCoord			: TEXCOORDN;
+	half3 normal 				: TEXCOORDN;
+	half2 depthWeight		: TEXCOORDN;
+};
+
+IVOcclusionPsIn IVOcclusionInjectionVS(const in IVOcclusionVsIn In)
+{
+	IVOcclusionPsIn Out;
+
+	// get texture coords by vertex ID
+	float2 texelPos = float2(fmod(In.pixelID.x, g_smSize.x), In.pixelID.x * g_smSize.z) * g_smSize.zw;
+	Out.texCoord = texelPos;
+	half2 screenPos = texelPos * float2(2.f, -2.f) - float2(1.f, -1.f);
+#if !D3D10 && !PS3
+	screenPos += float2(-1.f, 1.f) * g_smSize.zw;
+#endif
+
+	// sample depth and normal data
+#if %_RT_SAMPLE0 // r2vb
+	const float depth = In.depth;
+	Out.normal = In.normal.xyz;
+#else
+	const float depth = tex2Dlod(irradVolDepthVertexSampler, float4(Out.texCoord, 0, 0)).r;	
+	Out.normal = tex2Dlod(irradVolNormalVertexSampler, float4(Out.texCoord, 0, 0)).rgb;
+#endif
+
+	Out.depthWeight.x = depth;
+
+	// get world space position of the texel in the colored shadow map
+#if %_RT_SAMPLE1 // camera mx
+	// camvec
+	half3 vCamVecULerpB = lerp(g_vFrustrumLB, g_vFrustrumRB, texelPos.x);
+	half3 vCamVecULerpT = lerp(g_vFrustrumLT, g_vFrustrumRT, texelPos.x);
+	half3 vCamVec = lerp(vCamVecULerpT, vCamVecULerpB, texelPos.y);
+	float3 worldPos = GetWorldPos(depth, vCamVec);
+	float4 homogGridPos = mul(g_injectionMatrix, float4(worldPos, 1));
+
+	// cam space normal
+	Out.normal = GetWorldSpaceNormals(half4(Out.normal, 0), false);
+	Out.depthWeight.y = saturate(-dot(normalize(vCamVec), normalize(Out.normal)));
+	Out.depthWeight.y = pow(Out.depthWeight.y, .3f);
+#else
+	float4 homogGridPos = mul(g_injectionMatrix, float4(screenPos, depth, 1));
+	Out.normal = Out.normal * 2.h - 1.h;
+	Out.depthWeight.y = 1.h;
+#endif
+
+	// TODO: calc texel area coverage and precalc grid cell projection's area in light direction
+	float3 alignedGridPos = homogGridPos.xyz/homogGridPos.w;
+
+	// rounding direction and only one cell shitf
+	half3 gridSpaceNormal = normalize(IVGridDir(Out.normal)) * (/*In.pixelID.y * .1h + */.2h) * g_invGridSize.xyz;
+	alignedGridPos -= gridSpaceNormal;
+	//alignedGridPos += g_dirToLightGridSpace.xyz * (LIGHT_DEPTH_BIAS/* + (In.pixelID.y * JITTERING_BIAS)*/);
+
+	// calc half-cell shifting
+	//alignedGridPos -= g_invGridSize.xyz * 0.5f;
+	alignedGridPos.z = floor(alignedGridPos.z * g_gridSize.z) * g_invGridSize.z;
+
+	Out.position = IVScreenPos(alignedGridPos);
+
+	if(!IsPointInGrid(alignedGridPos))
+		Out.position.xy = -2;
+
+	return Out;
+}
+
+SHCoeffs IVOcclusionInjectionPS(const in IVOcclusionPsIn In)
+{
+	SHCoeffs res = GetSHCosine(In.normal, true);		// calc output SH coeffs
+	res.c *= g_smInvPixelSize.x * In.depthWeight.y * .01f
+#if %_RT_SAMPLE1 // camera mx
+		* In.depthWeight.x*10000.f						// calc perspective weight of surfel in case of camera frustrum
+#endif
+		;								
+	return res;
+}
+
+technique IVInjectOcclusion
+{
+  pass p0
+  {
+#if !D3D10 || PS3
+    VertexShader = compile vs_3_0 IVOcclusionInjectionVS();
+    PixelShader = compile ps_3_0 IVOcclusionInjectionPS();
+#else
+    VertexShader = compile vs_4_0 IVOcclusionInjectionVS();
+    PixelShader = compile ps_4_0 IVOcclusionInjectionPS();
+#endif
+  }
+}
+
+//////////////////////////////////////////////////////////////////////////////////////
+// Simulation shader
+//////////////////////////////////////////////////////////////////////////////////////
+
+FLOAT4 g_PropagationAmp_Iteration < psregister = c11; >;
+
+struct IVSimulationPsIn
+{
+	float4 position	 				: POSITION;
+	half3 gridPos 					: TEXCOORDN;
+};
+
+IVSimulationPsIn IVSimulateVS(const in half3 position 	: POSITION)
+{
+	IVSimulationPsIn Out;
+	Out.gridPos = half3(position.xy, position.z * g_invGridSize.z);	// pos->[0;1]x[0;1]x[0;1)
+	Out.gridPos.xy -= g_invGridSize.xy * sign(Out.gridPos.xy * 2.h - 1.h);	// don't simulate on the borders
+  Out.position = IVScreenPos(Out.gridPos);
+	return Out;
+}
+
+SHSpectralCoeffs SHLerp(const in SHSpectralCoeffs a, const in SHCoeffs b, const in half t)
+{
+	SHSpectralCoeffs res;
+	res.r = lerp(a.r, b.c, t);
+	res.g = lerp(a.g, b.c, t);
+	res.b = lerp(a.b, b.c, t);
+	return res;
+}
+
+void IVPropagateDir(inout SHSpectralCoeffs pixelCoeffs, const in IVSimulationPsIn In, const in half3 nOffset, const in int nIndex)
+{
+	half2 texCoord = IVGetTiledTexcoordWithOffset(In.gridPos, nOffset);
+	SHSpectralCoeffs sampleCoeffs = SHSampleValueNoFiltering(texCoord);	// get sample's SH coeffs
+
+	SHCoeffs shIncomingDir = SHCone90Degree(-nOffset);
+	half fAttenuation = g_PropagationAmp_Iteration.x;
+
+	// indirect occlusion calculation
+#if %_RT_SAMPLE3
+	half4 occlCoeffs;
+
+	// fuzzy secondary occlusion
+	{
+		// SH grid look-up + trilinear interpolation for 3D grid
+		{
+			half zt;	
+			half2 roundedGridCoord = IVTiledTexCoordAndInterpolant(In.gridPos + nOffset * g_invGridSize.xyz * 1.0h, zt);
+			half4 occlCoeffs0 = tex2D(irradVolColorSampler, roundedGridCoord);
+			half4 occlCoeffs1 = tex2D(irradVolColorSampler, roundedGridCoord + IVGetTiledTexcoord(half3(0, 0, g_invGridSize.z)));
+			occlCoeffs = lerp(occlCoeffs0, occlCoeffs1, zt);
+		}
+		// occlusion towards a propagation direction
+		half fOcclusion = abs(dot(occlCoeffs, shIncomingDir.c));
+		// visibility
+		fAttenuation *= saturate(1.h - fOcclusion*100.f);
+	}
+
+	// multiple bounces
+	{
+		// SH grid look-up + trilinear interpolation for 3D grid
+		//{
+		//	half zt;	
+		//	half2 roundedGridCoord = IVTiledTexCoordAndInterpolant(In.gridPos + nOffset * g_invGridSize.xyz * 1.50h, zt);
+		//	half4 occlCoeffs0 = tex2D(irradVolColorSampler, roundedGridCoord);
+		//	half4 occlCoeffs1 = tex2D(irradVolColorSampler, roundedGridCoord + IVGetTiledTexcoord(half3(0, 0, g_invGridSize.z)));
+		//	occlCoeffs = lerp(occlCoeffs0, occlCoeffs1, zt);
+		//}
+
+		//half3 surfaceNormal = SHExtractNormalizedDir(occlCoeffs);
+		//half3 vCamDir = normalize(IVWorldPos(In.gridPos) - g_WorldViewPos);
+		//surfaceNormal *= sign(-dot(surfaceNormal, vCamDir));
+		//SHCoeffs cone = GetSHCosine(surfaceNormal, false);
+		//cone.c *= saturate(fOcclusion*100.f);
+		//cone.c.r = 0.f;
+		// add it to result
+		//pixelCoeffs.r += cone.c * saturate(-SHDot(sampleCoeffs, cone).r);
+		//pixelCoeffs.g += cone.c * saturate(-SHDot(sampleCoeffs, cone).g);
+		//pixelCoeffs.b += cone.c * saturate(-SHDot(sampleCoeffs, cone).b);
+
+		//static const half c = 0.146447h;	//	1/2 (1 - 1/Sqrt[2])
+		//static const half k = 0.375h;			//	3 / 8
+		//half l = length(occlCoeffs);
+		//half4 normOcclCoeffs = occlCoeffs;
+		//normOcclCoeffs.gba = normalize(normOcclCoeffs.gba);
+		//normOcclCoeffs.gba *= k;
+		//normOcclCoeffs.r = c;
+
+		//half3 surfaceNormal = SHExtractNormalizedDir(occlCoeffs);
+		//SHCoeffs cone = GetSHCosine(surfaceNormal, false);
+		// add it to result
+		//if(g_PropagationAmp_Iteration.y > 3)
+		//{
+			//pixelCoeffs.r += occlCoeffs * saturate(-dot(sampleCoeffs.b, normOcclCoeffs)) * 08.0f;
+			//pixelCoeffs.g += occlCoeffs * saturate(-dot(sampleCoeffs.b, normOcclCoeffs)) * 08.0f;
+			//pixelCoeffs.b += occlCoeffs * saturate(-dot(sampleCoeffs.b, normOcclCoeffs)) * 08.0f;
+		//}
+
+	}
+#endif
+
+#if !XENON && !PS3
+	SHSpectralCoeffs coeffsResult = SHCNormalizeCone90(sampleCoeffs);
+	coeffsResult = SHLerp(coeffsResult, shIncomingDir, .5h);
+	pixelCoeffs = SHAdd(pixelCoeffs, SHCMul(coeffsResult, max(0, SHDot(sampleCoeffs, shIncomingDir)) * fAttenuation));	// add it to result
+#else
+	// simplified propagation for consoles
+	pixelCoeffs = SHAdd(pixelCoeffs, SHMulSpectral(shIncomingDir, saturate(SHDot(sampleCoeffs, shIncomingDir)) * fAttenuation));	// add it to result
+#endif
+}
+
+#if XENON
+[maxtempreg(48)]
+#endif
+SHSpectralCoeffs IVSimulatePS(const in IVSimulationPsIn In)
+{
+#if PS3
+	//#pragma sce-cgc("-regcount 7");
+	#pragma sce-cgc("-texformat default RGBA8");
+#endif
+
+ 	SHSpectralCoeffs pixelCoeffs = (SHSpectralCoeffs)0;
+
+	// differential scheme "cross"
+	IVPropagateDir(pixelCoeffs, In, half3( 1,  0,  0), 1);
+	IVPropagateDir(pixelCoeffs, In, half3(-1,  0,  0), 0);
+	IVPropagateDir(pixelCoeffs, In, half3( 0,  1,  0), 3);
+	IVPropagateDir(pixelCoeffs, In, half3( 0, -1,  0), 2);
+	IVPropagateDir(pixelCoeffs, In, half3( 0,  0,  1), 5);
+	IVPropagateDir(pixelCoeffs, In, half3( 0,  0, -1), 4);
+
+	SHPack(pixelCoeffs);
+	return pixelCoeffs;
+}
+
+technique IVSimulate
+{
+  pass p0
+  {
+#if !D3D10 || PS3
+    VertexShader = compile vs_3_0 IVSimulateVS();
+    PixelShader = compile ps_3_0 IVSimulatePS();
+#else
+    VertexShader = compile vs_4_0 IVSimulateVS();
+    PixelShader = compile ps_4_0 IVSimulatePS();
+#endif
+  }
+}
+//////////////////////////////////////////////////////////////////////////////////////
+FLOAT4		g_vAttenuation		< vsregister = c12; psregister = c11; >;
+FLOAT4		g_gridCenter			< vsregister = c13; psregister = c12; >;
+
+struct IVCollectPsIn
+{
+	float4 position					: POSITION;
+	half2 texCoord					: TEXCOORDN;
+	half3 worldPosToCenter	: TEXCOORDN;
+};
+
+IVCollectPsIn IVCollectVS(const in float3 position	: POSITION)
+{
+	IVCollectPsIn Out = (IVCollectPsIn)0;
+
+	const float3 gridPos = float3(position.xy, position.z * g_invGridSize.z);	// pos->[0;1]x[0;1]x[0;1)
+#if PS3 && %_RT_SAMPLE1
+	// special case for render into volume texture
+	Out.position.x = gridPos.x;
+	Out.position.y = gridPos.y * g_invGridSize.z + gridPos.z;
+	Out.position.xy = Out.position.xy * float2(2, -2) - float2(1, -1);		// to [-1;1]
+	Out.position.zw = float2(0, 1);
+#else
+  Out.position = IVScreenPos(gridPos);
+#endif
+
+	Out.texCoord = IVGetTiledTexcoord(gridPos);
+
+#if (XENON || PS3) && %_RT_SAMPLE1
+	Out.worldPosToCenter = IVWorldPos(gridPos) - g_gridCenter.xyz;
+#endif
+
+	return Out;
+}
+
+SHSpectralCoeffs IVCollectPS(const in IVCollectPsIn In)
+{
+#if PS3
+	//#pragma sce-cgc("-regcount 7");
+	#pragma sce-cgc("-texformat default RGBA8");
+#endif
+
+	SHSpectralCoeffs cRes = SHSampleValueNoFiltering(In.texCoord);
+#if XENON || PS3
+	SHSpectralCoeffs cSrc;
+	cSrc.r = tex2D(irradVolColorSampler, In.texCoord);
+	cSrc.g = tex2D(irradVolNormalSampler, In.texCoord);
+	cSrc.b = tex2D(irradVolDepthSampler, In.texCoord);
+	SHUnpack(cSrc);
+
+	// manual additive blending
+	cRes = SHAdd(cRes, cSrc);
+
+	#if %_RT_SAMPLE1 // preattenuate
+		half att = saturate(length(In.worldPosToCenter) * g_vAttenuation.x + g_vAttenuation.y);
+		cRes = SHCMul(cRes, att);
+	#endif
+	SHPack(cRes);
+#endif
+	return cRes;
+}
+
+technique IVCollect
+{
+  pass p0
+  {
+    VertexShader = compile vs_Auto IVCollectVS();
+    PixelShader = compile ps_Auto IVCollectPS();
+  }
+}
+
+//////////////////////////////////////////////////////////////////////////////////////
+// Post-inject ready to render lightsource
+//////////////////////////////////////////////////////////////////////////////////////
+struct IVPostinjectLightPsIn
+{
+	half4 position	 		: POSITION;
+	half4 vecFromLight	: TEXCOORDN;	// 1/r in w
+	half3 cLightColor		: TEXCOORDN;
+	half3 vGridPos			: TEXCOORDN;
+};
+
+IVPostinjectLightPsIn IVPostinjectLightVS(const in half3 position	: POSITION)
+{
+	IVPostinjectLightPsIn Out;
+
+	const half nHalfNumSilces = floor((g_lightColor.w-1)/2);	// half of number of slices to render
+	const half z = position.z - nHalfNumSilces;
+
+	half3 snappedGridSpaceLightPos = floor(IVGridPos(g_lightPosition.xyz) * g_gridSize.xyz) * g_invGridSize.xyz;
+	const half3 vGridSpaceRadius = IVGridDir(g_lightPosition.www);
+	snappedGridSpaceLightPos.xy += vGridSpaceRadius.xy * position.xy;
+	snappedGridSpaceLightPos.z += z * g_invGridSize.z;
+
+	const float3 vertexWorldPos = IVWorldPos(snappedGridSpaceLightPos);
+	Out.vecFromLight.xyz = vertexWorldPos - g_lightPosition.xyz;
+	Out.vecFromLight.w = 1.0h / max(.01h, g_lightPosition.w);	// 1/r
+
+	Out.vGridPos = snappedGridSpaceLightPos;
+  Out.position = IVScreenPos(snappedGridSpaceLightPos);
+	Out.cLightColor = g_lightColor.rgb;
+
+	return Out;
+}
+
+SHSpectralCoeffs IVPostinjectLightPS(const in IVPostinjectLightPsIn In)
+{
+	IVClipGridPos(In.vGridPos, false);
+  half fAtt = GetAttenuation(In.vecFromLight.xyz, In.vecFromLight.w);
+
+#if %_RT_SAMPLE0 
+	// negative lights
+	fAtt *= GetLuminance(In.cLightColor);
+	SHCoeffs coeffs = SHSampleConst(-fAtt);
+	SHSpectralCoeffs outCoeffs;
+	outCoeffs.r = coeffs.c;
+	outCoeffs.g = coeffs.c;
+	outCoeffs.b = coeffs.c;
+#else
+	fAtt *= fAtt;
+	SHCoeffs coeffs = GetSHCosine(In.vecFromLight.xyz, true);
+	SHSpectralCoeffs outCoeffs = SHMul(coeffs, In.cLightColor * fAtt * 3.h);	// x 3 because of SH lobe normalization
+#endif
+
+	SHPackAddBlend(outCoeffs);
+
+	return outCoeffs;
+}
+
+technique IVPostinjectLight
+{
+  pass p0
+  {
+    VertexShader = compile vs_Auto IVPostinjectLightVS();
+    PixelShader = compile ps_Auto IVPostinjectLightPS();
+  }
+}
+
+//////////////////////////////////////////////////////////////////////////////////////
+// Deferred apply shader
+//////////////////////////////////////////////////////////////////////////////////////
+
+IVApplyPsIn IVApplyVS(float3 position	 	: POSITION)
+{
+	IVApplyPsIn Out = (IVApplyPsIn)0;
+
+	float3 vWorldPos = IVWorldPos(float4(position, 1));
+  Out.position = mul(float4(vWorldPos, 1), g_mCamera);
+
+	float2 vScreenPos = (Out.position.xy/Out.position.w)*.5f + .5f;
+	vScreenPos.y = 1.f - vScreenPos.y;
+#if !D3D10 && !PS3	// half-pixel offset
+	vScreenPos += float2(1.f, 1.f) * g_VS_ScreenSize.zw;
+#elif PS3
+	// for half-res rendering
+	vScreenPos += float2(0.25f, 0.f) * float2(1.f/1280, 0);
+#endif
+  Out.screenPos.xy = vScreenPos;
+
+	// camvec
+	float3 vCamVecULerpB = lerp(g_vFrustrumLB, g_vFrustrumRB, vScreenPos.x);
+	float3 vCamVecULerpT = lerp(g_vFrustrumLT, g_vFrustrumRT, vScreenPos.x);
+	float3 vCamVec = lerp(vCamVecULerpT, vCamVecULerpB, vScreenPos.y);
+	// transform cam vectors into grid space(to reconstruct grid pos from depth)
+	Out.GridCamVec = IVGridDir(vCamVec);
+
+#if !PS3 && !XENON
+	Out.CamVec = vCamVec;
+#endif
+
+	// apply perspective correction (except for PS3 - we disable it there)
+	Out.screenPos.z = Out.position.w;
+  Out.screenPos.xy *= Out.position.w;
+	Out.GridCamVec *= Out.position.w;
+#if !PS3 && !XENON
+	Out.CamVec *= Out.position.w;
+#endif
+
+	return Out;
+}
+
+struct pixoutMRT
+{
+  half4 Diffuse		: COLOR0;
+#if !PS3 && !XENON
+	half4 Specular  : COLOR1;
+#endif
+};
+
+pixoutMRT IVApplyPS(in IVApplyPsIn In)
+{
+#if PS3
+	#pragma sce-cgc("-regcount 5");
+	#pragma sce-cgc("-texformat 1 RGBA8");
+	#pragma sce-cgc("-texformat 2 RGBA8");
+	#pragma sce-cgc("-texformat 3 RGBA8");
+	#pragma sce-cgc("-texformat 4 RGBA8");
+	#pragma sce-cgc("-texformat 5 RGBA8");
+	#pragma sce-cgc("-texformat 6 RGBA8");
+	#pragma sce-cgc("-texformat 7 RGBA8");
+	#pragma sce-cgc("-disablepc all");
+  #pragma sce-cgc("-fastprecision");  
+  #pragma sce-cgc("-fastmath");  
+#endif
+
+  pixoutMRT OUT = (pixoutMRT) 0;
+
+#if %_RT_DEBUG0
+ OUT.Diffuse = 0.1;
+ return OUT;
+#endif
+
+#if !PS3
+	PrepareInData(In);
+#endif
+
+	half4 normal;
+	half3 gridPos;
+
+#if !%_RT_DEBUG1
+	OUT.Diffuse.rgb = GetDifuseIrradiance(In, normal, gridPos);
+	#if %_RT_SAMPLE0 && !PS3 && !XENON
+		// specular
+		OUT.Specular.rgb = GetSpecularIrradiance(In, normal, gridPos);
+	#endif
+#else	// DEBUG
+	OUT.Diffuse.rgb = DEBUGGetIlluminationEnergy(In);
+#endif
+
+#if %_RT_SAMPLE1 // global illumination
+	half att = (half)g_vAttenuation.z;
+	// workd-space attenuation
+	#if !PS3 && !XENON && !%_RT_DEBUG1
+		half3 worldPos = GetPosFromDepth( depthMapSamplerBorder, In.screenPos.xy, In.CamVec, g_WorldViewPos.xyz );
+		att *= saturate(distance((half3)g_gridCenter.xyz, worldPos) * (half)g_vAttenuation.x + (half)g_vAttenuation.y);
+	#endif
+	OUT.Diffuse.rgb *= att;
+	#if %_RT_SAMPLE0 && !PS3 && !XENON	// specular
+		OUT.Specular.rgb *= att;
+	#endif
+#endif
+
+	// use custom additive blending for PS3
+#if PS3
+	half3 cDstDiffCol = DecodeLightBuffer(tex2D( _tex6, In.screenPos.xy ));
+	//half3 cDstSpecCol = DecodeLightBuffer(tex2D( _tex7, In.screenPos.xy ));
+
+	OUT.Diffuse.rgb += cDstDiffCol;
+	//OUT.Specular.rgb += cDstSpecCol;
+#endif
+
+	// custom encoding
+	OUT.Diffuse = EncodeLightBuffer(OUT.Diffuse);
+#if !PS3 && !XENON
+	OUT.Specular = EncodeLightBuffer(OUT.Specular);
+#endif
+
+	return OUT;
+}
+
+technique IVApply
+{
+  pass p0
+  {
+#if !D3D10 || PS3
+    VertexShader = compile vs_3_0 IVApplyVS();
+    PixelShader = compile ps_3_0 IVApplyPS();
+#else
+		VertexShader = compile vs_4_0 IVApplyVS();
+    PixelShader = compile ps_4_0 IVApplyPS();
+#endif
+  }
+}
+
+//////////////////////////////////////////////////////////////////////////////////////

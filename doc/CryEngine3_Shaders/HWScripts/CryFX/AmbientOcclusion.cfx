@@ -1,0 +1,2581 @@
+////////////////////////////////////////////////////////////////////////////
+//
+//  Crytek Engine Shader Source File
+//  Copyright (C), Crytek Studios, 2001-2007
+// -------------------------------------------------------------------------
+//  File name:   AmbientOcclusion.cfx
+//  Version:     v1.00
+//  Created:     04/12/2006 by Vladimir Kajalin
+//  Description: Implementation of SSAO, TerrainAO (2.5 D maps), Fill lights
+// -------------------------------------------------------------------------
+//  History:
+//
+////////////////////////////////////////////////////////////////////////////
+
+#define %TEMP_TERRAIN 0x40000000
+
+#include "Common.cfi" 
+#include "ModificatorVT.cfi"
+#include "ShadeLib.cfi" 
+
+// Shader global descriptions
+float Script : STANDARDSGLOBAL
+<
+  string Script =
+           "NoPreview;"
+           "LocalConstants;"
+           "ShaderDrawType = Custom;"
+           "ShaderType = PostProcess;"
+>; 
+
+// original depth target
+sampler2D sceneDepthSampler = sampler_state
+{
+ Texture = $ZTarget;
+ MinFilter = POINT;
+ MagFilter = POINT;
+ MipFilter = POINT;
+ AddressU = Clamp;
+ AddressV = Clamp;
+};
+
+// downscaled depth target
+sampler2D sceneDepthSamplerAO = sampler_state
+{
+ Texture = $ZTargetScaled;
+ MinFilter = POINT;
+ MagFilter = POINT;
+ MipFilter = POINT;
+ AddressU = Clamp;
+ AddressV = Clamp;
+};
+
+float3x4	SSAO_CameraMatrix;
+float4		SSAO_filter;
+float4		SSAO_params;
+
+sampler2D depthTargetSampler   : register(s0);
+sampler2D TerrainInfoSampler0  : register(s1);
+sampler2D TerrainInfoSampler1  : register(s2);
+
+#include "ShadowCommon.cfi"
+
+//===========================================================================
+
+float4 AOSectorRange;
+float4 TerrainAOInfo;
+
+float4x4 CompMatrix : PI_Composite;
+float4 BuildTerrainTextureParams0_PS;
+float4 BuildTerrainTextureParams1_PS;
+float4 BuildTerrainTextureParams2_PS;
+float4 BuildTerrainTextureParams3_PS;
+float4 BuildTerrainTextureParams4_PS;
+float4 BuildTerrainTextureParams_VS;
+float4 BuildTerrainTextureParams1_VS;
+
+float4x4 ProjectTerrainDecalMatrixInv_PS;
+float4x4 ProjectTerrainDecalMatrixRot_PS;
+float4 ProjectTerrainDecalMatColor_PS;
+float4 ProjectTerrainDecalMatSpec_PS;
+float4 ProjectTerrainDecalTextureAtlasInfo_PS;
+
+float4x4 ProjectRoadSegmentPlanes0123_PS;
+float4x4 ProjectRoadSegmentPlanes4567_PS;
+float4x4 ProjectRoadSegmentMatrixRot_PS;
+float4 ProjectRoadSegmentMatColor_PS;
+float4 ProjectRoadSegmentMatSpec_PS;
+float4 ProjectRoadSegmentTexCoordRange_PS;
+
+float4 VoxTerrainDebug_Offset;
+
+/////////////////////////////
+// structs
+
+struct pixout_cl
+{
+  half4 Color  : COLOR0;
+};
+
+struct pixout_cl_MRT
+{
+  half4 Color  : COLOR0;
+  half4 Color1 : COLOR1;
+};
+
+struct vert2frag_TerrainAO
+{
+	float4 HPosition	:	POSITION;
+	half4 ScreenTC		:	TEXCOORD0;
+	half3 WS_ViewVect:	TEXCOORD1;
+};
+
+struct vert2fragSSAO
+{
+	float4 HPosition	:	POSITION;
+
+#if %USE_SM30
+	float2 ScreenTC		:	TEXCOORD0;
+#else
+	float4 ScreenTC		:	TEXCOORD0;
+#endif
+
+};
+
+
+struct vert2fragSSAO_PS
+{
+#if D3D10
+	float4 ScreenPos	: SV_POSITION;
+	float2 ScreenTC		:	TEXCOORD0;
+#else
+
+#if %USE_SM30
+	float4 ScreenPos  : VPOS;
+	float2 ScreenTC		:	TEXCOORD0;
+#else
+	float4 ScreenTC		:	TEXCOORD0;
+#endif
+#endif
+};
+
+
+struct vert2fragTTB
+{
+	float4 HPosition	:	POSITION;
+	float4 WSPosition :	TEXCOORD0;
+	float4 vertColor  :	TEXCOORD1;
+	float4 vertNormal :	TEXCOORD2;
+  float4 projRatios :	TEXCOORD3;
+	float2 texelCoord :	TEXCOORD4;
+	float2 texelCoordPlanar :	TEXCOORD5;
+};
+
+struct app2vertShadow
+{
+  IN_P
+  IN_TBASE
+  float3 viewDir : TEXCOORD1;
+};
+
+vert2fragSSAO Deferred_SSAO_VS(app2vertShadow IN)
+{
+	vert2fragSSAO OUT;
+#ifndef OPENGL  
+	OUT = (vert2fragSSAO)0; 
+#endif
+
+	OUT.HPosition = IN.Position;
+	OUT.ScreenTC.xy = IN.baseTC.xy;
+
+#if !%USE_SM30
+	OUT.ScreenTC.wz = (IN.baseTC.yx - g_VS_ScreenSize.wz) * (g_VS_ScreenSize.yx / 4);
+#endif
+
+	return OUT;
+}
+
+vert2frag_TerrainAO Deferred_TerrainAO_Pass_VS(app2vertShadow IN)
+{
+	vert2frag_TerrainAO OUT = (vert2frag_TerrainAO)0; 
+
+	OUT.HPosition = mul(CompMatrix, IN.Position);
+	OUT.ScreenTC.xy = IN.baseTC.xy;
+	OUT.ScreenTC.zw = IN.baseTC.xy*g_VS_ScreenSize.xy/4;
+	OUT.WS_ViewVect = IN.viewDir;
+
+	return OUT;
+}
+
+////////////////////////////////////////////////////////////////////////////
+/////////////////// Terrain texture builder ////////////////////////////////
+////////////////////////////////////////////////////////////////////////////
+
+sampler2D samplerBTT_Base0 : register(s0);
+{
+	MinFilter = LINEAR;
+	MagFilter = LINEAR;
+	MipFilter = LINEAR; 
+	AddressU = Wrap;
+	AddressV = Wrap;	
+};
+
+sampler2D samplerBTT_Base1 : register(s1);
+{
+	MinFilter = LINEAR;
+	MagFilter = LINEAR;
+	MipFilter = LINEAR; 
+	AddressU = Wrap;
+	AddressV = Wrap;	
+};
+
+sampler2D samplerBTT_Base2 : register(s2);
+{
+	MinFilter = LINEAR;
+	MagFilter = LINEAR;
+	MipFilter = LINEAR; 
+	AddressU = Wrap;
+	AddressV = Wrap;	
+};
+
+sampler2D samplerBTT_Base3 : register(s3);
+{
+	MinFilter = LINEAR;
+	MagFilter = LINEAR;
+	MipFilter = LINEAR; 
+	AddressU = Wrap;
+	AddressV = Wrap;	
+};
+
+sampler2D samplerBTT_Base4 : register(s4);
+{
+	MinFilter = LINEAR;
+	MagFilter = LINEAR;
+	MipFilter = LINEAR; 
+	AddressU = Wrap;
+	AddressV = Wrap;	
+};
+
+sampler2D samplerBTT_Base5 : register(s5);
+{
+	MinFilter = LINEAR;
+	MagFilter = LINEAR;
+	MipFilter = LINEAR; 
+	AddressU = Wrap;
+	AddressV = Wrap;	
+};
+
+sampler2D samplerBTT_Base6 : register(s6);
+{
+	MinFilter = LINEAR;
+	MagFilter = LINEAR;
+	MipFilter = LINEAR; 
+	AddressU = Wrap;
+	AddressV = Wrap;	
+};
+
+sampler2D samplerBTT_Base7 : register(s7);
+{
+	MinFilter = POINT;
+	MagFilter = POINT;
+	MipFilter = NONE; 
+	AddressU = Wrap;
+	AddressV = Wrap;	
+};
+
+sampler2D samplerBTT_Base8 : register(s8);
+{
+	MinFilter = POINT;
+	MagFilter = POINT;
+	MipFilter = NONE; 
+	AddressU = Wrap;
+	AddressV = Wrap;	
+};
+
+sampler2D samplerBTT_Base9 : register(s9);
+{
+	MinFilter = LINEAR;
+	MagFilter = LINEAR;
+	MipFilter = LINEAR; 
+	AddressU = Wrap;
+	AddressV = Wrap;	
+};
+
+sampler2D samplerBTT_Base10 : register(s10);
+{
+	MinFilter = LINEAR;
+	MagFilter = LINEAR;
+	MipFilter = LINEAR; 
+	AddressU = Wrap;
+	AddressV = Wrap;	
+};
+
+sampler2D samplerBTT_Base11 : register(s11);
+{
+	MinFilter = LINEAR;
+	MagFilter = LINEAR;
+	MipFilter = LINEAR; 
+	AddressU = Wrap;
+	AddressV = Wrap;	
+};
+
+vert2fragTTB BuildTerrainTexture_VS(app2vertGeneral IN)
+{
+	vert2fragTTB OUT = (vert2fragTTB)0; 
+
+  streamPos vertPassPos = (streamPos)0;
+  streamPos_FromGeneral(IN, vertPassPos);
+
+  float2 tc = vertPassPos.baseTC.xy;
+	OUT.HPosition = float4((tc.x-0.5)*2, (0.5-tc.y)*2, 0, 1);
+	OUT.WSPosition = vertPassPos.Position;
+  OUT.WSPosition.xyz += BuildTerrainTextureParams_VS.xyz;
+  OUT.texelCoord = tc;
+  OUT.texelCoordPlanar.xy = (OUT.WSPosition - BuildTerrainTextureParams1_VS).xy;
+
+  OUT.vertColor.xyz	= float3(vertPassPos.Color.rb, vertPassPos.Normal.w);
+  OUT.vertColor.w = saturate(1 - abs(vertPassPos.Color.g*255 - BuildTerrainTextureParams_VS.w));	// saturate needed for dx10 HDR
+
+  OUT.vertNormal.xyz	= vertPassPos.Normal.xyz;
+  
+  float3 NormalAbs = abs(OUT.vertNormal.xyz); 
+  if(NormalAbs.x>NormalAbs.z && NormalAbs.x>NormalAbs.y)
+    OUT.projRatios.xyz = float3(1,0,0);
+  else if(NormalAbs.y>NormalAbs.z)// && NormalAbs.y>NormalAbs.x)
+    OUT.projRatios.xyz = float3(0,1,0);
+  else
+    OUT.projRatios.xyz = float3(0,0,1);
+
+  OUT.projRatios.w = BuildTerrainTextureParams1_VS.w;
+
+	return OUT;
+}
+
+#define fBTT_BumpAmount 1.f
+#define fBTT_SpecScale 16.f
+
+float3 EncodeVoxColor(float3 colorIn)
+{
+  colorIn.rgb *= BuildTerrainTextureParams4_PS.x;
+  return colorIn;
+}
+
+half3 Diff2Normal(float4 vDiff)
+{
+  half3 bumpNormal; 
+
+#if PS3
+  bumpNormal.xy = EXPAND(vDiff.ga);  
+#elif XENON || D3D10
+  bumpNormal.xy = EXPAND(vDiff.yx);  
+#else
+  bumpNormal.xy = EXPAND(vDiff.xy);
+#endif
+
+  bumpNormal.z = sqrt(saturate(1 - dot(bumpNormal.xy, bumpNormal.xy)));  
+
+  return bumpNormal*2;
+}
+
+void ComputeTerrainTriPlanarTexturing(
+  sampler2D samplerDiff, 
+  sampler2D samplerBump, 
+  sampler2D samplerSpec, 
+  sampler2D samplerDetail, 
+  float3 vWSPos,
+  float2 vTiling,
+  float3 vProjRatios,
+  float3 vVertNormal,
+  out float3 vDiff,
+  out float3 vBump, 
+  out float3 vSpec,
+  out float4 vvDiffDetailvDetail)
+{
+
+  {
+	  float4 ColorZ = tex2D(samplerDetail, vWSPos.xy*vTiling*4);
+	  float4 ColorY = tex2D(samplerDetail, vWSPos.xz*vTiling*4);
+	  float4 ColorX = tex2D(samplerDetail, vWSPos.yz*vTiling*4);
+
+	  vvDiffDetailvDetail = ColorZ*vProjRatios.z+ColorY*vProjRatios.y+ColorX*vProjRatios.x;
+  }
+
+	float4 ColorZ = tex2D(samplerDiff, vWSPos.xy*vTiling);
+	float4 ColorY = tex2D(samplerDiff, vWSPos.xz*vTiling);
+	float4 ColorX = tex2D(samplerDiff, vWSPos.yz*vTiling);
+
+	vDiff.xyz = ColorZ.xyz*vProjRatios.z+ColorY.xyz*vProjRatios.y+ColorX.xyz*vProjRatios.x;
+/*
+  // low freq noise
+  float fDiff0 = tex2D(samplerDiff, 0);
+	float fDiffZ = 1.f+tex2D(samplerDiff, vWSPos.xy*vTiling/32)-fDiff0;
+	float fDiffY = 1.f+tex2D(samplerDiff, vWSPos.xz*vTiling/32)-fDiff0;
+	float fDiffX = 1.f+tex2D(samplerDiff, vWSPos.yz*vTiling/32)-fDiff0;
+	vDiff.xyz *= fDiffZ*vProjRatios.z+fDiffY*vProjRatios.y+fDiffX*vProjRatios.x;
+*/
+  float3 BumpZ_WS;
+  float3 BumpY_WS;
+  float3 BumpX_WS;
+
+  {
+	  float3 BumpZ = (GetNormalMap(samplerBump, vWSPos.xy*vTiling));
+    BumpZ.z /= fBTT_BumpAmount;
+    BumpZ.xyz = normalize(BumpZ.xyz);
+    if(BuildTerrainTextureParams2_PS.x == 1) // bump detail
+      BumpZ.xy += Diff2Normal(vvDiffDetailvDetail);
+    BumpZ.xyz = normalize(BumpZ.xyz);
+
+    float3 Tangent = float3(1,0,0);
+    float3 Binormal = float3(0,1,0);  
+    Tangent-=dot(Tangent,vVertNormal)*vVertNormal;
+    Binormal-=dot(Binormal,vVertNormal)*vVertNormal;
+    Tangent=normalize(Tangent);
+    Binormal=normalize(Binormal);	
+    float3x3 mTangentToWS = float3x3(Tangent.xyz, Binormal.xyz, vVertNormal.xyz);  
+    BumpZ_WS = mul(BumpZ.xyz, mTangentToWS);
+  }
+
+  {
+	  float3 BumpZ = (GetNormalMap(samplerBump, vWSPos.xz*vTiling));
+    BumpZ.z /= fBTT_BumpAmount;
+    BumpZ.xyz = normalize(BumpZ.xyz);
+    if(BuildTerrainTextureParams2_PS.x == 1) // bump detail
+      BumpZ.xy += Diff2Normal(vvDiffDetailvDetail);
+    BumpZ.xyz = normalize(BumpZ.xyz);
+
+    float3 Tangent = float3(1,0,0);
+    float3 Binormal = float3(0,0,1);  
+    Tangent-=dot(Tangent,vVertNormal)*vVertNormal;
+    Binormal-=dot(Binormal,vVertNormal)*vVertNormal;
+    Tangent=normalize(Tangent);
+    Binormal=normalize(Binormal);	
+    float3x3 mTangentToWS = float3x3(Tangent.xyz, Binormal.xyz, vVertNormal.xyz);  
+    BumpY_WS = mul(BumpZ.xyz, mTangentToWS);
+  }
+
+  {
+	  float3 BumpZ = (GetNormalMap(samplerBump, vWSPos.yz*vTiling));
+    BumpZ.z /= fBTT_BumpAmount;
+    BumpZ.xyz = normalize(BumpZ.xyz);
+    if(BuildTerrainTextureParams2_PS.x == 1) // bump detail
+      BumpZ.xy += Diff2Normal(vvDiffDetailvDetail);
+    BumpZ.xyz = normalize(BumpZ.xyz);
+
+    float3 Tangent = float3(0,1,0);
+    float3 Binormal = float3(0,0,1);  
+    Tangent-=dot(Tangent,vVertNormal)*vVertNormal;
+    Binormal-=dot(Binormal,vVertNormal)*vVertNormal;
+    Tangent=normalize(Tangent);
+    Binormal=normalize(Binormal);	
+    float3x3 mTangentToWS = float3x3(Tangent.xyz, Binormal.xyz, vVertNormal.xyz);  
+    BumpX_WS = mul(BumpZ.xyz, mTangentToWS);
+  }
+
+  // bump
+	vBump.xyz = BumpZ_WS*vProjRatios.z+BumpY_WS*vProjRatios.y+BumpX_WS*vProjRatios.x;
+  vBump.xyz = normalize(vBump.xyz);
+
+  // specular
+	float SpecZ = tex2D(samplerSpec, vWSPos.xy*vTiling).r * ColorZ.a;
+	float SpecY = tex2D(samplerSpec, vWSPos.xz*vTiling).r * ColorY.a;
+	float SpecX = tex2D(samplerSpec, vWSPos.yz*vTiling).r * ColorX.a;
+	vSpec = SpecZ*vProjRatios.z+SpecY*vProjRatios.y+SpecX*vProjRatios.x;
+}
+
+float getMixMaskVal( float4 mapParams, float fSufrType, float2 texTC )
+{
+  float v = 0;
+  float4 vSWeig = tex2D(samplerBTT_Base7, texTC);
+  vSWeig.w = saturate(1.f - (vSWeig.x+vSWeig.y+vSWeig.z));
+  float4 vSType = tex2D(samplerBTT_Base8, texTC);
+  for(int i=0; i<4; i++) 
+    v += vSWeig[i] * saturate(1.f - abs(vSType[i]*255.f - fSufrType));
+  return v;
+}
+
+float4 tex2DBilinear_MixMask( float2 texTC, float4 mapParams, float fSufrType )
+{
+	// MapParams.xy = texture size
+	// MapParams.zw = texture texel size
+	
+	float2 f = frac( texTC.xy * mapParams.xy );
+	
+	float t00 = getMixMaskVal( mapParams, fSufrType, texTC );
+	float t10 = getMixMaskVal( mapParams, fSufrType, texTC + mapParams.zw * float2( 1.0, 0.0 ) );
+	float tA = lerp( t00, t10, f.x );
+
+	float t01 = getMixMaskVal( mapParams, fSufrType, texTC + mapParams.zw * float2( 0.0, 1.0 ) );
+	float t11 = getMixMaskVal( mapParams, fSufrType, texTC + mapParams.zw * float2( 1.0, 1.0 ) );
+	float tB = lerp( t01, t11, f.x );
+
+	return lerp( tA, tB, f.y );
+}
+
+half3 Multiply(in half3 cB, in half3 cS) { return cB * cS; }
+half3 Screen(in half3 cB, in half3 cS) { return 1.0f - (1.0f - cB) * (1.0f - cS); }
+half3 HardLight(in half3 cB, in half3 cS) { return lerp(Multiply(cB, 2.0f * cS), Screen(cB, 2.0f * cS - 1), step(0.5f, cS)); }
+half3 Overlay(in half3 cB, in half3 cS) { return HardLight(cS, cB); }
+
+pixout_cl_MRT BuildTerrainTexture_PS(vert2fragTTB IN, 
+                                     const float fDetailMatAmount, 
+                                     const bool bUseMixMask, 
+                                     const bool bHeightMapMode, 
+                                     const bool bOverlayBlend)
+{
+  pixout_cl_MRT OUT;
+
+#ifdef PS3 || XENON
+  OUT = (pixout_cl_MRT)0;
+  return OUT;
+#endif
+
+  /*{
+    float4 vSType = 0;
+    vSType.xyz = tex2D(samplerBTT_Base8, IN.texelCoord.xy).zyx;
+	  float4 vSWeig = 0;
+    vSWeig.xyz = tex2D(samplerBTT_Base7, IN.texelCoord.xy).zyx;
+    OUT.Color.a = 0;
+    for(int i=0; i<3; i++)
+      OUT.Color.a += (vSWeig[i]) * saturate(1.f - abs(vSType[i]*255.f - BuildTerrainTextureParams2_PS.y));
+    OUT.Color.x = BuildTerrainTextureParams2_PS.y==0;
+    OUT.Color.y = BuildTerrainTextureParams2_PS.y==1;
+    OUT.Color.z = BuildTerrainTextureParams2_PS.y==2;
+    OUT.Color1 = OUT.Color;
+    //OUT.Color1 = OUT.Color = vSType;
+    return OUT;
+  }*/
+
+  float3 vDiffDetail = 0;
+  float3 vBumpDetail = 0;
+  float3 vSpecDetail = 0;
+  float3 vSpec = 0;
+  float4 vvDiffDetailvDetail = 0.5;
+  OUT.Color = 1;
+  OUT.Color1 = 1;
+
+  float2 inv_tex_size = 1.f / float2(BuildTerrainTextureParams2_PS.z,BuildTerrainTextureParams2_PS.w);
+  float2 mm_tc = IN.texelCoord.xy + float2(.5f,.5f)*inv_tex_size;
+
+  if(bUseMixMask)
+  {
+    if(bHeightMapMode)
+      mm_tc = IN.texelCoordPlanar.yx / BuildTerrainTextureParams1_PS.y;
+    else
+    { // dialation
+      float4 refVal = tex2D(samplerBTT_Base7, float2(0,0));
+
+      float fMinDist = 1000;
+      const int nRange = 1;
+
+      [unroll]
+      for(int x=-nRange; x<=nRange; x++)
+
+      [unroll]
+      for(int y=-nRange; y<=nRange; y++)
+      {
+        float2 tc = IN.texelCoord.xy 
+          + 1.5f*float2(x,y)*inv_tex_size;
+          + float2(.5f,.5f)*inv_tex_size;
+
+        float4 testVal = tex2D(samplerBTT_Base7, tc);
+
+        float fDist = x*x+y*y;
+
+        if(
+          (testVal.x != refVal.x) && 
+          (testVal.y != refVal.y) && 
+          (testVal.z != refVal.z) && 
+          fDist<fMinDist)
+        {
+          mm_tc = tc;
+          fMinDist = fDist;
+        }
+      }
+    }
+  }
+
+  if(bUseMixMask)
+  {
+    float t = saturate(BuildTerrainTextureParams1_PS.y / 256.f);
+    float2 xy;
+    xy.x = tex2D(samplerBTT_Base7, mm_tc).w;
+    xy.y = tex2D(samplerBTT_Base9, mm_tc).w;
+    IN.vertNormal.xy = lerp(IN.vertNormal.xy, EXPAND(xy), t);
+  }
+
+  if(fDetailMatAmount)
+  {
+    ComputeTerrainTriPlanarTexturing(
+      samplerBTT_Base3, samplerBTT_Base4, samplerBTT_Base5, samplerBTT_Base6, 
+      IN.WSPosition.xyz,
+      float2(BuildTerrainTextureParams1_PS.w, -BuildTerrainTextureParams1_PS.w),
+      IN.projRatios.xyz,
+      IN.vertNormal,
+      vDiffDetail, vBumpDetail, vSpecDetail, vvDiffDetailvDetail);
+
+    if(bOverlayBlend)
+      vDiffDetail *= BuildTerrainTextureParams3_PS.xyz;
+  }
+  else
+  {
+    ComputeTerrainTriPlanarTexturing(
+      samplerBTT_Base0, samplerBTT_Base1, samplerBTT_Base2, samplerBTT_Base6, 
+      IN.WSPosition.xyz,
+      float2(BuildTerrainTextureParams0_PS.w, BuildTerrainTextureParams0_PS.w),
+      IN.projRatios.xyz,
+      IN.vertNormal,
+      OUT.Color.xyz, OUT.Color1.xyz, vSpec, vvDiffDetailvDetail);
+  }
+
+  // combine diff
+
+  if(bUseMixMask)
+    IN.vertColor.xyz = tex2D(samplerBTT_Base9, mm_tc);
+
+  if(bOverlayBlend)
+  {
+    if(fDetailMatAmount)
+      OUT.Color.xyz = Overlay(vDiffDetail, IN.vertColor.xyz*BuildTerrainTextureParams0_PS.xyz);
+    else
+      OUT.Color.xyz = Overlay(OUT.Color.xyz, IN.vertColor.xyz*BuildTerrainTextureParams0_PS.xyz);
+  }
+  else
+  {
+    OUT.Color.xyz *= IN.vertColor.xyz*BuildTerrainTextureParams0_PS.xyz;
+  }
+
+  OUT.Color.rgb = sqrt(OUT.Color.rgb);
+
+  //OUT.Color.xyz = saturate(OUT.Color.xyz*4)/4;
+
+  if(!bOverlayBlend)
+    OUT.Color.xyz += (vDiffDetail-0.5)*fDetailMatAmount*IN.projRatios.w;
+  OUT.Color.xyz = saturate(OUT.Color.xyz);
+
+  if(BuildTerrainTextureParams2_PS.x == 0) // dif detail
+    OUT.Color.xyz += (vvDiffDetailvDetail.xyz-0.5)*fDetailMatAmount;
+  OUT.Color.xyz = saturate(OUT.Color.xyz);
+
+  OUT.Color.rgb *= OUT.Color.rgb;
+
+  if(!bOverlayBlend && fDetailMatAmount)
+    OUT.Color.xyz *= BuildTerrainTextureParams3_PS.xyz;
+
+  OUT.Color.rgb = EncodeVoxColor(OUT.Color.rgb);
+
+  if(bUseMixMask)
+  {
+    if(bHeightMapMode==0)
+    {
+      float4 vSType = tex2D(samplerBTT_Base8, mm_tc);
+      float4 vSWeig = tex2D(samplerBTT_Base7, mm_tc);
+      vSWeig.w = saturate(1.f - (vSWeig.x+vSWeig.y+vSWeig.z));
+      OUT.Color.a = 0;
+      for(int i=0; i<4; i++)
+        OUT.Color.a += vSWeig[i] * saturate(1.f - abs(vSType[i]*255.f - BuildTerrainTextureParams2_PS.y));
+    }
+    else
+    {    
+      float4 mapParams = float4(
+        BuildTerrainTextureParams2_PS.z,
+        BuildTerrainTextureParams2_PS.w,
+        1.f/BuildTerrainTextureParams2_PS.z,
+        1.f/BuildTerrainTextureParams2_PS.w);
+
+      OUT.Color.a = tex2DBilinear_MixMask( mm_tc,//+float2(mapParams.z,mapParams.w)*.5f, 
+        mapParams, BuildTerrainTextureParams2_PS.y );      
+    }
+  }
+  else
+    OUT.Color.a = saturate(sqrt(IN.vertColor.w));
+
+  if(OUT.Color.a==0)
+    clip(-1);
+
+  // combine spec
+  vSpec = lerp(vSpec, vSpecDetail, fDetailMatAmount);
+  vSpec *= fBTT_SpecScale*BuildTerrainTextureParams1_PS.x; // specular amount of layer
+  vSpec = saturate(vSpec);
+
+  // combine bump
+  OUT.Color1.xyz = lerp(OUT.Color1.xyz, vBumpDetail, fDetailMatAmount);
+  OUT.Color1.xyz = normalize(OUT.Color1.xyz);
+  OUT.Color1.xyz *= (0.5f+0.5f*vSpec.x); // encode spec amount into normal lenght
+  OUT.Color1.xyz = OUT.Color1.xyz*0.5 + 0.5f;
+
+  // both MRT use same blend type
+  OUT.Color1.a = OUT.Color.a;
+
+	// remesing texture dilation
+  if(!bUseMixMask)
+  {
+	  float2 RMtc = IN.texelCoord.xy;
+	  float fMinDist = 1000;
+	  int nRange = 1;
+    [unroll]
+	  for(int x=-nRange; x<=nRange; x++)
+    [unroll]
+	  for(int y=-nRange; y<=nRange; y++)
+	  {
+		  float2 tc = IN.texelCoord.xy + float2(x,y)/256;
+	    float fAlpha = tex2D(samplerBTT_Base7, tc).a;
+		  float fDist = x*x+y*y;
+		  if(fAlpha>0 && fDist<fMinDist)
+		  {
+			  RMtc = tc;
+			  fMinDist = fDist;
+		  }
+	  }
+
+    float4 RMCol = tex2D(samplerBTT_Base7, RMtc);
+	  float4 RMNor = tex2D(samplerBTT_Base8, RMtc);
+
+    float fTakeRemeshTex = RMCol.a * BuildTerrainTextureParams1_PS.z;// * (1.f-fDetailMatAmount);
+    OUT.Color. xyz  = lerp(OUT.Color .xyz, RMCol.xyz, fTakeRemeshTex );
+    OUT.Color1.xyz  = lerp(OUT.Color1.xyz, RMNor.xyz, fTakeRemeshTex );
+  }
+
+  OUT.Color1.xyz = OUT.Color1.xzy;
+
+	return OUT;
+}
+
+// Heightmap mode
+
+pixout_cl_MRT BTT_DetailLayerON_HM_PS(vert2fragTTB IN)
+{
+  return BuildTerrainTexture_PS(IN, 1.f, false, true, BuildTerrainTextureParams3_PS.w);
+}
+
+pixout_cl_MRT BTT_DetailLayerON_HM_MixMask_PS(vert2fragTTB IN)
+{
+  return BuildTerrainTexture_PS(IN, 1.f, true, true, BuildTerrainTextureParams3_PS.w);
+}
+
+pixout_cl_MRT BTT_DetailLayerOFF_HM_MixMask_PS(vert2fragTTB IN)
+{
+  return BuildTerrainTexture_PS(IN, 0.f, true, true, BuildTerrainTextureParams3_PS.w);
+}
+
+pixout_cl_MRT BTT_DetailLayerOFF_HM_PS(vert2fragTTB IN)
+{
+  return BuildTerrainTexture_PS(IN, 0.f, false, true, BuildTerrainTextureParams3_PS.w);
+}
+
+// 3d mode
+
+pixout_cl_MRT BTT_DetailLayerON_PS(vert2fragTTB IN)
+{
+  return BuildTerrainTexture_PS(IN, 1.f, false, false, BuildTerrainTextureParams3_PS.w);
+}
+
+pixout_cl_MRT BTT_DetailLayerON_MixMask_PS(vert2fragTTB IN)
+{
+  return BuildTerrainTexture_PS(IN, 1.f, true, false, BuildTerrainTextureParams3_PS.w);
+}
+
+pixout_cl_MRT BTT_DetailLayerOFF_MixMask_PS(vert2fragTTB IN)
+{
+  return BuildTerrainTexture_PS(IN, 0.f, true, false, BuildTerrainTextureParams3_PS.w);
+}
+
+pixout_cl_MRT BTT_DetailLayerOFF_PS(vert2fragTTB IN)
+{
+  return BuildTerrainTexture_PS(IN, 0.f, false, false, BuildTerrainTextureParams3_PS.w);
+}
+
+
+// TECH HM
+
+technique BuildTerrainTexture_DetailLayerOFF_HM
+{
+	//Shadow pass
+  pass p0
+  {
+    VertexShader = compile vs_Auto BuildTerrainTexture_VS();
+    
+    ZEnable = false;
+    ZWriteEnable = false;
+    CullMode = None;
+
+    PixelShader = compile ps_Auto BTT_DetailLayerOFF_HM_PS();
+  }
+}
+
+technique BuildTerrainTexture_DetailLayerON_HM
+{
+	//Shadow pass
+  pass p0
+  {
+    VertexShader = compile vs_Auto BuildTerrainTexture_VS();
+    
+    ZEnable = false;
+    ZWriteEnable = false;
+    CullMode = None;
+
+    PixelShader = compile ps_Auto BTT_DetailLayerON_HM_PS();
+  }
+}
+
+technique BuildTerrainTexture_DetailLayerON_MixMask_HM
+{
+	//Shadow pass
+  pass p0
+  {
+    VertexShader = compile vs_Auto BuildTerrainTexture_VS();
+    
+    ZEnable = false;
+    ZWriteEnable = false;
+    CullMode = None;
+
+    PixelShader = compile ps_Auto BTT_DetailLayerON_HM_MixMask_PS();
+  }
+}
+
+technique BuildTerrainTexture_DetailLayerOFF_MixMask_HM
+{
+	//Shadow pass
+  pass p0
+  {
+    VertexShader = compile vs_Auto BuildTerrainTexture_VS();
+    
+    ZEnable = false;
+    ZWriteEnable = false;
+    CullMode = None;
+
+    PixelShader = compile ps_Auto BTT_DetailLayerOFF_HM_MixMask_PS();
+  }
+}
+
+// TECH 3d
+
+technique BuildTerrainTexture_DetailLayerOFF
+{
+	//Shadow pass
+  pass p0
+  {
+    VertexShader = compile vs_Auto BuildTerrainTexture_VS();
+    
+    ZEnable = false;
+    ZWriteEnable = false;
+    CullMode = None;
+
+    PixelShader = compile ps_Auto BTT_DetailLayerOFF_PS();
+  }
+}
+
+technique BuildTerrainTexture_DetailLayerON
+{
+	//Shadow pass
+  pass p0
+  {
+    VertexShader = compile vs_Auto BuildTerrainTexture_VS();
+    
+    ZEnable = false;
+    ZWriteEnable = false;
+    CullMode = None;
+
+    PixelShader = compile ps_Auto BTT_DetailLayerON_PS();
+  }
+}
+
+technique BuildTerrainTexture_DetailLayerON_MixMask
+{
+	//Shadow pass
+  pass p0
+  {
+    VertexShader = compile vs_Auto BuildTerrainTexture_VS();
+    
+    ZEnable = false;
+    ZWriteEnable = false;
+    CullMode = None;
+
+    PixelShader = compile ps_Auto BTT_DetailLayerON_MixMask_PS();
+  }
+}
+
+technique BuildTerrainTexture_DetailLayerOFF_MixMask
+{
+	//Shadow pass
+  pass p0
+  {
+    VertexShader = compile vs_Auto BuildTerrainTexture_VS();
+    
+    ZEnable = false;
+    ZWriteEnable = false;
+    CullMode = None;
+
+    PixelShader = compile ps_Auto BTT_DetailLayerOFF_MixMask_PS();
+  }
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// ProjectTerrainDecal
+////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+sampler2D samplerProjectTerrainDecal_Diff : register(s0);
+{
+	MinFilter = LINEAR;
+	MagFilter = LINEAR;
+	MipFilter = LINEAR; 
+	AddressU = Wrap;
+	AddressV = Wrap;	
+};
+
+sampler2D samplerProjectTerrainDecal_Bump : register(s1);
+{
+	MinFilter = LINEAR;
+	MagFilter = LINEAR;
+	MipFilter = LINEAR; 
+	AddressU = Wrap;
+	AddressV = Wrap;	
+};
+
+sampler2D samplerProjectTerrainDecal_Spec : register(s2);
+{
+	MinFilter = LINEAR;
+	MagFilter = LINEAR;
+	MipFilter = LINEAR; 
+	AddressU = Wrap;
+	AddressV = Wrap;	
+};
+
+vert2fragTTB ProjectTerrainDecal_VS(app2vertGeneral IN)
+{
+	vert2fragTTB OUT = (vert2fragTTB)0; 
+
+  float2 tc = IN.vertCommon.baseTC.xy;
+	OUT.HPosition = float4((tc.x-0.5)*2, (0.5-tc.y)*2, 0, 1);
+	OUT.WSPosition = IN.vertCommon.Position;
+  OUT.WSPosition.xyz += BuildTerrainTextureParams_VS.xyz;
+
+  OUT.vertColor = 1;
+
+  OUT.vertNormal = 0;
+
+	return OUT;
+}
+
+pixout_cl_MRT ProjectTerrainDecal_PS(vert2fragTTB IN)
+{
+  pixout_cl_MRT OUT;
+
+  float3 tc = mul(ProjectTerrainDecalMatrixInv_PS, IN.WSPosition);
+
+  tc = tc * float3(0.5,-0.5,0.5) + float3(0.5f,0.5f,0.5f);
+
+  float2 tcMod = tc;
+  tcMod.xy *= ProjectTerrainDecalTextureAtlasInfo_PS.zw;
+  tcMod.xy += ProjectTerrainDecalTextureAtlasInfo_PS.xy;
+
+	OUT.Color = tex2D(samplerProjectTerrainDecal_Diff, tcMod.xy);
+
+  // fade decal borders
+  OUT.Color.a *= sqrt(saturate( 2*(1-abs(tc.z-0.5f)*(tc.z>0.5f ? (2 + ProjectTerrainDecalMatSpec_PS.z*100) : 2))));
+  OUT.Color.a *= sqrt(saturate(12*(1-abs(tc.x-0.5f)*2)));
+  OUT.Color.a *= sqrt(saturate(12*(1-abs(tc.y-0.5f)*2)));
+
+  if((tc.x<=0 && tc.y<=0) || tc.y<=0 || tc.x>=1 || tc.y>=1)
+    OUT.Color.a = 0;
+
+  OUT.Color.rgba *= ProjectTerrainDecalMatColor_PS.rgba;
+
+  OUT.Color.rgb = EncodeVoxColor(OUT.Color.rgb);
+
+  float3 vBump = GetNormalMap(samplerProjectTerrainDecal_Bump, tcMod);
+  vBump.y *= -1;
+
+  vBump.z /= fBTT_BumpAmount;
+  vBump = normalize(vBump);
+
+  vBump = mul(ProjectTerrainDecalMatrixRot_PS, vBump);
+  vBump = normalize(vBump);
+
+  float fSpecAmount = tex2D(samplerProjectTerrainDecal_Spec, tcMod.xy).r;
+  fSpecAmount *= fBTT_SpecScale*ProjectTerrainDecalMatSpec_PS.x;//ProjectTerrainDecalMatSpec_PS.y;
+  fSpecAmount = saturate(fSpecAmount);
+
+  vBump *= (0.5f+0.5f*fSpecAmount);
+
+  OUT.Color1.xyz = vBump*0.5 + 0.5;
+  OUT.Color1.xyz = OUT.Color1.xzy;
+
+  OUT.Color1.a = OUT.Color.a;
+
+	return OUT;
+}
+
+technique ProjectTerrainDecal
+{
+	//Shadow pass
+  pass p0
+  {
+    VertexShader = compile vs_Auto ProjectTerrainDecal_VS();
+    
+    ZEnable = false;
+    ZWriteEnable = false;
+    CullMode = None;
+
+    PixelShader = compile ps_Auto ProjectTerrainDecal_PS();
+  }
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// ProjectRoadSegment
+////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+sampler2D samplerProjectRoadSegment_Diff : register(s0);
+{
+	MinFilter = LINEAR;
+	MagFilter = LINEAR;
+	MipFilter = LINEAR; 
+	AddressU = Wrap;
+	AddressV = Wrap;	
+};
+
+sampler2D samplerProjectRoadSegment_Bump : register(s1);
+{
+	MinFilter = LINEAR;
+	MagFilter = LINEAR;
+	MipFilter = LINEAR; 
+	AddressU = Wrap;
+	AddressV = Wrap;	
+};
+
+sampler2D samplerProjectRoadSegment_Spec : register(s2);
+{
+	MinFilter = LINEAR;
+	MagFilter = LINEAR;
+	MipFilter = LINEAR; 
+	AddressU = Wrap;
+	AddressV = Wrap;	
+};
+
+vert2fragTTB ProjectRoadSegment_VS(app2vertGeneral IN)
+{
+	vert2fragTTB OUT = (vert2fragTTB)0; 
+
+  float2 tc = IN.vertCommon.baseTC.xy;
+	OUT.HPosition = float4((tc.x-0.5)*2, (0.5-tc.y)*2, 0, 1);
+	OUT.WSPosition = IN.vertCommon.Position;
+  OUT.WSPosition.xyz += BuildTerrainTextureParams_VS.xyz;
+
+  OUT.vertColor = 1;
+
+  OUT.vertNormal = 0;
+
+	return OUT;
+}
+
+pixout_cl_MRT ProjectRoadSegment_PS(vert2fragTTB IN)
+{
+  pixout_cl_MRT OUT;
+
+	float d[6];
+
+  float4x4 planes;
+
+  planes = ProjectRoadSegmentPlanes0123_PS;
+  for(int i=0; i<4; i++)
+    d[i] = dot(float3(planes[i].x, planes[i].y, planes[i].z), IN.WSPosition) + planes[i].w;
+
+  planes = ProjectRoadSegmentPlanes4567_PS;
+  for(int i=0; i<2; i++)
+    d[4+i] = dot(float3(planes[i].x, planes[i].y, planes[i].z), IN.WSPosition) + planes[i].w;
+
+	float t = d[0]/(d[0]+d[1]);
+	float2 tc = float2((1-t)*abs(ProjectRoadSegmentTexCoordRange_PS.x) + t*abs(ProjectRoadSegmentTexCoordRange_PS.y), d[2]/(d[2]+d[3]));
+
+	OUT.Color = tex2D(samplerProjectRoadSegment_Diff, tc.xy);
+
+  if(tc.y<=0 || tc.y>=1)
+    OUT.Color.a = 0;
+
+  if(tc.x<ProjectRoadSegmentTexCoordRange_PS.x || tc.x>ProjectRoadSegmentTexCoordRange_PS.y)
+    OUT.Color.a = 0;
+
+  // vertical fade
+  float fZ = d[4]/(d[4]+d[5]);
+  OUT.Color.a *= sqrt(saturate(2*(1-abs(fZ-0.5)*2)));
+
+	float fBeginEndFading = 1.f;
+	if(abs(ProjectRoadSegmentTexCoordRange_PS.x-ProjectRoadSegmentTexCoordRange_PS.z)<0.01f)
+		fBeginEndFading = saturate(t);
+	else if(abs(ProjectRoadSegmentTexCoordRange_PS.y-ProjectRoadSegmentTexCoordRange_PS.w)<0.01f)
+		fBeginEndFading = saturate(1.f-t);
+
+  OUT.Color.a *= saturate(fBeginEndFading + ProjectRoadSegmentMatSpec_PS.z);
+
+  OUT.Color.rgba *= ProjectRoadSegmentMatColor_PS.rgba;
+
+  OUT.Color.rgb = EncodeVoxColor(OUT.Color.rgb);
+
+  float3 vBump = GetNormalMap(samplerProjectRoadSegment_Bump, tc.xy);
+  vBump.y *= -1;
+
+  vBump.z /= fBTT_BumpAmount;
+  vBump = normalize(vBump);
+
+  vBump = mul(ProjectRoadSegmentMatrixRot_PS, vBump);
+  vBump = normalize(vBump);
+
+  float fSpecAmount = tex2D(samplerProjectRoadSegment_Spec, tc.xy).r;
+  fSpecAmount *= fBTT_SpecScale*ProjectRoadSegmentMatSpec_PS.x;//ProjectTerrainDecalMatSpec_PS.y;
+  fSpecAmount = saturate(fSpecAmount);
+
+  vBump *= (0.5f+0.5f*fSpecAmount);
+
+  OUT.Color1.xyz = vBump*0.5 + 0.5;
+  OUT.Color1.xyz = OUT.Color1.xzy;
+
+  OUT.Color1.a = OUT.Color.a;
+
+	return OUT;
+}
+
+technique ProjectRoadSegment
+{
+	//Shadow pass
+  pass p0
+  {
+    VertexShader = compile vs_Auto ProjectRoadSegment_VS();
+    
+    ZEnable = false;
+    ZWriteEnable = false;
+    CullMode = None;
+
+    PixelShader = compile ps_Auto ProjectRoadSegment_PS();
+  }
+}
+
+
+// Dithering pattern
+//
+// The following 16 values are randomly placed points on a unit sphere.
+// 
+// (0.9848f,-0.0322f,0.1704f),
+// (-0.2461f,-0.9692f,-0.0058f),
+// (-0.2289f,0.9296f,0.2888f),
+// (-0.8953f,0.3900f,0.2151f),
+// (0.7299f,-0.3444f,-0.5905f),
+// (0.1176f,0.1141f,-0.9865f),
+// (-0.3800f,-0.5460f,-0.7467f),
+// (-0.7415f,0.2527f,-0.6216f),
+// (-0.0995f,0.8258f,-0.5551f),
+// (0.5936f,0.7014f,0.3945f),
+// (0.7074f,0.5440f,-0.4513f),
+// (-0.3606f,0.2985f,0.8837f),
+// (-0.3319f,-0.5565f,0.7617f),
+// (0.4873f,-0.2974f,0.8210f),
+// (0.5897f,-0.7974f,0.1277f),
+// (-0.9044f,-0.4200f,-0.0759f),
+
+sampler2D sRotSampler4x4_16 = sampler_state
+{
+	Texture = Shaders/EngineAssets/ScreenSpace/PointsOnSphere4x4.tif;
+	MinFilter = POINT;
+	MagFilter = POINT;
+	MipFilter = NONE; 
+	AddressU = Wrap;
+	AddressV = Wrap;
+	sRGBLookup = false;
+}; 
+
+half2 SSAO_GetDitherCoord(vert2fragSSAO_PS IN)
+{
+	half2 ditherCoord;
+
+#if !%USE_SM30 && !D3D10
+	ditherCoord = IN.ScreenTC.wz;
+#else
+	ditherCoord = floor(IN.ScreenPos)/4;
+#endif;
+
+	return ditherCoord;
+}
+
+pixout_cl Deferred_SSAO_PS(vert2fragSSAO_PS IN)
+{
+  pixout_cl OUT;
+  
+	// define kernel
+	const half step = 1.f - 1.f/8.f;
+	half n = 0;
+	const half fScale = 0.025f; 
+	const half3 arrKernel[8] =
+	{
+		normalize(half3( 1, 1, 1))*fScale*(n+=step),
+		normalize(half3(-1,-1,-1))*fScale*(n+=step),
+		normalize(half3(-1,-1, 1))*fScale*(n+=step),
+		normalize(half3(-1, 1,-1))*fScale*(n+=step),
+		normalize(half3(-1, 1 ,1))*fScale*(n+=step),
+		normalize(half3( 1,-1,-1))*fScale*(n+=step),
+		normalize(half3( 1,-1, 1))*fScale*(n+=step),
+		normalize(half3( 1, 1,-1))*fScale*(n+=step),
+	};
+
+	// create random rot matrix
+	half3 rotSample = tex2D(sRotSampler4x4_16, SSAO_GetDitherCoord(IN)).rgb;
+	rotSample = (2.0 * rotSample - 1.0);
+
+  half fSceneDepth = GetLinearDepth( sceneDepthSampler, IN.ScreenTC.xy );  	  
+
+	// range conversions
+  half fSceneDepthM = fSceneDepth * PS_NearFarClipDist.y;  
+
+	half3 vSampleScale = SSAO_params.zzw
+		* saturate(fSceneDepthM / 5.3f) // make area smaller if distance less than 5 meters
+    * (1.f + fSceneDepthM / 8.f ); // make area bigger if distance more than 32 meters
+
+  float fDepthRangeScale = PS_NearFarClipDist.y / vSampleScale.z * 0.85f;
+	
+	// convert from meters into SS units
+	vSampleScale.xy *= 1.0f / fSceneDepthM;
+	vSampleScale.z  *= 2.0f / PS_NearFarClipDist.y;
+
+  float fDepthTestSoftness = 64.f/vSampleScale.z;
+
+	// sample
+  half4 vSkyAccess = 0.f;
+  half4 arrSceneDepth2[2];      
+  half3 vIrrSample;
+  half4 vDistance;
+  float4 fRangeIsInvalid;
+
+  const half bHQ = (GetShaderQuality()==QUALITY_HIGH);
+
+  float fHQScale = 0.5f;
+
+  for(int i=0; i<2; i++)
+  {    
+    vIrrSample = reflect(arrKernel[i*4+0], rotSample) * vSampleScale;		
+    arrSceneDepth2[0].x = tex2D( sceneDepthSamplerAO, IN.ScreenTC.xy + vIrrSample.xy ) + vIrrSample.z;  
+    if (bHQ)
+    {
+      vIrrSample.xyz *= fHQScale;
+      arrSceneDepth2[1].x = tex2D( sceneDepthSamplerAO, IN.ScreenTC.xy + vIrrSample.xy ) + vIrrSample.z;  
+    }
+
+    vIrrSample = reflect(arrKernel[i*4+1], rotSample) * vSampleScale;		
+    arrSceneDepth2[0].y = tex2D( sceneDepthSamplerAO, IN.ScreenTC.xy + vIrrSample.xy )+ vIrrSample.z;  
+    if (bHQ)
+    {
+      vIrrSample.xyz *= fHQScale;
+      arrSceneDepth2[1].y = tex2D( sceneDepthSamplerAO, IN.ScreenTC.xy + vIrrSample.xy ) + vIrrSample.z;  
+    }
+
+    vIrrSample = reflect(arrKernel[i*4+2], rotSample) * vSampleScale;		
+    arrSceneDepth2[0].z = tex2D( sceneDepthSamplerAO, IN.ScreenTC.xy + vIrrSample.xy ) + vIrrSample.z;  
+    if (bHQ)
+    {
+      vIrrSample.xyz *= fHQScale;
+      arrSceneDepth2[1].z = tex2D( sceneDepthSamplerAO, IN.ScreenTC.xy + vIrrSample.xy ) + vIrrSample.z;  
+    }
+
+    vIrrSample = reflect(arrKernel[i*4+3], rotSample) * vSampleScale;		
+    arrSceneDepth2[0].w = tex2D( sceneDepthSamplerAO, IN.ScreenTC.xy + vIrrSample.xy ) + vIrrSample.z;  
+    if (bHQ)
+    {
+      vIrrSample.xyz *= fHQScale;
+      arrSceneDepth2[1].w = tex2D( sceneDepthSamplerAO, IN.ScreenTC.xy + vIrrSample.xy ) + vIrrSample.z;  
+    }
+
+    float fDefVal = 0.55f;
+
+    for(int s=0; s<(bHQ ? 2 : 1); s++)
+    {
+      vDistance = fSceneDepth - arrSceneDepth2[s]; 
+      float4 vDistanceScaled = vDistance * fDepthRangeScale;
+      fRangeIsInvalid = (saturate( abs(vDistanceScaled) ) + saturate( vDistanceScaled ))/2;  
+      vSkyAccess += lerp(saturate((-vDistance)*fDepthTestSoftness), fDefVal, fRangeIsInvalid);
+    }
+  }
+
+  OUT.Color = dot( vSkyAccess, (bHQ ? 1/16.0f : 1/8.0f)*2.0 ) - SSAO_params.y; // 0.075f
+  OUT.Color = saturate(lerp( 0.9f, OUT.Color, SSAO_params.x ));
+  
+	return OUT;
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// SSAO with normals
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// Used in downsampled SSAO
+sampler2D sceneNormalsSampler_Filtered  = sampler_state
+{
+  Texture = $SceneNormalsMap;
+  MinFilter = LINEAR;
+  MagFilter = LINEAR;
+  MipFilter = LINEAR;
+  AddressU = Clamp;
+  AddressV = Clamp;
+};
+
+// Helper functions
+
+half SSAO_GetTapDepth(half2 uv)
+{
+	half ret;
+#if XENON || PS3
+	// unpack from R8G8
+	float2 data = tex2D(sceneDepthSamplerAO, uv).xy;
+	ret = dot(data.xy, float2(0.0001953125h, .05f));//(data.x * 0.00390625h + data.y) / 20;
+#else
+	// Sample the regular depth buffer
+	ret = GetLinearDepth(sceneDepthSamplerAO, uv).x;
+#endif
+
+	return ret;
+}
+
+half SSAO_GetMainDepth(half2 uv)
+{
+	half ret;
+
+#if %_RT_SAMPLE0 // Downsampling enabled
+	ret = SSAO_GetTapDepth(uv);
+#else
+	// Sample the full precision buffer
+	ret = GetLinearDepth(sceneDepthSampler, uv).x;
+#endif
+
+	return ret;
+}
+
+half3 SSAO_GetNormal(half2 uv)
+{
+	half3 ret;
+
+#if %_RT_SAMPLE0 // Downsampling enabled
+
+	static const bool downsampleNormals = true;
+	if (downsampleNormals)
+	{
+		half2 addr0 = uv + SSAO_filter.xy;
+		ret = GetWorldSpaceNormals(sceneNormalsSampler_Filtered, addr0, false). xyz;
+
+		half2 addr1 = uv + SSAO_filter.xw;
+		ret += GetWorldSpaceNormals(sceneNormalsSampler_Filtered, addr1, false). xyz;
+
+		half2 addr2 = uv + SSAO_filter.zy;
+		ret += GetWorldSpaceNormals(sceneNormalsSampler_Filtered, addr2, false). xyz;
+
+		half2 addr3 = uv + SSAO_filter.zw;
+		ret += GetWorldSpaceNormals(sceneNormalsSampler_Filtered, addr3, false). xyz;
+
+		ret *= .25h;
+	}
+	else
+	{
+		ret = GetWorldSpaceNormals(sceneNormalsSampler, uv, false);
+	}
+#else
+	ret = GetWorldSpaceNormals(sceneNormalsSampler, uv, false);
+#endif
+
+	return ret;
+}
+
+half fast_sign(half val)
+{
+	// Generally faster than using the sign operation. It doesn't handle 0 the same way as sign.
+	return (val < 0) ? -1 : 1;
+}
+
+#if PS3
+#define Deferred_SSAO_WithNormals_Fast_PS Deferred_SSAO_WithNormals_Fast_PS_PS3
+#else
+#define Deferred_SSAO_WithNormals_Fast_PS Deferred_SSAO_WithNormals_Fast_PS_Gen
+#endif
+
+
+pixout_cl Deferred_SSAO_WithNormals_Fast_PS_PS3(vert2fragSSAO_PS IN)
+{
+#if PS3
+	// suggested by GPAD
+	#pragma sce-cgc("-regcount 7");
+	#pragma sce-cgc("-texformat default RGBA8");
+	#pragma sce-cgc("-fastmath");
+	#pragma sce-cgc("-fastprecision");
+	#pragma sce-cgc("-disablepc all");
+#endif
+
+  pixout_cl OUT;
+
+#if !%_RT_QUALITY && !%_RT_QUALITY1
+  static const int samplesNum =  4; // QUALITY_LOW;
+#elif %_RT_QUALITY && !%_RT_QUALITY1
+  static const int samplesNum =  8; //QUALITY_MEDIUM;
+#elif !%_RT_QUALITY && %_RT_QUALITY1
+  static const int samplesNum = 16; // QUALITY_HIGH;
+#else
+  static const int samplesNum = 32; // QUALITY_VERYHIGH;
+#endif  
+
+	/////////////////////
+	// Tweakables
+
+	// Radius is static for performance reasons. Setting the radius any higher might result in performance drop
+	// due to texture cache thrashing.
+	static const half radius				= 0.06h;
+	static const half	fadeIn				= 1.5h;
+				 const half effectAmount  = SSAO_params.x;
+	static const half invRadius			= 1 / radius;
+
+	// Kernel definition
+	static const half3 kernel[32] = {
+   radius * half3(-0.556641,-0.037109,-0.654297), 
+   radius * half3(0.173828,0.111328,0.064453),    
+   radius * half3(0.001953,0.082031,-0.060547),   
+   radius * half3(0.220703,-0.359375,-0.062500),  
+   radius * half3(0.242188,0.126953,-0.250000),   
+   radius * half3(0.070313,-0.025391,0.148438),   
+   radius * half3(-0.078125,0.013672,-0.314453),  
+   radius * half3(0.117188,-0.140625,-0.199219),  
+   radius * half3(-0.251953,-0.558594,0.082031),  
+   radius * half3(0.308594,0.193359,0.324219),    
+   radius * half3(0.173828,-0.140625,0.031250),   
+   radius * half3(0.179688,-0.044922,0.046875),   
+   radius * half3(-0.146484,-0.201172,-0.029297),  
+   radius * half3(-0.300781,0.234375,0.539063),   
+   radius * half3(0.228516,0.154297,-0.119141),   
+   radius * half3(-0.119141,-0.003906,-0.066406),  
+   radius * half3(-0.218750,0.214844,-0.250000),  
+   radius * half3(0.113281,-0.091797,0.212891),   
+   radius * half3(0.105469,-0.039063,-0.019531),  
+   radius * half3(-0.705078,-0.060547,0.023438),  
+   radius * half3(0.021484,0.326172,0.115234),    
+   radius * half3(0.353516,0.208984,-0.294922),   
+   radius * half3(-0.029297,-0.259766,0.089844),  
+   radius * half3(-0.240234,0.146484,-0.068359),  
+   radius * half3(-0.296875,0.410156,-0.291016),  
+   radius * half3(0.078125,0.113281,-0.126953),   
+   radius * half3(-0.152344,-0.019531,0.142578),  
+   radius * half3(-0.214844,-0.175781,0.191406),  
+   radius * half3(0.134766,0.414063,-0.707031),   
+   radius * half3(0.291016,-0.833984,-0.183594),  
+   radius * half3(-0.058594,-0.111328,0.457031),  
+	 radius * half3(-0.115234,-0.287109,-0.259766),	
+	};
+
+	const half2 screenTC = IN.ScreenTC.xy;
+
+	// Compute the pixel's normal in screen space.
+	half3 vNormal = SSAO_GetNormal( screenTC );
+	half3 vNormalSS = mul( SSAO_CameraMatrix, vNormal );
+
+	// Compute dithering vector 
+	half3 vNormalDither = tex2D(sRotSampler4x4_16, SSAO_GetDitherCoord(IN)).xyz * 2.h - 1.h;
+
+	half3 hemiTest = vNormalSS - 2 * dot(vNormalDither, vNormalSS) * vNormalDither;
+
+	// Get the pixel depth.
+	half fCenterDepth = SSAO_GetMainDepth(screenTC);
+
+	// Some precomputations
+	half4 invCenterDepth = 1 / fCenterDepth;
+	
+	// Init the occlusion
+	half4 fOcclusion = 0;
+
+	for (int i = 0; i < samplesNum; i += 4)
+	{
+		half4	fTapDepth = 0, fSampleDepth = 0, s;
+	  half3 vSample[4];
+
+		vSample[0] = reflect(kernel[i+0], vNormalDither);
+		vSample[1] = reflect(kernel[i+1], vNormalDither);
+		vSample[2] = reflect(kernel[i+2], vNormalDither);
+		vSample[3] = reflect(kernel[i+3], vNormalDither);
+
+		s.x = fast_sign(dot(hemiTest, kernel[i+0]));
+		s.y = fast_sign(dot(hemiTest, kernel[i+1]));
+		s.z = fast_sign(dot(hemiTest, kernel[i+2]));
+		s.w = fast_sign(dot(hemiTest, kernel[i+3]));
+
+		fSampleDepth.x = vSample[0].z * s.x;
+		fSampleDepth.y = vSample[1].z * s.y;
+		fSampleDepth.z = vSample[2].z * s.z;
+		fSampleDepth.w = vSample[3].z * s.w;
+      
+		// Fetch: vSample dep
+		fTapDepth.x = SSAO_GetTapDepth(screenTC + vSample[0].xy * s.x);
+		fTapDepth.y = SSAO_GetTapDepth(screenTC + vSample[1].xy * s.y);
+		fTapDepth.z = SSAO_GetTapDepth(screenTC + vSample[2].xy * s.z);
+		fTapDepth.w = SSAO_GetTapDepth(screenTC + vSample[3].xy * s.w);
+
+		// Process the sample packet
+		half4	amount, fadeOut;
+
+		fTapDepth = fTapDepth * invCenterDepth;
+
+		// Compute the relative sample depth. The depth is multiplied by 2 in order to avoid the sampling sphere
+		// distortion since the screen space is in [0..1]x[0..1] while the depth is in [-1..1].
+		half4 distScale = (1 + fSampleDepth * 2 - fTapDepth) * invRadius;
+
+		fadeOut = saturate(1 - (distScale - 1)*(1./3));
+		amount  = saturate(fadeIn*distScale); 
+
+		fOcclusion += amount * fadeOut;
+	}
+
+	// Normalize result
+	fOcclusion *= effectAmount/samplesNum;
+	
+	half result = dot(1, fOcclusion);
+	OUT.Color = 1 - result;
+
+	return OUT;
+}
+
+pixout_cl Deferred_SSAO_WithNormals_Fast_PS_Gen(vert2fragSSAO_PS IN)
+{
+  pixout_cl OUT;
+  
+#if !%_RT_QUALITY && !%_RT_QUALITY1
+  static const int samplesNum =  4; // QUALITY_LOW;
+#elif %_RT_QUALITY && !%_RT_QUALITY1
+  static const int samplesNum =  8; //QUALITY_MEDIUM;
+#elif !%_RT_QUALITY && %_RT_QUALITY1
+  static const int samplesNum = 16; // QUALITY_HIGH;
+#else
+  static const int samplesNum = 32; // QUALITY_VERYHIGH;
+#endif  
+
+	/////////////////////
+	// Tweakables
+
+	// Radius is static for performance reasons. Setting the radius any higher might result in performance drop
+	// due to texture cache thrashing.
+	static const half radius				= 0.06h;
+	static const half invRadius			= 1.h / radius;
+	static const half	fadeIn				= 1.5h;
+				 const half effectAmount  = SSAO_params.x;
+
+	// Kernel definition
+	static const half3 kernel[32] = {
+   radius * half3(-0.556641,-0.037109,-0.654297), 
+   radius * half3(0.173828,0.111328,0.064453),    
+   radius * half3(0.001953,0.082031,-0.060547),   
+   radius * half3(0.220703,-0.359375,-0.062500),  
+   radius * half3(0.242188,0.126953,-0.250000),   
+   radius * half3(0.070313,-0.025391,0.148438),   
+   radius * half3(-0.078125,0.013672,-0.314453),  
+   radius * half3(0.117188,-0.140625,-0.199219),  
+   radius * half3(-0.251953,-0.558594,0.082031),  
+   radius * half3(0.308594,0.193359,0.324219),    
+   radius * half3(0.173828,-0.140625,0.031250),   
+   radius * half3(0.179688,-0.044922,0.046875),   
+   radius * half3(-0.146484,-0.201172,-0.029297),  
+   radius * half3(-0.300781,0.234375,0.539063),   
+   radius * half3(0.228516,0.154297,-0.119141),   
+   radius * half3(-0.119141,-0.003906,-0.066406),  
+   radius * half3(-0.218750,0.214844,-0.250000),  
+   radius * half3(0.113281,-0.091797,0.212891),   
+   radius * half3(0.105469,-0.039063,-0.019531),  
+   radius * half3(-0.705078,-0.060547,0.023438),  
+   radius * half3(0.021484,0.326172,0.115234),    
+   radius * half3(0.353516,0.208984,-0.294922),   
+   radius * half3(-0.029297,-0.259766,0.089844),  
+   radius * half3(-0.240234,0.146484,-0.068359),  
+   radius * half3(-0.296875,0.410156,-0.291016),  
+   radius * half3(0.078125,0.113281,-0.126953),   
+   radius * half3(-0.152344,-0.019531,0.142578),  
+   radius * half3(-0.214844,-0.175781,0.191406),  
+   radius * half3(0.134766,0.414063,-0.707031),   
+   radius * half3(0.291016,-0.833984,-0.183594),  
+   radius * half3(-0.058594,-0.111328,0.457031),  
+	 radius * half3(-0.115234,-0.287109,-0.259766),	
+	};
+
+	const half2 screenTC = IN.ScreenTC.xy;
+
+	// Compute the pixel's normal in screen space.
+	half3 vNormal = SSAO_GetNormal( screenTC );
+	half3 vNormalSS = normalize(mul( SSAO_CameraMatrix, vNormal ));
+
+	// Compute dithering vector 
+	half3 vNormalDither = tex2D(sRotSampler4x4_16, SSAO_GetDitherCoord(IN)).xyz * 2.h - 1.h;
+
+	// Get the pixel depth.
+	half fCenterDepth = SSAO_GetMainDepth(screenTC);
+	half4 invCenterDepth = 1.h / fCenterDepth;
+
+	// Init the occlusion
+	half4 fOcclusion = 0;
+
+	for (int i = 0; i < samplesNum; i += 4)
+	{
+		half4	fTapDepth = 0.h, fSampleDepth = 0.h;
+		half4	amount, fadeOut;
+
+		// Prepare a data packet of 4 samples
+		for (int j = 0; j < 4; ++j)
+		{
+			// Reflect the sample around the dithering normal
+			half3 vSample = reflect(kernel[i+j], vNormalDither);
+
+			// Make sure that the sample is in the hemisphere defined by the pixel normal
+			float sign_test = dot(vSample,vNormalSS);
+			vSample = (sign_test >= 0.0f) ? vSample : -vSample;
+
+			// Sample depth texture
+			fTapDepth[j] = SSAO_GetTapDepth( screenTC + vSample.xy );
+
+			fSampleDepth[j] = vSample.z;
+		}
+
+		// Process the sample packet
+		fTapDepth = fTapDepth * invCenterDepth;
+
+		// Compute the relative sample depth. The depth is multiplied by 2 in order to avoid the sampling sphere
+		// distortion since the screen space is in [0..1]x[0..1] while the depth is in [-1..1].
+		half4 distScale = (1.h + fSampleDepth * 2.h - fTapDepth) * invRadius;
+
+		// Compute the occlusion amount
+		// If the occluders are inside the effect radius, make sure that closer occluders contribute less.
+		amount = saturate( fadeIn * distScale );
+
+		// Compute the occlusion falloff factor
+		// Fade the effect away for occluders that are outside the effect radius.
+		fadeOut = saturate( 1.h / distScale );
+
+		fOcclusion += amount * fadeOut;
+	}
+
+	// Normalize result
+	fOcclusion *= effectAmount/samplesNum;
+
+	half result = dot(1, fOcclusion);
+	OUT.Color = 1 - result;
+
+	return OUT;
+}
+
+pixout_cl Deferred_SSAO_WithNormals_Quality_PS(vert2fragSSAO_PS IN)
+{
+#if PS3
+	#pragma sce-cgc("-texformat default COMPRESSED_RGBA_S3TC_DXT5");
+#endif 
+
+	pixout_cl OUT; 
+
+#if !%_RT_QUALITY && !%_RT_QUALITY1
+  static const int samplesNum =  4; // QUALITY_LOW;
+#elif %_RT_QUALITY && !%_RT_QUALITY1
+  static const int samplesNum =  8; //QUALITY_MEDIUM;
+#elif !%_RT_QUALITY && %_RT_QUALITY1
+  static const int samplesNum = 16; // QUALITY_HIGH;
+#else
+  static const int samplesNum = 32; // QUALITY_VERYHIGH;
+#endif  
+
+	/////////////////////
+	// Tweakables
+
+	// Radius is static for performance reasons. Setting the radius any higher might result in performance drop
+	// due to texture cache thrashing.
+	static const half radius				= 0.1h;
+
+	// Roughly proportional to the size of occluders in world space.
+	// High number might introduce halo effect around objects.
+	static const half occFactor			= 0.05h;
+
+	// The value 2/samplesNum is a normalization factor due to monte-carlo integration.
+				       half effectAmount  = SSAO_params.x / (samplesNum / 2);
+
+	static const half3 kernel[32] = {
+		radius * half3(-0.556641,-0.037109,-0.654297), 
+		radius * half3(0.173828,0.111328,0.064453), 
+		radius * half3(0.001953,0.082031,-0.060547), 
+		radius * half3(0.220703,-0.359375,-0.062500), 
+		radius * half3(0.242188,0.126953,-0.250000), 
+		radius * half3(0.070313,-0.025391,0.148438), 
+		radius * half3(-0.078125,0.013672,-0.314453), 
+		radius * half3(0.117188,-0.140625,-0.199219), 
+		radius * half3(-0.251953,-0.558594,0.082031), 
+		radius * half3(0.308594,0.193359,0.324219), 
+		radius * half3(0.173828,-0.140625,0.031250), 
+		radius * half3(0.179688,-0.044922,0.046875), 
+		radius * half3(-0.146484,-0.201172,-0.029297), 
+		radius * half3(-0.300781,0.234375,0.539063), 
+		radius * half3(0.228516,0.154297,-0.119141), 
+		radius * half3(-0.119141,-0.003906,-0.066406), 
+		radius * half3(-0.218750,0.214844,-0.250000), 
+		radius * half3(0.113281,-0.091797,0.212891), 
+		radius * half3(0.105469,-0.039063,-0.019531), 
+		radius * half3(-0.705078,-0.060547,0.023438), 
+		radius * half3(0.021484,0.326172,0.115234), 
+		radius * half3(0.353516,0.208984,-0.294922), 
+		radius * half3(-0.029297,-0.259766,0.089844), 
+		radius * half3(-0.240234,0.146484,-0.068359), 
+		radius * half3(-0.296875,0.410156,-0.291016), 
+		radius * half3(0.078125,0.113281,-0.126953), 
+		radius * half3(-0.152344,-0.019531,0.142578), 
+		radius * half3(-0.214844,-0.175781,0.191406), 
+		radius * half3(0.134766,0.414063,-0.707031), 
+		radius * half3(0.291016,-0.833984,-0.183594), 
+		radius * half3(-0.058594,-0.111328,0.457031), 
+		radius * half3(-0.115234,-0.287109,-0.259766),  
+	};
+
+	// Holds the reciprocal of the sample radii
+	static half4 kernelRcpRad[8] = {
+		half4(1.163003,4.624262,9.806342,2.345541) / radius, 
+		half4(2.699039,6.016871,3.083554,3.696197) / radius, 
+		half4(1.617461,2.050939,4.429457,5.234036) / radius, 
+		half4(3.990876,1.514475,3.329241,7.328508) / radius, 
+		half4(2.527725,3.875453,8.760140,1.412308) / radius, 
+		half4(2.885205,1.977866,3.617674,3.453552) / radius, 
+		half4(1.712336,5.341163,4.771728,2.965737) / radius, 
+		half4(1.204293,1.108428,2.109570,2.475453) / radius, 
+	};
+
+	static const float approxSlope = 1000;
+	static const float a = 2.8*(1 + sqrt(occFactor)) / approxSlope;
+	static const float b = 1-2.8;
+
+	const half2 screenTC = IN.ScreenTC.xy;
+
+	// Compute the pixel's normal in screen space.
+	half3 vNormal = SSAO_GetNormal( screenTC );
+	half3 vNormalSS = normalize( mul( SSAO_CameraMatrix, vNormal ) );
+
+	// Compute dithering vector 
+	half3 vNormalDither = tex2D(sRotSampler4x4_16, SSAO_GetDitherCoord(IN)).xyz * 2.h - 1.h;
+
+	// Get the pixel depth.
+	half fCenterDepth = SSAO_GetMainDepth(screenTC);
+
+	effectAmount = effectAmount;
+
+	// Some precomputations
+	half4 invCenterDepth = approxSlope / fCenterDepth;
+
+	// Init the occlusion
+	half4 fOcclusion = 0;
+
+	for (int i = 0; i < samplesNum/4; i++)
+	{
+		half4	fTapDepth = 0.h, fSampleDepth = 0.h, dotProd = 0.h;
+
+		for (int j = 0; j < 4; ++j)
+		{
+			half3 vSample = reflect(kernel[4*i+j], vNormalDither);
+
+			dotProd[j] = dot(vSample, vNormalSS);
+			vSample = (dotProd[j] >= 0.0f) ? vSample : -vSample;
+
+			fTapDepth[j] = SSAO_GetTapDepth(screenTC + vSample.xy);
+			fSampleDepth[j] = vSample.z;
+		}
+
+		fTapDepth = fTapDepth * invCenterDepth;
+
+		// Compute the occlusion factor by using an approximation to: (1 + 2 * fSampleDepth > fTapDepth). 
+		// fTapDepth is already premultiplied by approxSlope.
+		// The depth is multiplied by 2 in order to avoid the sampling sphere
+		// distortion since the screen space is in [0..1]x[0..1] while the depth is in [-1..1].
+		half4 occAmount = saturate( approxSlope + fSampleDepth * (2 * approxSlope) - fTapDepth );
+
+		// Apply distance attenuation by using an approximation to: saturate(occFactor * pow(fTapDepth/(fTapDepth - 1), 2))
+		occAmount *= saturate(a * fTapDepth + b);
+
+		// Multiply by the cosine term.
+		occAmount *= (abs(dotProd) * kernelRcpRad[i]);
+
+		fOcclusion += occAmount;
+	}
+
+	fOcclusion *= effectAmount;
+	
+	half result = 1 - dot(1, fOcclusion);
+	OUT.Color = result;
+
+	return OUT;
+}
+
+pixout_cl Deferred_SSAO_WithNormals_Old_PS(vert2fragSSAO_PS IN)
+{
+  pixout_cl OUT;
+
+#if !%_RT_QUALITY && !%_RT_QUALITY1
+  static const int samplesNum =  4; // QUALITY_LOW;
+#elif %_RT_QUALITY && !%_RT_QUALITY1
+  static const int samplesNum =  8; //QUALITY_MEDIUM;
+#elif !%_RT_QUALITY && %_RT_QUALITY1
+  static const int samplesNum = 8; // QUALITY_HIGH;
+#else
+  static const int samplesNum = 8; // QUALITY_VERYHIGH;
+#endif  
+
+  half offsetScale = 0.006f * 1.5f;
+  
+  static const half offsetScaleStep = 1.f + 0.125f * (0.8f + 0.2f*max(samplesNum,8)/8.f);
+
+	static const half3 arrKernel[8] =
+	{
+		half3(-1,-1, 1) / sqrt(3.f) * offsetScale * pow(offsetScaleStep, 1.f),
+		half3(-1, 1,-1) / sqrt(3.f) * offsetScale * pow(offsetScaleStep, 2.f),
+		half3(-1, 1, 1) / sqrt(3.f) * offsetScale * pow(offsetScaleStep, 3.f),
+		half3( 1,-1,-1) / sqrt(3.f) * offsetScale * pow(offsetScaleStep, 4.f),
+		half3( 1,-1, 1) / sqrt(3.f) * offsetScale * pow(offsetScaleStep, 5.f),
+		half3( 1, 1,-1) / sqrt(3.f) * offsetScale * pow(offsetScaleStep, 6.f),
+		half3( 1, 1, 1) / sqrt(3.f) * offsetScale * pow(offsetScaleStep, 7.f),
+		half3(-1,-1,-1) / sqrt(3.f) * offsetScale * pow(offsetScaleStep, 8.f)
+	};
+
+	// create random rot matrix
+	half3 rotSample = tex2D(sRotSampler4x4_16, SSAO_GetDitherCoord(IN)).xyz * 2.h - 1.h;
+
+  half fSceneDepthP = GetLinearDepth( sceneDepthSampler, IN.ScreenTC.xy );
+
+  half fDepthTestHardness = 70.f / fSceneDepthP;
+
+  // prepare SS normal
+	half3 vSceneNormalWS = GetWorldSpaceNormals(sceneNormalsSampler, IN.ScreenTC.xy, false).xyz;
+  half3 vSceneNormalSS = mul( SSAO_CameraMatrix, vSceneNormalWS.xyz ).xyz;
+
+	// init with full access
+  half4 Accessibility = half4(samplesNum/4,samplesNum/4,samplesNum/4,samplesNum/4);
+
+  int nKIndex = 0;
+
+  static const int nVectorStages = 1+(samplesNum>4);
+
+	// PS3 idiotic compiler work-around
+#if !PS3
+  static const int nQualityStages = max(samplesNum,8)/8;
+#else
+  static const int nQualityStages = 1;
+#endif 
+
+  for(int v=0; v<nVectorStages; v++)
+  {    
+    half2 arrSceneDepthS[nQualityStages][4];      
+    half arrSamplerPosZ[nQualityStages][4];      
+
+    for(int nId = 0; nId<4; nId++)
+    {
+      half3 vIrrSample = reflect(arrKernel[nKIndex++], rotSample);		
+      vIrrSample *= sign(dot(vSceneNormalSS,vIrrSample));
+
+      for(int q=0; q<nQualityStages; q++)
+      {
+				arrSceneDepthS[q][nId].x = tex2D( sceneDepthSamplerAO, IN.ScreenTC.xy + vIrrSample.xy );  
+				arrSceneDepthS[q][nId].y = 1.h/arrSceneDepthS[q][nId].x;
+
+        arrSamplerPosZ[q][nId] = vIrrSample.z;
+        vIrrSample -= vIrrSample / nQualityStages;
+      }
+    }
+
+    for(int q=0; q<nQualityStages; q++)
+    {
+      half4 fInvSceneDepthS2;
+      fInvSceneDepthS2.x = arrSceneDepthS[q][0].y;
+      fInvSceneDepthS2.y = arrSceneDepthS[q][1].y;
+      fInvSceneDepthS2.z = arrSceneDepthS[q][2].y;
+      fInvSceneDepthS2.w = arrSceneDepthS[q][3].y;
+
+			half4 fSceneDepthS2;
+      fSceneDepthS2.x = arrSceneDepthS[q][0].x;
+      fSceneDepthS2.y = arrSceneDepthS[q][1].x;
+      fSceneDepthS2.z = arrSceneDepthS[q][2].x;
+      fSceneDepthS2.w = arrSceneDepthS[q][3].x;
+
+      half4 fSamplerPosZ2;
+      fSamplerPosZ2.x = arrSamplerPosZ[q][0];
+      fSamplerPosZ2.y = arrSamplerPosZ[q][1];
+      fSamplerPosZ2.z = arrSamplerPosZ[q][2];
+      fSamplerPosZ2.w = arrSamplerPosZ[q][3];
+
+      fSamplerPosZ2 = fSceneDepthP + fSamplerPosZ2 * fSceneDepthP;
+
+      half4 fRangeIsValid = saturate( 2.h - fSceneDepthP * fInvSceneDepthS2 );
+      Accessibility -= saturate((fSamplerPosZ2-fSceneDepthS2)*fDepthTestHardness) * fRangeIsValid;
+    }
+  }
+
+  half fAccessibility = dot( Accessibility, 1.h/samplesNum );
+
+  OUT.Color = lerp( 0.9h, fAccessibility, (half)SSAO_params.x );
+
+  // apply min occlusion
+	OUT.Color = max(SSAO_params.y,OUT.Color);
+
+	// AO is reduced on NEAREST objects
+	OUT.Color += 0.3f*(fSceneDepthP < 0.0002h);
+
+	return OUT;
+}
+
+///////////////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////////////
+
+sampler2D albedoSampler = sampler_state
+{
+ Texture = $SceneTexturesMap;
+ MinFilter = POINT;
+ MagFilter = POINT;
+ MipFilter = POINT;
+ AddressU = Clamp;
+ AddressV = Clamp;
+};
+
+
+vert2fragSSAO Deferred_SSGI_Pass_VS(app2vertShadow IN)
+{
+	vert2fragSSAO OUT;
+
+	OUT = (vert2fragSSAO)0; 
+
+	OUT.HPosition = mul(CompMatrix, IN.Position);
+	OUT.ScreenTC.xy = IN.baseTC.xy;
+
+	#if !%USE_SM30
+	OUT.ScreenTC.wz = (IN.baseTC.yx - g_VS_ScreenSize.wz) * (g_VS_ScreenSize.yx / 4);
+#endif
+
+	return OUT;
+}
+
+pixout_cl Deferred_SSGI_Pass_PS(vert2fragSSAO_PS IN)
+{
+#if PS3
+	// suggested by GPAD
+	#pragma sce-fcgc("-texformat default COMPRESSED_RGBA_S3TC_DXT5");
+#endif 
+
+	pixout_cl OUT; 
+
+#if !%_RT_QUALITY && !%_RT_QUALITY1
+  static const int samplesNum =  4; // QUALITY_LOW;
+#elif %_RT_QUALITY && !%_RT_QUALITY1
+  static const int samplesNum =  8; //QUALITY_MEDIUM;
+#elif !%_RT_QUALITY && %_RT_QUALITY1
+  static const int samplesNum = 16; // QUALITY_HIGH;
+#else
+  static const int samplesNum = 32; // QUALITY_VERYHIGH;
+#endif  
+
+	/////////////////////
+	// Tweakables
+
+	// Radius is static for performance reasons. Setting the radius any higher might result in performance drop
+	// due to texture cache thrashing.
+	static const float radius				= SSAO_params.y; // 0.2
+
+	// The value 2/samplesNum is a normalization factor due to monte-carlo integration.
+				       //float effectAmount  = 20 * SSAO_params.x / (samplesNum / 2);
+	float effectAmount  = SSAO_params.x / (samplesNum);
+
+	static const float3 kernel[32] = {
+		float3(-0.556641,-0.037109,-0.654297), float3(0.173828,0.111328,0.064453), float3(0.001953,0.082031,-0.060547), float3(0.220703,-0.359375,-0.062500), float3(0.242188,0.126953,-0.250000), float3(0.070313,-0.025391,0.148438), float3(-0.078125,0.013672,-0.314453), float3(0.117188,-0.140625,-0.199219), float3(-0.251953,-0.558594,0.082031), float3(0.308594,0.193359,0.324219), float3(0.173828,-0.140625,0.031250), float3(0.179688,-0.044922,0.046875), float3(-0.146484,-0.201172,-0.029297), float3(-0.300781,0.234375,0.539063), float3(0.228516,0.154297,-0.119141), float3(-0.119141,-0.003906,-0.066406), float3(-0.218750,0.214844,-0.250000), float3(0.113281,-0.091797,0.212891), float3(0.105469,-0.039063,-0.019531), float3(-0.705078,-0.060547,0.023438), float3(0.021484,0.326172,0.115234), float3(0.353516,0.208984,-0.294922), float3(-0.029297,-0.259766,0.089844), float3(-0.240234,0.146484,-0.068359), float3(-0.296875,0.410156,-0.291016), float3(0.078125,0.113281,-0.126953), float3(-0.152344,-0.019531,0.142578), float3(-0.214844,-0.175781,0.191406), float3(0.134766,0.414063,-0.707031), float3(0.291016,-0.833984,-0.183594), float3(-0.058594,-0.111328,0.457031), float3(-0.115234,-0.287109,-0.259766),  
+	};
+
+	const float2 screenTC = IN.ScreenTC.xy;
+
+	// Compute the pixel's normal in screen space.
+	float3 vNormal = SSAO_GetNormal( screenTC );
+	float3 vNormalSS = normalize(mul(SSAO_CameraMatrix, vNormal));
+
+	// Compute dithering vector 
+	float3 normalDither = normalize(
+		tex2D(sRotSampler4x4_16, SSAO_GetDitherCoord(IN)).xyz * 2.h - 1.h
+		);
+
+	// Get the pixel depth.
+	float centerDepth = SSAO_GetMainDepth(screenTC);
+
+	// Init the occlusion
+	float3 colorBleeding = 0;
+
+	for (int i = 0; i < samplesNum; i++)
+	{
+		float3 sample;
+
+		float sampleDepth, tapDepth;
+		float alpha, gamma;
+
+		/////////////////////////
+		// Construct the sample
+		sample = reflect(kernel[i] * radius, normalDither);
+		sample = sample * (dot(sample, vNormalSS) < 0 ? -1:1);
+
+		/////////////////////////
+		// Find the offset
+		gamma = 1. / (1 + sample.z);
+		float2 centerPos = (screenTC*2) - float2(1, 1);
+		float2 samplePos = (centerPos + sample.xy) * (gamma * 0.5) + 0.5;
+
+		/////////////////////////
+		// Get tap data
+		float3 tapNormal, tapAlbedo, tapRadiance;
+
+		tapDepth  = SSAO_GetTapDepth(samplePos);
+		alpha = gamma * tapDepth;
+
+		tapNormal = SSAO_GetNormal(samplePos);
+		tapNormal = normalize(mul(SSAO_CameraMatrix, tapNormal));
+
+		tapAlbedo = tex2D(albedoSampler, samplePos);
+		tapRadiance = DecodeLightBuffer(tex2D(sceneDiffuseAccSampler, samplePos));
+
+		// Compute the direction vector between the point and the bleeder
+		float3 D = float3(centerPos, 1) * (alpha - centerDepth) + sample * alpha;
+
+		static const float minDist = 0.0005;
+		float r = max(minDist, length(D));
+
+		D = normalize(D);
+
+		// Compute attenuation
+		float atten = 
+			//pow(minDist / r, 2)
+			//min(centerDepth * pow(0.05 / r, 2), 1)
+			min(pow(0.05 * centerDepth / r, 2), 1)
+			//1
+			;
+
+		float factor = 400
+			// Visibility
+			* ((centerDepth * (1 + sample.z) - tapDepth) > 0)
+			// Reflector lambertian term
+			* max(0, -dot(D, tapNormal))
+			// Incident radiance projection term
+			* dot(D, vNormalSS) 
+			// Attenuation term
+			* atten
+			;
+
+		float3 radiance = factor * tapAlbedo * tapRadiance;
+		colorBleeding += radiance;
+	}
+
+	colorBleeding *= effectAmount;
+
+	OUT.Color.rgb = max(0, colorBleeding);
+	OUT.Color.a   = 0;
+	
+	// apply fake HDR
+	// OUT.Color.rgb *= .25h;
+
+#if %_RT_SAMPLE2
+	// attenuate
+	//OUT.Color.rgb *= saturate(centerDepth * SSAO_params.z + SSAO_params.w);
+#endif
+
+	return OUT;
+}
+
+///////////////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////////////
+
+struct Ray
+{
+   float3 startpoint; 
+   float3 direction; 
+};
+
+struct Sphere
+{
+   float3 o; 
+   float r2; 
+};
+
+float intersectRaySphere(const Ray ray, const Sphere sphere) 
+{
+	float3 dst = ray.startpoint - sphere.o;
+	float B = dot(dst, ray.direction);
+	float C = dot(dst, dst) - sphere.r2;
+	float D = B*B - C;
+	return D > 0 ? (-B - sqrt(D)) : 1000000;
+}
+
+bool hitbox(Ray r, float3 m1, float3 m2, out float tmin, out float tmax) 
+{
+ float tymin, tymax, tzmin, tzmax; 
+ float flag = 1.0; 
+
+  if (r.direction.x >= 0) 
+  {
+     tmin = (m1.x - r.startpoint.x) / r.direction.x;
+     tmax = (m2.x - r.startpoint.x) / r.direction.x;
+  }
+  else 
+  {
+     tmin = (m2.x - r.startpoint.x) / r.direction.x;
+     tmax = (m1.x - r.startpoint.x) / r.direction.x;
+  }
+  if (r.direction.y >= 0) 
+  {
+     tymin = (m1.y - r.startpoint.y) / r.direction.y; 
+     tymax = (m2.y - r.startpoint.y) / r.direction.y; 
+  }
+  else 
+  {
+     tymin = (m2.y - r.startpoint.y) / r.direction.y; 
+     tymax = (m1.y - r.startpoint.y) / r.direction.y; 
+  }
+   
+  if ((tmin > tymax) || (tymin > tmax)) flag = -1.0; 
+  if (tymin > tmin) tmin = tymin; 
+  if (tymax < tmax) tmax = tymax; 
+    
+  if (r.direction.z >= 0) 
+  {
+     tzmin = (m1.z - r.startpoint.z) / r.direction.z; 
+     tzmax = (m2.z - r.startpoint.z) / r.direction.z; 
+  }
+  else 
+  {
+     tzmin = (m2.z - r.startpoint.z) / r.direction.z; 
+     tzmax = (m1.z - r.startpoint.z) / r.direction.z; 
+  }
+  if ((tmin > tzmax) || (tzmin > tmax)) flag = -1.0; 
+  if (tzmin > tmin) tmin = tzmin; 
+  if (tzmax < tmax) tmax = tzmax; 
+    
+  return (flag > 0); 
+}
+
+pixout_cl VoxTerrainDebugClear_Pass_PS(vert2frag_TerrainAO IN)
+{
+  pixout_cl OUT = (pixout_cl)0;
+
+  if(tex2D( samplerBTT_Base0, IN.ScreenTC.xy ).x == 0)
+    clip(-1);
+
+	return OUT;
+}
+
+float3 DecodeNormalFromUINT16(float fId)
+{
+  const int nCubeDim = 40;
+  float fIndex = fId * 65535 / (nCubeDim * nCubeDim * nCubeDim);
+  float x = frac( fIndex );
+  float y = frac( fIndex * nCubeDim );
+  float z = frac( fIndex * nCubeDim * nCubeDim );
+  return float3(x,y,z);
+}
+
+#define nTexSizeIndex 256
+#define nTexSizeData 2048
+#define nNodeDataSize 64
+
+pixout_cl VoxTerrainDebugNormals_Pass_PS(vert2frag_TerrainAO IN)
+{
+  pixout_cl OUT = (pixout_cl)0;
+
+#ifdef PS3 || XENON
+  return OUT;
+#endif
+
+  const float levelSize = VoxTerrainDebug_Offset.z;
+  const float farPlane = VoxTerrainDebug_Offset.w;
+
+  Ray r;
+  r.startpoint = vfViewPos.xyz/levelSize;
+  r.direction = IN.WS_ViewVect;
+  r.direction = normalize(r.direction);
+
+  float4 nodeInfo = tex2D(samplerBTT_Base0, IN.ScreenTC.xy);
+  float2 best_tc = nodeInfo.xy;
+
+  float3 vColor = nodeInfo.xyz;//DecodeNormalFromUINT16(nodeInfo.z);
+  float3 vNormalV=0;
+
+  float tmin_res = 1.f/nodeInfo.a;
+
+	{
+	  float4 vVal = tex2D( samplerBTT_Base1, nodeInfo.xy);
+	  vColor.xyz = DecodeNormalFromUINT16(vVal[nodeInfo.z*4]);
+	}
+	{
+	  float4 vVal = tex2D( samplerBTT_Base1, nodeInfo.xy + float2((16.f)/nTexSizeData,0));
+	  vNormalV.xyz = DecodeNormalFromUINT16(vVal[nodeInfo.z*4]);
+	}
+/*
+  float3 vNormal = 0;
+
+  // get node corner normals
+
+  float4 encodedNormals[2];
+  encodedNormals[0] = tex2D( samplerBTT_Base1, best_tc + float2(3.f/nTexSizeData,0) );
+  encodedNormals[1] = tex2D( samplerBTT_Base1, best_tc + float2(4.f/nTexSizeData,0));
+
+  float3 values_in[8];
+  values_in[0] = DecodeNormalFromUINT16(encodedNormals[0].x);
+  values_in[1] = DecodeNormalFromUINT16(encodedNormals[0].y);
+  values_in[2] = DecodeNormalFromUINT16(encodedNormals[0].z);
+  values_in[3] = DecodeNormalFromUINT16(encodedNormals[0].w);
+  values_in[4] = DecodeNormalFromUINT16(encodedNormals[1].x);
+  values_in[5] = DecodeNormalFromUINT16(encodedNormals[1].y);
+  values_in[6] = DecodeNormalFromUINT16(encodedNormals[1].z);
+  values_in[7] = DecodeNormalFromUINT16(encodedNormals[1].w);
+
+  // store in clear form
+  int n=0;
+  float3 values[2][2][2];
+  for(int l=0; l<2; l++)
+  {
+    values[0][0][l] = values_in[n++];
+    values[1][0][l] = values_in[n++];
+    values[0][1][l] = values_in[n++];
+    values[1][1][l] = values_in[n++];
+  }
+
+  // get vT
+  float4 boxInfo = tex2D( samplerBTT_Base1, best_tc );
+  float3 node_min = boxInfo.xyz - boxInfo.w*0.5f;
+  float3 vHitPoint = r.startpoint + r.direction * tmin_res;
+  float3 vT = (vHitPoint-node_min) / boxInfo.w;
+
+  // interpolate corner normals
+  float3 arrfValues1D[2];
+  for(int nX=0; nX<2; nX++)
+  {
+    float3 fValue0 = lerp(values[nX][0][0], values[nX][0][1], vT.z);
+    float3 fValue1 = lerp(values[nX][1][0], values[nX][1][1], vT.z);
+    arrfValues1D[nX] = lerp(fValue0, fValue1, vT.y);
+  }
+
+  vNormal = lerp(arrfValues1D[0], arrfValues1D[1], vT.x);
+
+  vNormal = normalize(vNormal*2-1);
+  */
+
+  /*
+  float4 values_in[2];
+  values_in[0] = tex2D( samplerBTT_Base2, best_tc );
+  values_in[1] = tex2D( samplerBTT_Base3, best_tc );
+
+  for(int z=0; z<=1; z++)
+  {
+    vNormal += (float3(0,0,z) - 0.5) * values_in[z].x;
+    vNormal += (float3(1,0,z) - 0.5) * values_in[z].y;
+    vNormal += (float3(0,1,z) - 0.5) * values_in[z].z;
+    vNormal += (float3(1,1,z) - 0.5) * values_in[z].w;
+  }
+  vNormal = normalize(vNormal);
+  */
+
+  OUT.Color = 1;
+  
+  float3 vLightDir = float3(1,1,1);
+  vLightDir = normalize(vLightDir);
+  
+  if(nodeInfo.a)
+//    OUT.Color.xyz = vNormalV;//(0.1f+0.9f*saturate(dot(vLightDir,2.f*vNormalV-1.f)))*vColor;//*(1-tmin_res*32);//vNormal*0.5+0.5;
+    OUT.Color.xyz = (0.2f + saturate(dot(vLightDir,2.f*vNormalV-1.f)))*vColor;
+  else
+    OUT.Color.xyz = 0.5f;
+
+  return OUT;
+}
+
+pixout_cl VoxTerrainDebug_Pass_PS(vert2frag_TerrainAO IN)
+{
+  pixout_cl OUT = (pixout_cl)0;
+
+//  return OUT;
+
+#ifdef PS3 || XENON
+  return OUT;
+#endif
+
+//  OUT.Color = tex2D( samplerBTT_Base1, IN.ScreenTC.xy ); return OUT;
+
+  const float levelSize = VoxTerrainDebug_Offset.z;
+  const float farPlane = VoxTerrainDebug_Offset.w;
+
+  Ray r;
+  r.startpoint = vfViewPos.xyz/levelSize;
+  r.direction = IN.WS_ViewVect;
+  r.direction = normalize(r.direction);
+
+  float tmin=1000, tmax=1000, tmin_res=1000;
+
+  float3 best_tc=0;
+
+  float4 nodeIndices = tex2D( samplerBTT_Base0, IN.ScreenTC.xy );
+
+  float4 best_node_min=0;
+
+  const bool bTraceBrick = 0;
+
+  for(int i=0; i<4; i++)
+  {
+    int nIndex = (int)(nodeIndices[i]*65535) - 1;
+
+    nIndex *= nNodeDataSize;
+    int x = nIndex / nTexSizeData;
+    int y = nIndex - x*nTexSizeData;
+
+    float2 tc = float2(y, x) / nTexSizeData;
+
+    float4 boxInfo = tex2D( samplerBTT_Base1, tc );
+    float3 node_min = boxInfo.xyz - (boxInfo.w*0.5);
+    float3 node_max = boxInfo.xyz + (boxInfo.w*0.5);
+
+    bool bHit = hitbox(r, node_min, node_max, tmin, tmax);
+
+    if(bHit)
+//        if(tmin<tmin_res) { tmin_res = tmin; best_tc.xy = tc + float2((5.f+2)/nTexSizeData,0); } if(0)
+    {
+      if(bTraceBrick)
+      {
+        const float fStepsNum = 4.f;
+        float3 vBeg = (r.startpoint + r.direction * tmin - node_min)/boxInfo.w;
+        float3 vEnd = (r.startpoint + r.direction * tmax - node_min)/boxInfo.w;
+        float3 vStep = (vEnd-vBeg)/fStepsNum;
+        float fStepT = (tmax - tmin)/fStepsNum;
+        
+        float3 vPos = vBeg;
+        float t = tmin;
+
+        for(int p=0; p<fStepsNum; p++)
+        {
+          int3 vPosI = vPos*4.f;
+
+          int nId = vPosI.x*4 + vPosI.y;
+
+          float4 vVal = tex2D( samplerBTT_Base1, tc + float2((5.f+nId)/nTexSizeData,0));
+
+          if(vVal[vPosI.z])
+          {
+            if(t<tmin_res) 
+            { 
+              tmin_res = t; 
+              best_tc.xy = tc + float2((5.f+nId)/nTexSizeData,0);
+              best_tc.z = vPosI.z/4.f;
+            }
+          }
+
+          vPos += vStep;
+          t += fStepT;
+        }
+      }
+      else
+      {
+        node_min = boxInfo.xyz - boxInfo.w*0.5f;
+
+        float3 arrP[2]; // in/out world pos
+        arrP[0] = r.startpoint + r.direction * tmin;
+        arrP[1] = r.startpoint + r.direction * tmax;
+
+        float4 values_in[2];
+        values_in[0] = tex2D( samplerBTT_Base1, tc + float2(1.f/nTexSizeData,0));
+        values_in[1] = tex2D( samplerBTT_Base1, tc + float2(2.f/nTexSizeData,0));
+
+        float arrValues[2]; // in/out iso val
+        for(int i=0; i<2; i++)
+        {
+          float3 vT = (arrP[i]-node_min) / boxInfo.w;
+          float4 arrValuesZ = lerp(values_in[0], values_in[1], vT.z);
+          float arrValuesYZ[2];
+          arrValuesYZ[0] = lerp(arrValuesZ.x, arrValuesZ.z, vT.y);
+          arrValuesYZ[1] = lerp(arrValuesZ.y, arrValuesZ.w, vT.y);
+          arrValues[i] = lerp(arrValuesYZ[0], arrValuesYZ[1], vT.x);
+        }
+
+        if(arrValues[0]>0.5f && arrValues[1]<0.5f)
+        { 
+          float t = (arrValues[0]-0.5f) / (arrValues[0]-arrValues[1]);
+          float tmin_new = lerp(tmin, tmax, t);
+          if(tmin_new<tmin_res)
+          {
+            tmin_res = tmin_new;
+            best_node_min.xyz = node_min;
+            best_node_min.w = boxInfo.w;
+            best_tc.xy = tc;
+          }
+        }                    
+      }
+    }
+  }
+
+  if(!bTraceBrick)
+  {
+    float3 vPos = saturate((r.startpoint + r.direction * tmin_res - best_node_min.xyz)/best_node_min.w);
+    int3 vPosI = vPos*4.f;
+    int nId = vPosI.x*4 + vPosI.y;
+    best_tc.xy = best_tc.xy + float2((5.f+nId)/nTexSizeData,0);
+    best_tc.z = vPosI.z/4.f;
+  }
+
+  OUT.Color = 0;
+
+  if(tmin_res<1000)
+  { 
+	  OUT.Color.xyz = best_tc.xyz;
+    OUT.Color.w = 1.f/tmin_res;
+  }
+ 
+	return OUT;
+}
+
+//////////////////////////////// technique ////////////////
+
+pixout_cl Deferred_TerrainAO_Pass_PS(vert2frag_TerrainAO IN)
+{
+  pixout_cl OUT;
+
+#if PS3
+  // suggested by gpad
+  //#pragma sce-cgc("-regcount 6"); 
+	#pragma sce-cgc("-texformat default RGBA8");
+	#pragma sce-cgc("-fastmath");
+	//#pragma sce-cgc("-fastprecision");
+#endif
+
+  // reconstruct pixel world position
+  half SceneDepth = GetLinearDepth( depthTargetSampler, IN.ScreenTC.xy );  
+	float3 vWSPos = vfViewPos.xyz + IN.WS_ViewVect * SceneDepth;
+
+  // find terrain texture coordinates
+  half2 texCoord = vWSPos.yx * TerrainAOInfo.a - AOSectorRange.yx;
+
+  // get terrain and vegetation elevations
+	half4 dataS0 = tex2D( TerrainInfoSampler0, texCoord );
+	half4 dataS1 = tex2D( TerrainInfoSampler1, texCoord );
+	half fTerrainZ = dataS1.a * AOSectorRange.w + AOSectorRange.z;
+	half fVegetZMax = fTerrainZ + dataS1.g * 32.h;
+
+  // get initial sky amount, TODO: try pow() here
+	OUT.Color = saturate(1.h-TerrainAOInfo.g*(fVegetZMax-vWSPos.z)); 
+
+  // scale based on sky amount precomputed for terrain
+	half fTerrainSkyAmount = dataS0.a * saturate(1.h - (fTerrainZ-vWSPos.z)*0.025h);
+  OUT.Color = lerp(OUT.Color,1.h,fTerrainSkyAmount);
+
+  // lerp into pure terrain sky amount near the ground
+  half fHeightFactor = saturate((vWSPos.z-fTerrainZ)*0.5h);
+  OUT.Color = lerp(fTerrainSkyAmount,OUT.Color,fHeightFactor);
+
+  // apply sky brightening and fade on distance
+  half fDistAtt = saturate(SceneDepth*TerrainAOInfo.b);
+	fDistAtt *= fDistAtt;
+	OUT.Color = lerp(1.h, OUT.Color, TerrainAOInfo.r * (1.h - fDistAtt)); 
+
+  return OUT;
+}
+
+#if %USE_SM30 && !D3D10
+#define vs_Profile vs_3_0
+#define ps_Profile ps_3_0
+#else
+#define vs_Profile vs_Auto
+#define ps_Profile ps_Auto
+#endif
+
+technique Deferred_SSAO_Pass
+{
+	//Shadow pass
+  pass p0
+  {
+    VertexShader = compile vs_Profile Deferred_SSAO_VS();
+    
+    ZEnable = false;
+    ZWriteEnable = false;
+    CullMode = None;
+
+    PixelShader = compile ps_Profile Deferred_SSAO_PS();
+  }
+}
+
+
+technique Deferred_SSAO_WithNormals_Fast
+{
+	//Shadow pass
+  pass p0
+  {
+    VertexShader = compile vs_Profile Deferred_SSAO_VS();
+    
+    ZEnable = false;
+    ZWriteEnable = false;
+    CullMode = None;
+
+    PixelShader = compile ps_Profile Deferred_SSAO_WithNormals_Fast_PS();
+  }
+}
+
+technique Deferred_SSAO_WithNormals_Quality
+{
+	//Shadow pass
+  pass p0
+  {
+		VertexShader = compile vs_Profile Deferred_SSAO_VS();
+
+    ZEnable = false;
+    ZWriteEnable = false;
+    CullMode = None;
+		
+    PixelShader = compile ps_Profile Deferred_SSAO_WithNormals_Quality_PS();
+  }
+}
+
+technique Deferred_SSAO_WithNormals_Old
+{
+	//Shadow pass
+  pass p0
+  {
+    VertexShader = compile vs_Profile Deferred_SSAO_VS();
+    
+    ZEnable = false;
+    ZWriteEnable = false;
+    CullMode = None;
+
+    PixelShader = compile ps_Profile Deferred_SSAO_WithNormals_Old_PS();
+  }
+}
+
+technique VoxTerrainDebugClear_Pass
+{
+	//Shadow pass
+  pass p0
+  {
+    ZEnable = false;
+    ZWriteEnable = false;
+    CullMode = None;
+
+    VertexShader = compile vs_Profile Deferred_TerrainAO_Pass_VS();
+    PixelShader = compile ps_Profile VoxTerrainDebugClear_Pass_PS();
+  }
+}
+
+technique VoxTerrainDebugNormals_Pass
+{
+	//Shadow pass
+  pass p0
+  {
+    VertexShader = compile vs_Profile Deferred_TerrainAO_Pass_VS();
+    
+    ZEnable = false;
+    ZWriteEnable = false;
+    CullMode = None;
+
+    PixelShader = compile ps_Profile VoxTerrainDebugNormals_Pass_PS();
+  }
+}
+
+technique VoxTerrainDebug_Pass
+{
+	//Shadow pass
+  pass p0
+  {
+    VertexShader = compile vs_Profile Deferred_TerrainAO_Pass_VS();
+    
+    ZEnable = false;
+    ZWriteEnable = false;
+    CullMode = None;
+
+    PixelShader = compile ps_Profile VoxTerrainDebug_Pass_PS();
+  }
+}
+
+technique Deferred_TerrainAO_Pass
+{
+	//Shadow pass
+  pass p0
+  {
+    VertexShader = compile vs_Profile Deferred_TerrainAO_Pass_VS();
+    
+    ZEnable = false;
+    ZWriteEnable = false;
+    CullMode = None;
+
+    PixelShader = compile ps_Profile Deferred_TerrainAO_Pass_PS();
+  }
+}
+
+technique Deferred_SSGI_Pass
+{
+	pass p0
+	{
+		VertexShader = compile vs_Auto Deferred_SSGI_Pass_VS();
+		PixelShader = compile ps_3_0 Deferred_SSGI_Pass_PS();
+	}
+}

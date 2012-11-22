@@ -1,0 +1,810 @@
+////////////////////////////////////////////////////////////////////////////
+//
+//  Crytek Engine Source File.
+//  Shader extension
+//  Copyright (C), Crytek Studios, 2001-2008.
+// -------------------------------------------------------------------------
+//  File name:   DeferredShading.cfx
+//  Version:     v1.00
+//  Created:     07/03/2008 by Tiago Sousa
+//  Compilers:   
+//  Description: Deferred shading post processing
+//
+// -------------------------------------------------------------------------
+////////////////////////////////////////////////////////////////////////////
+
+#include "Common.cfi"
+#include "ShadeLib.cfi"
+#include "PostEffectsLib.cfi"
+#include "ShadowCommon.cfi"
+#include "DeferredShadows.cfi"
+
+// Shader global descriptions
+float Script : STANDARDSGLOBAL
+<
+  string Script =
+           "NoPreview;"
+           "LocalConstants;"
+           "ShaderDrawType = Custom;"
+           "ShaderType = PostProcess;"
+>; 
+
+float4x4 g_mCamera < psregister = c0; > ;
+float4 g_LightPos < vsregister = c12; psregister = c4; > ;
+half4 g_LightDiffuse < psregister = c5; > ;
+float4 g_WorldViewPos  : PB_CameraPos < vsregister = c13; psregister = c6; >;
+
+float4 g_ScreenSize  : PB_ScreenSize < vsregister = c15; psregister = c7; >;
+float4x4 g_mLightProj <  psregister = c9; > ;
+float4 g_LightProjParams < psregister = c13; > ;
+
+float4 g_GeneralParams < vsregister = c13; psregister = c14; > ;
+
+float4 g_ScreenScale < psregister = c15; >;
+float4 vWBasisX	 < psregister = c16; > ;
+float4 vWBasisY	 < psregister = c17; > ;
+float4 vWBasisZ	 < psregister = c18; > ;
+float4 vBasisMagnitudes	< psregister = c19; > ;
+//float4 vCamWorldPos < psregister = c20; > ;
+
+//range c28 - c31 - can't be used
+
+float4x4 g_mViewProjI < psregister = c21; > ;
+float4x4 g_mViewProj < vsregister = c14;> ;
+
+
+float4 g_cDeferredAmbient	< psregister = c8; > ;
+float4 g_cAmbGround	< psregister = c20; > ;
+float4 g_vAmbHeightParams	< psregister = c21; > ;
+
+float4 g_ILightPos[8];
+float4 g_ILightDiffuse[8];
+
+#ifdef XENON
+float4 g_palette[64] < psregister = c40; > ;
+#endif
+////////////////////////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////////////////////////
+
+struct pixoutMRT
+{
+  half4 Diffuse  : COLOR0;
+	half4 Specular  : COLOR1;
+};
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////////////////////////
+float3 GetWorldPos( float fDepth, float3 vCamVec )
+{
+  float3 cameraToWorldPos = fDepth * vCamVec;
+  return ( cameraToWorldPos /*+ g_WorldViewPos.xyz */); // Return world space position
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
+
+float4 CalcHomogeneousPos(float SceneDepth, float2 WPos)
+{
+  float4 HPos = vWBasisZ.xyzw + (vWBasisX.xyzw*WPos.x)+(vWBasisY.xyzw*WPos.y);
+  HPos.xyzw *= SceneDepth.xxxx;
+  //HPos = vCamPos.xyzw + HPos.xyzw;
+
+  return HPos;
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////////////////////////
+float4 _HPosToScreenTC(float4 HPos)
+{
+  float4 ScrTC = HPos;
+  ScrTC.xy = (HPos.xyx * float2(1,-1) + HPos.ww  ) * 0.5;
+
+  // No offsets required in d3d10
+#if !D3D10 && !PS3
+  ScrTC.xy += g_VS_ScreenSize.zw*HPos.w;
+#endif
+
+  return ScrTC;
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
+/// Stencil light pre-pass technique ///////////////////////////////////////////////////////////////
+
+struct vtxOutWPOSOnly
+{
+  float4 HPosition   : POSITION;
+};
+
+struct vtxInLightPrePass
+{
+  IN_P
+  IN_C0
+  IN_TBASE
+};
+
+struct vtxOutLightPrePass
+{
+  float4 HPosition  : POSITION;
+};
+
+struct fragInWPOS
+{
+  #ifdef D3D10
+	float4 WPos	:	SV_POSITION;
+  #else
+	float4 WPos : VPOS;
+  #endif
+#if !%_RT_CUBEMAP0
+  float4 baseTC      : TEXCOORD0;
+  float4 CamVec      : TEXCOORD1;
+#endif
+
+};
+
+struct vtxInWPOS_PS
+{
+#if %DYN_BRANCHING_POSTPROCESS && !PS3
+	#ifdef D3D10
+	float4 WPos	:	SV_POSITION;
+	#else
+	float4 WPos : VPOS;
+	#endif
+#endif
+
+  //float4 ViewPos		:	TEXCOORD2;
+  //float4 ViewVect		:	TEXCOORD3;
+
+  IN_TBASE
+  float3 CamVec : TEXCOORD1;
+
+};
+
+vtxOutWPOSOnly LightVolumeVS(vtxInLightPrePass IN)
+{
+  vtxOutWPOSOnly OUT = (vtxOutWPOSOnly)0; 
+
+	float4 vPos = IN.Position;
+	OUT.HPosition = mul(vPos, g_mViewProj);
+
+  return OUT;
+}
+
+pixoutMRT DecalPassPS( fragInWPOS IN )
+{
+#if PS3
+  #pragma sce-cgc("-texformat 1 COMPRESSED_RGBA_S3TC_DXT5");
+  #pragma sce-cgc("-texformat 2 COMPRESSED_RGBA_S3TC_DXT5");
+  #pragma sce-cgc("-texformat 3 COMPRESSED_RGBA_S3TC_DXT5");
+#endif
+
+  pixoutMRT OUT = (pixoutMRT) 0;
+
+  float2 ScreenTC;
+#if %_RT_CUBEMAP0
+  ScreenTC = IN.WPos.xy * g_ScreenScale.xy +  g_ScreenScale.zw;
+#else
+  ScreenTC = IN.baseTC.xy;
+#endif
+
+  float fDepth = GetLinearDepth( _tex0, ScreenTC.xy );
+
+#if %_RT_CUBEMAP0
+  float3 vPosition = CalcHomogeneousPos(fDepth, IN.WPos.xy);
+#else
+  float3 vPosition = GetWorldPos( fDepth, IN.CamVec );
+#endif
+
+  half4 cFilter;
+  //TD
+  // Projective light source (projection relative to camera space - saves 1 instruction)
+  //float4 vProjTC = mul(g_mLightProj, float4(vPosition.xyz,1.0)); //+g_WorldViewPos.xyz
+
+  // Projective light source
+  float4 vProjTC = mul(g_mLightProj, float4(vPosition.xyz +g_WorldViewPos.xyz ,1.0));    
+
+  vProjTC.xyz/=vProjTC.w;
+
+  float4 clipFrustum;
+  float2 P = vProjTC.xy;
+	clipFrustum.xy = P.xy;
+	clipFrustum.zw = 1.0-P.xy;
+  clip( clipFrustum );
+  //clip(P.w);
+
+  //float b = (vProjTC.z/vProjTC.w);
+  float fAtten = saturate(1 - vProjTC.z * vProjTC.z);
+
+  //TD add tex2Dproj
+  cFilter = tex2D(_tex2, vProjTC.xy); // alpha contains luminance
+
+  cFilter*=fAtten;
+
+  float2 fetchTC = vProjTC.xy;
+  OUT.Diffuse.xyzw = cFilter.xyzw;//lerp(0.0f, cFilter.xyz, cFilter.w); //fetchTC.xyxy;
+  OUT.Specular.xyzw = cFilter.xyzw;//lerp(0.0f, cFilter.xyz, cFilter.w);
+
+#if PS3
+	// use custom additive blending for PS3
+	half3 cDstDiffCol = DecodeLightBuffer(tex2D( _tex4, ScreenTC.xy ));
+	OUT.Diffuse.xyz *= cDstDiffCol;
+	half3 cDstSpecCol = DecodeLightBuffer(tex2D( _tex5, ScreenTC.xy ));
+	OUT.Specular.xyz *= cDstSpecCol;
+#endif
+
+  OUT.Diffuse.xyz *= OUT.Diffuse.w;
+  OUT.Specular.xyz *= OUT.Specular.w;
+
+	OUT.Diffuse = EncodeLightBuffer(OUT.Diffuse);
+	OUT.Specular = EncodeLightBuffer(OUT.Specular);
+ 
+  return OUT;
+}
+
+
+vtxOutLightPrePass LightPrePassVS(vtxInLightPrePass IN)
+{
+  vtxOutLightPrePass OUT = (vtxOutLightPrePass)0; 
+
+  float4 vPos = IN.Position;
+  vPos.w = 1;
+
+  const float fMeshSizeThreshold =0.125;// 0.15;
+  
+
+#if %_RT_SAMPLE0
+  vPos.yz *= g_GeneralParams.w;
+  vPos.xyz = (vPos.xyz) * ( (1.0 + fMeshSizeThreshold) / g_LightPos.w);
+
+  // orientate model along projection direction and rescale frustum
+  vPos.xyz = mul(vPos, g_mLightProj);
+#else
+  vPos.xyz = (vPos.xyz) * ( (1.0 + fMeshSizeThreshold) / g_LightPos.w);
+  vPos.xyz += g_LightPos.xyz;
+#endif
+  
+  OUT.HPosition = mul(vpMatrix, vPos);  
+
+  return OUT;
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////////////////////////
+
+pixout LightPrePassPS( vtxOutLightPrePass IN )
+{
+  pixout OUT;
+  OUT.Color = float4(1,0,1,1);;
+  return OUT;
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////////////////////////
+
+technique LightPrePass
+{
+  pass p0
+  {
+    VertexShader = compile vs_Auto LightPrePassVS();
+    PixelShader = compile ps_Auto LightPrePassPS();
+    CullMode = None;        
+  }
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
+/// Light pass technique ///////////////////////////////////////////////////////////////////////////
+
+vtxOutWPOS LightPassVS(vtxInWPOS IN)
+{
+  vtxOutWPOS OUT = (vtxOutWPOS)0; 
+
+  float4 vPos = IN.Position;
+
+  vPos.y = 1 -vPos.y;
+  OUT.HPosition = float4(vPos.xy*2-1, vPos.z, 1.0); //mul(vpMatrix, vPos);  
+
+  OUT.baseTC =  HPosToScreenTC(OUT.HPosition); //IN.baseTC.xy;
+  OUT.CamVec.xyz = IN.CamVec;
+
+  //float4 vScreenPos = HPosToScreenTC(OUT.HPosition);
+  ////vScreenPos.xy /= vScreenPos.w;
+  ////vScreenPos.xy = (vScreenPos.xy-g_ScreenSize.zw) * 2 - 1;
+  ////vScreenPos.zw = 1;
+
+  float4 vScreenPos = OUT.HPosition;
+ // vScreenPos.y = 1 - vScreenPos.y;
+//  vScreenPos.xy = (vScreenPos.xy) * 2.0 - 1.0;
+  vScreenPos.zw = 1;
+  
+  //float4 vPosWS = mul( vScreenPos, g_mViewProjI);
+  //vPosWS /= vPosWS.w;
+  OUT.CamVec.xyz =  IN.CamVec.xyz; // +  g_WorldViewPos; //vPosWS;   ;
+
+	//ShadowTexSpace(float4(vfViewPos.xyz, 1), TexGen0, fInvFar, OUT.ViewPos);
+	//ShadowTexSpace(float4(vfViewPos.xyz + IN.viewDir.xyz, 1), TexGen0, fInvFar, OUT.ViewVect);
+
+  return OUT;
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////////////////////////
+
+pixoutMRT LightPassPS( fragInWPOS IN )
+{
+#if PS3
+  #pragma sce-cgc("-texformat 1 COMPRESSED_RGBA_S3TC_DXT5");
+  #pragma sce-cgc("-texformat 2 COMPRESSED_RGBA_S3TC_DXT5");
+  #pragma sce-cgc("-texformat 3 COMPRESSED_RGBA_S3TC_DXT5");
+#endif
+
+  pixoutMRT OUT = (pixoutMRT) 0;
+
+  float2 ScreenTC;
+#if %_RT_CUBEMAP0
+  ScreenTC = IN.WPos.xy * g_ScreenScale.xy +  g_ScreenScale.zw;
+#else
+  ScreenTC = IN.baseTC.xy;
+#endif
+
+  float fDepth = GetLinearDepth( _tex0, ScreenTC.xy );
+
+#if %_RT_CUBEMAP0
+  float3 vPosition = CalcHomogeneousPos(fDepth, IN.WPos.xy);
+#else
+  float3 vPosition = GetWorldPos( fDepth, IN.CamVec );
+#endif
+
+  half fAttenuation = 1.0f;
+
+#if !%_RT_SAMPLE2
+  // Skip attenuation for sun
+
+  // Projective light and omni-lights
+  float3 vLightWS = ((/*g_WorldViewPos +*/ g_LightPos.xyz) - (vPosition.xyz));  
+  fAttenuation = GetAttenuation(vLightWS.xyz, g_LightPos.w) ; 
+  
+  // use simpler attenuation for projective lights - artists likely will not notice
+  #if !%_RT_SAMPLE0
+    fAttenuation *= fAttenuation; // better looking attenuation
+  #endif
+#endif
+
+   const half fMinThreshold = 0.001;
+#if %DYN_BRANCHING_POSTPROCESS && !PS3 && !%_RT_SAMPLE2
+ //if( fAttenuation > fMinThreshold )
+#endif
+  {
+   #if %_RT_DEBUG0
+     OUT.Diffuse += 0.1;
+     return OUT;
+   #endif
+     
+    half4 vNormal = GetWorldSpaceNormals( _tex1, ScreenTC.xy, true );
+    half fLenN = ( dot( vNormal.xyz, vNormal.xyz ) );
+
+    half fLenL = 1.0;
+#if !%_RT_SAMPLE2  
+    float3 vLight = normalize(vLightWS);    
+    fLenL = ( dot( vLight.xyz, vLight.xyz ) );
+#else
+    // Skip light vector normalization for sun
+    float3 vLight = g_LightPos;    
+#endif
+
+    half4 cFilter = 1;
+#if %_RT_SAMPLE0
+    // Projective light source (projection relative to camera space - saves 1 instruction)
+    //float4 vProjTC = mul(g_mLightProj, float4(vPosition.xyz,1.0)); //+g_WorldViewPos.xyz
+
+    // Projective light source
+    float4 vProjTC = mul(g_mLightProj, float4(vPosition.xyz +g_WorldViewPos.xyz ,1.0));    
+#if %_RT_LIGHT_TEX_PROJ
+    cFilter = tex2D(_tex2, vProjTC.xy/vProjTC.w); // alpha contains luminance
+#else
+    //omni projector
+    cFilter = texCUBE( _cubetex2, vProjTC.xyz ); // alpha contains luminance
+#endif
+
+    #if %_RT_SAMPLE1
+    // disable for now
+
+      // Projector clip plane attenuation 
+//      float3 vPosClip = g_LightPos.xyz - vLight.xyz * g_LightProjParams.w; // 1 inst
+//      cFilter *= saturate( dot(vLight.xyz, vPosClip.xyz - vPosition.xyz ) );  // 3 inst
+    #endif
+  
+    //if( dot( cFilter.xyz, 1.0f) > fMinThreshold )
+#endif
+
+    half fInShadow = 1.0f;
+#if %_RT_SAMPLE4
+    float2 vNoisePos = float2(0,0);
+    float3 vNonRelativePosition = vPosition+g_WorldViewPos.xyz;
+    float4 P0 = mul(TexGen0, float4(vNonRelativePosition, 1.0));
+    //P0 = CalcShadowSpace(P0);
+   	P0.xy /= P0.w;
+  	P0.z = P0.z * fOneDivFarDist.x;
+    //half fInShadow = CalcShadow(P0, vNoisePos, 0);
+    half sampleDepth;
+#if D3D10
+    shadow_sample(DefShadowSampler, P0.xyz, sampleDepth);
+#else
+    shadow_sample(_tex3, P0.xyz, sampleDepth);
+#endif
+
+		#if %_RT_HW_PCF_COMPARE 
+			fInShadow	= sampleDepth;
+		#else
+			fInShadow = ( P0.z < sampleDepth);
+    #endif
+#endif
+
+    // If 1 channel available, better do tex2D(diffuse_func, float2(NdotL, DiffuseFunc) ) ?
+    half NdotL = saturate( dot( vLight.xyz, vNormal.xyz) );
+
+#if %DYN_BRANCHING_POSTPROCESS && !PS3
+   // if( NdotL )
+#endif
+    {
+      // can skip specular if light relatively small and far away
+      half fSpec = 0.0h;
+      #if !%_RT_SAMPLE3        
+        half3 vView = normalize(-vPosition);
+        half3 vRefl = reflect(-vView.xyz, (vNormal.xyz ) ); // TODO: how to avoid re-renormalizing normal for reflection case ?
+        half fLenR = dot( vRefl.xyz, vRefl.xyz );
+				fSpec = Phong(vRefl, vLight, vNormal.w * 255.0h);
+      #endif
+
+      half3 cDiffuse = NdotL * fInShadow * cFilter * g_LightDiffuse * fAttenuation;
+		  half3 cSpecular = fSpec * /*NdotL **/ fInShadow * cFilter * g_LightDiffuse * g_LightDiffuse.w * fAttenuation;
+
+      OUT.Diffuse.xyz = cDiffuse; 
+		  OUT.Specular.xyz = cSpecular; 
+    }
+  }
+
+#if PS3
+	// use custom additive blending for PS3
+	half3 cDstDiffCol = DecodeLightBuffer(tex2D( _tex4, ScreenTC.xy ));
+	OUT.Diffuse.xyz += cDstDiffCol;
+	half3 cDstSpecCol = DecodeLightBuffer(tex2D( _tex5, ScreenTC.xy ));
+	OUT.Specular.xyz += cDstSpecCol;
+#endif
+
+	OUT.Diffuse = EncodeLightBuffer(OUT.Diffuse);
+	OUT.Specular = EncodeLightBuffer(OUT.Specular);
+ 
+  return OUT;
+}
+
+technique DeferredDecal
+{
+  pass p0
+  {
+    VertexShader = compile vs_3_0 LightPassVS(); //LightVolumeVS();            
+    PixelShader = compile ps_3_0 DecalPassPS();
+
+    CullMode = None;        
+  }
+}
+
+technique DeferredLightVolume
+{
+  pass p0
+  {
+    VertexShader = compile vs_3_0 LightVolumeVS();            
+    PixelShader = compile ps_3_0 LightPassPS();
+
+    CullMode = None;        
+  }
+}
+
+technique DeferredLightPass
+{
+  pass p0
+  {
+#if %DYN_BRANCHING_POSTPROCESS && !PS3
+    VertexShader = compile vs_3_0 LightPassVS();            
+    PixelShader = compile ps_3_0 LightPassPS();
+#else
+    VertexShader = compile vs_Auto LightPassVS();            
+    PixelShader = compile ps_Auto LightPassPS();
+#endif
+
+    CullMode = None;        
+  }
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////////////
+// Deferred cubemaps //////////////////////////////////////////////////////////////////////////////
+void GetDeferredCubemap( inout half4 Diffuse, inout half4 Specular, in samplerCUBE samDiffuce, in samplerCUBE samSpecular, in half3 vCamVec, in half4 vNormal )
+{
+	half3 cDiffuse = 0;
+
+	// Diffuse cubemap
+	cDiffuse = texCUBE( samDiffuce, vNormal.xyz ).rgb;	// diffuse one, we don't store HDR cubemap because of its low brightness bcause of diffuse preconvolution
+  cDiffuse *= g_LightDiffuse;
+	Diffuse.rgb += cDiffuse;
+
+	// Specular cubemap
+#if %_RT_SAMPLE1
+  half3 vReflVec = reflect(vCamVec, vNormal.xyz);
+	half fSpecPower = vNormal.w * 255.h;
+	half3 cSpecular = GetEnvironmentCMap(samSpecular, vReflVec.xyz, fSpecPower);
+  cSpecular *= g_LightDiffuse.rgb * g_LightDiffuse.a;
+	Specular.rgb += cSpecular;
+#endif
+}
+
+struct pixoutMRTCubemap
+{
+  half4 Diffuse  : COLOR0;
+#if %_RT_SAMPLE1
+	half4 Specular  : COLOR1;
+#endif
+};
+
+pixoutMRTCubemap CubemapPassPS( vtxOutWPOS IN )
+{
+#if PS3
+  // suggested by gpad
+  #pragma sce-cgc("-regcount 5");
+  #pragma sce-cgc("-texformat default RGBA8");
+#endif
+
+  pixoutMRTCubemap OUT = (pixoutMRTCubemap) 0;
+
+#if %_RT_DEBUG0
+ OUT.Diffuse = 0.1;
+ return OUT;
+#endif
+
+  // Projective light and omni-lights
+  half fAttenuation = 1.h;
+
+	// infinite cubemap case: ignore attenuation
+#if !%_RT_SAMPLE0 || %_RT_SAMPLE4
+	float fDepth = GetLinearDepth( _tex0, IN.baseTC.xy );
+  float3 vPosition = GetWorldPos( fDepth, IN.CamVec );
+  float3 vLightWS = g_LightPos.xyz - vPosition.xyz;  
+  #if !%_RT_SAMPLE0
+	  fAttenuation = GetAttenuation(vLightWS, g_LightPos.w);
+  #endif
+#endif
+
+	// usually there is no need to normalize vectors for cube map fetches - but for extreme stretched cases we must renormalize
+	half4 vNormal = GetWorldSpaceNormals( _tex1, IN.baseTC.xy, true );
+
+	// use just a multiplication for fill lights
+#if !%_RT_SAMPLE2
+	#if %_RT_SAMPLE1
+		half4 Specular = OUT.Specular;
+	#else
+		half4 Specular = (half4)0;
+	#endif
+	GetDeferredCubemap(OUT.Diffuse, Specular, _cubetex2, _cubetex3, IN.CamVec, vNormal);
+#else
+	// we have a negative light, apply diffuse intensity as a strongness
+	//OUT.Diffuse.rgb = g_LightDiffuse.rgb;
+	fAttenuation = saturate(fAttenuation * g_LightDiffuse.w);
+#endif
+
+	OUT.Diffuse.w = fAttenuation;
+	// Specular attenuation
+#if %_RT_SAMPLE1
+	OUT.Specular.w = fAttenuation;
+#endif
+
+#if PS3
+	// use custom blending for PS3
+	half4 cDstDiffCol = DecodeLightBuffer( tex2D( _tex4, IN.baseTC.xy ));
+	OUT.Diffuse.rgb = lerp(cDstDiffCol, OUT.Diffuse.rgb, OUT.Diffuse.a);
+	// specular
+	#if %_RT_SAMPLE1
+		half4 cDstSpecCol = DecodeLightBuffer( tex2D( _tex5, IN.baseTC.xy ));
+		OUT.Specular.rgb = lerp(cDstSpecCol, OUT.Specular.rgb, OUT.Specular.a);
+	#endif
+#endif
+
+	// custom encoding
+	OUT.Diffuse = EncodeLightBuffer(OUT.Diffuse);
+#if %_RT_SAMPLE1
+	OUT.Specular = EncodeLightBuffer(OUT.Specular);
+#endif
+
+  return OUT;
+}
+
+technique DeferredCubemapPass
+{
+  pass p0
+  {
+#if %DYN_BRANCHING_POSTPROCESS && !PS3
+    VertexShader = compile vs_3_0 LightPassVS();            
+    PixelShader = compile ps_3_0 CubemapPassPS();
+#else
+    VertexShader = compile vs_Auto LightPassVS();            
+    PixelShader = compile ps_Auto CubemapPassPS();
+#endif
+
+    CullMode = None;        
+  }
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
+/// Ambient pass technique ///////////////////////////////////////////////////////////////////////////
+
+vtxOutWPOS AmbientPassVS(vtxInWPOS IN)
+{
+  vtxOutWPOS OUT = (vtxOutWPOS)0; 
+
+	float4 vPos = IN.Position;
+
+  vPos.y = 1-vPos.y;
+  OUT.HPosition = float4(vPos.xy*2-1, vPos.z, 1.0);
+  OUT.baseTC =  _HPosToScreenTC(OUT.HPosition);
+  OUT.CamVec.xyz = IN.CamVec;
+
+  return OUT;
+}
+
+pixoutMRT AmbientPassPS( vtxOutWPOS IN ) //vtxOut IN
+{
+#if PS3
+  // suggested by gpad
+	//#pragma sce-cgc("-regcount 5");
+	#pragma sce-cgc("-texformat default RGBA8");
+#endif
+  pixoutMRT OUT = (pixoutMRT) 0;
+
+#if D3D10
+  // workaround for usual dx10 incorrect order sampler binding
+  OUT.Diffuse.rgb += tex2D(_tex0, IN.baseTC.xy);
+  OUT.Diffuse.rgb += texCUBE(_cubetex1, IN.baseTC.xyy);
+  OUT.Diffuse.rgb += texCUBE(_cubetex2, IN.baseTC.xyy);
+  OUT.Diffuse.rgb += tex2D(_tex3, IN.baseTC.xy);
+#endif
+
+  half4 vNormal = GetWorldSpaceNormals(_tex0, IN.baseTC.xy, true);
+
+#if (PS3 || XENON) && %_RT_SAMPLE3 && !%_RT_SAMPLE0 && !%_RT_SAMPLE1 && !%_RT_SAMPLE4 // indexed method
+	const half paletteSize = 63.0;
+	const half idxScale = 255.0/paletteSize;
+	half stencilIdx = 0;
+#ifdef PS3
+	  stencilIdx = tex2D(_tex1, IN.baseTC.xy).a; 
+	half3 cAmbient = tex2D(_tex2, float2(idxScale * stencilIdx, 0.0f)).xyz;
+#endif 
+#ifdef XENON
+	  stencilIdx = tex2D(_tex1, IN.baseTC.xy).r;   
+ 	half idx = min(stencilIdx * 255.0 + 0.5, paletteSize);
+	half3	cAmbient =  g_palette[idx].xyz;
+#endif
+
+#else   // non-indexed
+
+	half3 cAmbient = g_cDeferredAmbient.rgb;
+#endif
+  cAmbient *= (vNormal.z*0.25h+0.75h); // 2 inst
+
+  OUT.Diffuse.rgb = cAmbient;
+
+	// apply global deferred cubemap inplace to reduce bandwidth
+#if %_RT_SAMPLE0 && !%_RT_SAMPLE3
+	GetDeferredCubemap(OUT.Diffuse,OUT.Specular, _cubetex1, _cubetex2, IN.CamVec, vNormal);
+#endif
+
+#if %_RT_SAMPLE4 && !%_RT_SAMPLE3
+	float fDepth = GetLinearDepth( _tex3, IN.baseTC.xy );
+  half3 vPosition = GetWorldPos( fDepth, IN.CamVec ) + g_WorldViewPos.xyz;
+
+  // Height based ambient
+	half3 cGroundAmbient = g_cAmbGround.rgb;
+  cGroundAmbient *= (vNormal.z*0.25h+0.75h); // 2 inst
+  OUT.Diffuse.rgb = lerp( cGroundAmbient , OUT.Diffuse.rgb , saturate( (vPosition.z - g_vAmbHeightParams.x) * g_vAmbHeightParams.z ) );
+#endif
+
+	// custom encoding
+	OUT.Diffuse = EncodeLightBuffer(OUT.Diffuse);
+#if %_RT_SAMPLE1 && !%_RT_SAMPLE3
+	OUT.Specular = EncodeLightBuffer(OUT.Specular);
+#endif
+
+  return OUT;
+}
+
+technique AmbientPass
+{
+  pass p0
+  {
+#if %DYN_BRANCHING_POSTPROCESS && !PS3
+    VertexShader = compile vs_3_0 AmbientPassVS();            
+    PixelShader = compile ps_3_0 AmbientPassPS();
+#else
+    VertexShader = compile vs_Auto AmbientPassVS();            
+    PixelShader = compile ps_Auto AmbientPassPS();
+#endif
+    CullMode = None;        
+  }
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
+/// Full deferred scene-pass technique /////////////////////////////////////////////////////////////
+
+pixout DeferredScenePassPS( vtxOut IN )
+{
+#if PS3
+  // suggested by gpad
+	//pragma sce-cgc("-regcount 5");
+	//pragma sce-cgc("-texformat default RGBA8");
+#endif
+
+  pixout OUT = (pixout) 0;
+
+	half4 cSceneTex = tex2D( _tex0, IN.baseTC.xy );
+
+	half4 cDiffuseAcc = DecodeLightBuffer(tex2D( _tex1, IN.baseTC.xy ));
+	half4 cSpecularAcc = DecodeLightBuffer(tex2D( _tex2, IN.baseTC.xy ));
+
+	half4 cAlbedo = cSceneTex;
+	half cGloss = cSceneTex.w;// * ( dot( cAlbedo.xyz, 0.333) ) ; // always have some glossiness
+
+  OUT.Color = EncodeHDRBuffer( cDiffuseAcc * cAlbedo + cSpecularAcc * cGloss );
+
+  return OUT;
+}
+
+technique DeferredScenePass
+{
+  pass p0
+  {
+    VertexShader = compile vs_Auto AmbientPassVS();            
+    PixelShader = compile ps_Auto DeferredScenePassPS();
+    CullMode = None;        
+  }
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////////////////////////
+
+vtxOutWPOS DebugVS(vtxInWPOS IN)
+{
+  vtxOutWPOS OUT = (vtxOutWPOS)0; 
+
+  float4 vPos = IN.Position;
+
+  vPos.y = 1 -vPos.y;
+  OUT.HPosition = float4(vPos.xy*2-1, vPos.z, 1.0);
+  OUT.baseTC =  _HPosToScreenTC(OUT.HPosition);
+
+  OUT.CamVec.xyz = IN.CamVec;
+
+  return OUT;
+}
+
+pixout DebugPS( vtxInWPOS_PS IN )
+{
+  pixout OUT = (pixout) 0;
+  float4 c = tex2D( _tex0, IN.baseTC.xy );
+  float4 cOutOverdraw = tex2D( _tex1, float2(0, c.x) ); // funky palette vertical instead of horizontal.. 
+
+  OUT.Color = cOutOverdraw;
+  
+  return OUT;
+}
+
+technique Debug
+{
+  pass p0
+  {
+#if %DYN_BRANCHING_POSTPROCESS && !PS3
+    VertexShader = compile vs_3_0 DebugVS();            
+    PixelShader = compile ps_3_0 DebugPS();
+#else
+    VertexShader = compile vs_Auto DebugVS();            
+    PixelShader = compile ps_Auto DebugPS();
+#endif
+
+    CullMode = None;        
+  }
+}
+
+

@@ -1,0 +1,537 @@
+////////////////////////////////////////////////////////////////////////////
+//
+//  Crytek Engine Source File.
+//  Shader extension
+//  Copyright (C), Crytek Studios, 2001-2004.
+// -------------------------------------------------------------------------
+//  File name:   CommonZPass.cfi
+//  Version:     v1.00
+//  Created:     23/11/2004 by Tiago Sousa
+//  Compilers:   
+//  Description: Common/Shared passes bettwen shaders. Should be included after
+//    main shader technique
+//
+//  NOTE: ALWAYS MAKE SURE VERTEX INPUTS MATCH CORRECTLY BEFORE INCLUDING THIS!
+//  TODO: Add support for texture modifiers, since Illum and others require it
+//  "Common_" name convention - for shader sharing in cache files
+//
+//
+// -------------------------------------------------------------------------
+////////////////////////////////////////////////////////////////////////////
+
+////////////////////////////////////////////////////////
+//                Z PASS
+////////////////////////////////////////////////////////
+
+sampler2D noiseSampler = sampler_state
+{
+  Texture = textures/defaults/noise.dds;
+  MinFilter = POINT;
+  MagFilter = POINT;
+  MipFilter = POINT; 
+  AddressU = Wrap;
+  AddressV = Wrap;
+};
+
+///////////////// vertex input/output //////////////////
+
+struct vert2fragZ
+{
+  OUT_P
+
+#if !%_RT_ZPREPASS
+
+	#if XENON && %_RT_SCATTERSHADE
+			float4  ZInfo     : TEXCOORDN;
+	#else
+
+	  #if !PS3 && !XENON
+	      float4 ZInfo     : TEXCOORDN_centroid;
+    #endif
+
+	#endif
+
+	float4 baseTC     : TEXCOORDN;
+
+	#if (!%TEMP_TERRAIN || %_RT_ALPHABLEND) && !%GRASS
+		half4 vTangent   : TEXCOORDN;
+		half3 vBinormal  : TEXCOORDN;  
+	#endif
+
+	#if %TEMP_TERRAIN || %GRASS
+		half3 vNormal   : TEXCOORDN;      
+	#endif
+
+	#if %_RT_DECAL_TEXGEN_2D || %_RT_DECAL_TEXGEN_3D
+		float3 DistAtten : TEXCOORDN;
+	#endif  
+
+	#if %OFFSETBUMPMAPPING || %PARALLAX_OCCLUSION_MAPPING
+		float3 viewTS   : TEXCOORDN;
+	#endif
+	
+	#if %BLENDLAYER
+		float4 Color : COLOR0;
+	#endif
+
+#endif
+};
+
+struct pixoutZPass
+{
+  half4 Color : COLOR0;
+
+#if !%_RT_ZPREPASS && !%_RT_ALPHABLEND && !PS3 && !XENON
+  half4 Color1 : COLOR1;
+#endif
+};
+
+///////////////// vertex shaders //////////////////
+vert2fragZ Common_ZPassVS(app2vertZGeneral IN)
+{
+  vert2fragZ OUT = (vert2fragZ)0;
+  streamPos vertPassPos = (streamPos)0;
+  streamPos_FromZ(IN, vertPassPos);
+
+#if %TEMP_TERRAIN
+  OUT.HPosition = Pos_VS_Terrain(0.001f, g_VS_ViewProjZeroMatr, vertPassPos);
+#else  
+  OUT.HPosition = Pos_VS_General(g_VS_ViewProjZeroMatr, vertPassPos);  
+#endif
+
+#if %_RT_ZPREPASS
+
+	return OUT;
+
+#else
+
+  float3 vPos = mul(vertPassPos.InstMatrix, vertPassPos.Position).xyz;
+  #if !%_RT_OBJ_IDENTITY
+    vPos += g_VS_WorldViewPos.xyz;
+  #endif
+
+  //////////////////////////////////////////////////////////////////////////////////////////////////
+  // Output ZInfo
+
+  #ifdef (!PS3 && !XENON) || %_RT_SCATTERSHADE
+    OUT.ZInfo.x = OUT.HPosition.w * g_VS_NearFarClipDist.w;
+
+    #if %_RT_NEAREST
+      OUT.ZInfo.x *= g_VS_NearFarClipDist.z;
+    #endif
+
+    #ifdef !PS3 && !XENON
+      #if %_RT_FSAA || %PARALLAX_OCCLUSION_MAPPING
+        OUT.ZInfo.yzw = vPos;
+      #endif
+    #endif
+  #endif
+
+
+  #if !%TEMP_TERRAIN
+
+    // Note: Normalization required for normal diffuse map in world space in case scale used - Do not remove
+    float3 worldTangentS = normalize( mul((const float3x3)vertPassPos.InstMatrix, vertPassPos.ObjToTangentSpace[0]) );
+    float3 worldTangentT = normalize( mul((const float3x3)vertPassPos.InstMatrix, vertPassPos.ObjToTangentSpace[1]) );
+    float3 worldTangentN = cross( worldTangentS, worldTangentT) * vertPassPos.Tangent.w;
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////
+    // Output tangent space view vector
+
+    #if %OFFSETBUMPMAPPING || %PARALLAX_OCCLUSION_MAPPING
+	    OUT.viewTS = mul(float3x3(worldTangentS, worldTangentT, worldTangentN), vPos.xyz - g_VS_WorldViewPos.xyz);
+    #else 
+      // Support for double sided lighting  - todo: should always do for double sided rendering, not just vegetation
+      #if %_RT_VEGETATION
+        #if %_VT_DET_BEND
+          float3 viewVector = normalize(-vertPassPos.WorldPos.xyz );
+          float fFlipNormal = min( dot(viewVector, worldTangentN) +0.1,1.f);
+          vertPassPos.Tangent.w *= fFlipNormal;
+          worldTangentN *= fFlipNormal;
+        #endif
+      #endif
+    #endif
+
+    float4 baseTC = vertPassPos.baseTC;  
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////
+    // Output decal attenuation and prepare decal uv coordinates
+
+		#if %_RT_DECAL_TEXGEN_2D || %_RT_DECAL_TEXGEN_3D
+			_TCModifyDecal( vertPassPos, baseTC, OUT.DistAtten );
+		#endif
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////
+    // Output uv coordinates
+
+    #if !%PARALLAX_OCCLUSION_MAPPING
+    _TCModify(baseTC, OUT.baseTC, vertPassPos.Position, vertPassPos.ObjToTangentSpace[2], TS_DIFFUSE);	
+    #else
+    _TCModify(baseTC, OUT.baseTC, vertPassPos.Position, vertPassPos.ObjToTangentSpace[2], TS_BUMP);
+    #endif
+  
+    #if %_RT_ALPHATEST || (%_RT_DISSOLVE && !(%DECAL || %CHARACTER_DECAL))
+      OUT.baseTC.wz = 0.0;
+      #if (%_RT_DISSOLVE && !(%DECAL || %CHARACTER_DECAL))
+        // For dissolve and instancing, we use PI_AlphaTest
+        OUT.baseTC.wz = AlphaTest.wx;
+        #if %_RT_INSTANCING_ATTR
+          {
+            float4 baseTC;
+            #fetchinst (baseTC = IN.InstAlphaTest, vertPassPos.nInstance);
+            OUT.baseTC.wz = baseTC.wx;
+          }
+        #endif
+      #else
+        // For regular materials using alpha test, we use PB_AlphaTest
+        OUT.baseTC.wz = PBAlphaTest.wx;
+      #endif
+    #endif
+
+    #if %DECAL || %CHARACTER_DECAL
+      // need to output vertex alpha
+      OUT.baseTC.z = vertPassPos.Color.w;
+    #endif
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////
+    // Output tangents
+
+	  #if %GRASS
+		  OUT.vNormal.xyz = worldTangentN*0.5+0.5;
+	  #else
+		  OUT.vTangent = float4(worldTangentS, vertPassPos.Tangent.w); 
+		  OUT.vBinormal.xyz = worldTangentT;
+	  #endif
+		
+		////////////////////////////////////////////////////////////////////////////////////////////////
+		// Output color
+		
+		#if %BLENDLAYER
+			OUT.Color = vertPassPos.Color;
+		#endif
+
+  #else
+
+    // Output terrain related data. Terrain is separated into 2 diferent passes (base and detail layers)
+
+    #if !%_RT_OBJ_IDENTITY
+      vertPassPos.WorldPos.xyz += g_VS_WorldViewPos.xyz;
+    #endif
+
+    // Detail layers
+    #if %_RT_ALPHABLEND
+      float4 tcLayer;
+
+      float3 vBumpPos = vertPassPos.WorldPos.xyz;
+      vBumpPos.xy -= LayerTexGen[3].zw;
+
+      tcLayer.xy = mul((float2x3)LayerTexGen, vBumpPos);
+      tcLayer.z = 0;
+      tcLayer.w = vertPassPos.Position.w;
+
+      float4 bumpTC;
+      _TCModify(tcLayer, bumpTC, vertPassPos.Position, vertPassPos.Normal, TS_BUMP);
+      OUT.baseTC.xy = bumpTC.xy;
+
+      // get tangent space info from texgen parameters
+      float3 Tangent = normalize(LayerTexGen[0].xyz);
+      float3 Binormal = normalize(LayerTexGen[1].xyz);
+
+      // project tangent and binormal to plane perpendicular to the normal
+      Tangent-=dot(Tangent,vertPassPos.Normal)*vertPassPos.Normal;
+      Binormal-=dot(Binormal,vertPassPos.Normal)*vertPassPos.Normal;
+      Tangent=normalize(Tangent);
+      Binormal=normalize(Binormal);
+
+      float4 Color = vertPassPos.Color;           
+      if (Color.g > 127.f/255.f)
+        Color.g -= 128.f/255.f;
+
+      float fWeight = saturate(1 - abs(Color.g*255 - LayerTexGen[2].w));	// saturate needed for dx10 HDR
+      float3 NormalAbs = abs(vertPassPos.Normal.xyz); 
+      if(NormalAbs.x>=NormalAbs.y && NormalAbs.x>=NormalAbs.z)
+        fWeight *= LayerTexGen[2].x;
+      else
+      if(NormalAbs.y>=NormalAbs.x && NormalAbs.y>=NormalAbs.z)
+        fWeight *= LayerTexGen[2].y;
+      else
+        fWeight *= LayerTexGen[2].z;
+
+      
+      float fDist = length(vertPassPos.WorldPos.xyz - g_VS_WorldViewPos.xyz);
+      fDist = pow(min(fDist/max(0.001, LayerTexGen[0].w), 1), 4);
+      OUT.vTangent.w =  fWeight * (1-fDist);
+      OUT.vTangent.xyz = Tangent.xyz;    
+      OUT.vBinormal.xyz = Binormal;
+      OUT.vNormal.xyz = vertPassPos.Normal;
+			
+			#if %OFFSETBUMPMAPPING
+				OUT.viewTS = mul(float3x3(OUT.vTangent.xyz, OUT.vBinormal.xyz, OUT.vNormal.xyz), vPos.xyz - g_VS_WorldViewPos.xyz);
+			#endif
+    #else
+      OUT.vNormal.xyz = vertPassPos.Normal*0.5+0.5;
+    #endif
+
+  #endif
+
+#endif
+
+  return OUT;            
+}
+
+///////////////// pixel shaders //////////////////
+
+pixoutZPass Common_ZPassPS(vert2fragZ IN)
+{
+#if PS3  
+  #pragma sce-cgc("-texformat default COMPRESSED_RGBA_S3TC_DXT5");
+  #pragma sce-cgc("-fastprecision");  
+#endif
+
+	pixoutZPass OUT = (pixoutZPass) 1;
+#if %_RT_ZPREPASS
+	return OUT;
+#else
+
+  ////////////////////////////////////////////////////////////////////////////////////////////////
+  // Depth and alpha test processing
+
+  float4 ZInfo = 0;
+  #ifdef (!PS3 && !XENON) || %_RT_SCATTERSHADE
+    ZInfo = IN.ZInfo;
+  #endif
+
+  float fZ = ZInfo.x;
+	
+#if %OFFSETBUMPMAPPING && (!%TEMP_TERRAIN || (%TEMP_TERRAIN && %_RT_ALPHABLEND))
+	half fHeight = EXPAND(tex2D(bumpHeightMapSampler, IN.baseTC.xy).a) * ObmDisplacement;
+	half fSlope = GetNormalMap(bumpMapSampler, IN.baseTC.xy).z;
+	half3 vViewTS = normalize( -IN.viewTS );
+	IN.baseTC.xy += vViewTS.xy * fSlope * fHeight;
+#endif
+
+  #if %TEMP_TERRAIN
+
+    OUT.Color = EncodeSceneDepthNoAlpha(fZ, 0, ZInfo.yzw);
+
+  #else
+
+    #ifdef !PS3 && !XENON
+	    #if !%TEMP_VEGETATION && %PARALLAX_OCCLUSION_MAPPING 
+		    float lod = ComputeTextureLOD(IN.baseTC.xy, ResInfoBump.xy);
+		    //float2 ddx_baseTC, ddy_baseTC;
+		    //float lod = ComputeTextureLOD(IN.baseTC.xy, ResInfoBump.xy, ddx_baseTC, ddy_baseTC);
+    		
+		    float2 offsetBest = ParallaxOcclusionMap(IN.baseTC.xy, lod, normalize(IN.viewTS), 15, PomDisplacement);
+		    fZ += 4 * saturate(length(offsetBest - IN.baseTC.xy)) * PS_NearFarClipDist.w;
+				
+				IN.baseTC.xy = offsetBest;
+
+		    // TODO: this is just some dummy code to make TCModify(TS_BUMP) work in the vertex shader
+		    fZ += tex2D(bumpMapSampler, IN.baseTC.xy).w * 1e-10;
+	    #endif
+    #endif
+
+	  #if %_RT_ALPHATEST
+
+      half fDiffuseAlpha = tex2D(diffuseMapSampler, IN.baseTC.xy).w;
+      OUT.Color = EncodeSceneDepthWithAlpha(fZ, fDiffuseAlpha, IN.baseTC.w, ZInfo.yzw);
+
+	  #else
+
+      OUT.Color = EncodeSceneDepthNoAlpha(fZ, 1, ZInfo.yzw);
+
+	  #endif
+
+    #if (%_RT_DISSOLVE && !(%DECAL || %CHARACTER_DECAL))
+      half3 vNoise = tex2D(noiseSampler, IN.baseTC.xy*2.h) - 0.5h;
+      half fNoise = (vNoise.x + vNoise.y*2.h + vNoise.z*4.h)*0.25h;
+      clip(fNoise - IN.baseTC.z*1.78h + 0.9h);
+    #endif
+
+  #endif
+
+  ////////////////////////////////////////////////////////////////////////////////////////////////
+  // Normals processing
+
+  half4 cOutNormal = 0;
+  half3 vNormalTS = half3(0,0,1);
+
+  #if !%TEMP_TERRAIN && !%GRASS
+	  half3x3 mTangentToWS = half3x3(IN.vTangent.xyz, IN.vBinormal.xyz, cross(IN.vTangent.xyz, IN.vBinormal.xyz)*IN.vTangent.w);  
+    #if %_RT_SHADER_LOD
+      vNormalTS = mTangentToWS[2];
+    #else
+	    vNormalTS = GetNormalMap(bumpMapSampler, IN.baseTC.xy);
+    #endif
+  #endif
+
+  #if %TEMP_TERRAIN  
+	  #if %_RT_ALPHABLEND
+		  // terrain detail layers
+		  half3x3 mTangentToWS = half3x3( IN.vTangent.xyz, IN.vBinormal.xyz, IN.vNormal.xyz);  
+      #if %_RT_SHADER_LOD
+        vNormalTS = mTangentToWS[2];
+      #else
+		    vNormalTS = GetNormalMap(bumpMapSampler, IN.baseTC.xy);
+      #endif
+
+	  #else
+		  // terrain base layer
+		  half3 vNormal = IN.vNormal.xyz; 			
+	  #endif
+  #endif
+
+  #if !%_RT_SHADER_LOD
+
+		  #if %DETAIL_BUMP_MAPPING
+      
+      // todo: for consoles might be better single detail bump layer
+       
+			  float2 vDetailBumpTilling = float2(DetailBumpTillingU, DetailBumpTillingV);
+			  float fDetailBumpScale = DetailBumpScale;
+
+			  float2 tcDetail = IN.baseTC.xy * vDetailBumpTilling;  					                                  // 1 inst
+			  half3 cDetail = GetNormalMap(detailMapSampler, tcDetail ); // + GetNormalMap(detailMapSampler, tcDetail *2); 	  // 2 inst + 2 tex
+
+        #if %ALPHAMASK_DETAILMAP
+          fDetailBumpScale *= tex2D(diffuseMapSampler, IN.baseTC.xy).w;
+        #endif
+
+			  // add detail bump
+			  vNormalTS.xy += cDetail.xy * fDetailBumpScale;			                                          // 1 inst
+		  #endif
+
+  #endif
+	
+	#if %BLENDLAYER
+		half3 vNormal2 = GetNormalMap( BumpMap2Sampler, IN.baseTC.xy );
+
+		half2 coords = IN.baseTC.xy * BlendMaskTiling;
+		if( BlendMaskTiling != 1.0 )
+			coords = half2( coords.x * 0.866 - coords.y * 0.5, coords.x * 0.5 + coords.y * 0.866 );  // Rotate by 30 deg
+		half4 blendMap = GetTexture2D( BlendMapSampler, coords );
+		half blendFac = IN.Color.a * blendMap.r * (1 + BlendFactor);
+		blendFac = saturate( pow( blendFac, BlendFalloff ) );  // Falloff
+
+		vNormalTS = lerp( vNormalTS, vNormal2, blendFac );
+	#endif
+
+  #if %TEMP_VEGETATION && %GRASS
+		  // Specific grass case - no normal lookup
+		  half3 vNormal = IN.vNormal.xyz;
+  #else
+
+	  #if !%TEMP_TERRAIN || %_RT_ALPHABLEND
+
+      #if %_RT_SHADER_LOD
+        float3 vNormal = vNormalTS;
+      #else
+        half3 vNormal = mul( vNormalTS, mTangentToWS );             
+		  #endif
+        
+      vNormal = vNormal * 0.5h + 0.5h;
+    #endif  
+
+  #endif
+
+
+  #if %TEMP_TERRAIN
+    // specific power factor just for terrain base
+    cOutNormal.xyzw = half4(vNormal.xyz, 16.0h /255.0h);      
+  #else
+    cOutNormal.xyzw = half4(vNormal.xyz, MatSpecColor.w /255.0h);      
+  #endif
+
+  #if %_RT_ALPHABLEND      
+
+    ////////////////////////////////////////////////////////////////////////////////////////////////
+    // Alpha blend cases: decals, terrain layers
+
+    #if %TEMP_TERRAIN
+      cOutNormal.w = saturate( IN.vTangent.w ) ;
+    #else
+
+      half fAlpha = 1;
+      #if ( %DECAL && ( %_RT_DECAL_TEXGEN_2D || %_RT_DECAL_TEXGEN_3D ) ) || %CHARACTER_DECAL
+        #if %_TT0_TCPROJ
+          fAlpha = tex2Dproj(diffuseMapSampler_Decal, IN.baseTC.xyzw).w;
+        #else
+          fAlpha = tex2D(diffuseMapSampler_Decal, IN.baseTC.xy).w;
+        #endif
+
+        #if %_RT_DECAL_TEXGEN_3D
+          fAlpha *= saturate(1 - IN.DistAtten.x * IN.DistAtten.x) * IN.DistAtten.y;
+        #elif %_RT_DECAL_TEXGEN_2D
+          fAlpha *= saturate(1 - dot(IN.DistAtten, IN.DistAtten));
+        #endif
+          
+      #else
+        fAlpha = tex2D(diffuseMapSampler, IN.baseTC.xy).w;
+      #endif
+
+      #if %DECAL || %CHARACTER_DECAL
+        fAlpha *= IN.baseTC.z;
+      #endif
+      cOutNormal.w = saturate( fAlpha ) ;
+
+    #endif
+
+  #endif
+
+  // on consoles we always use alpha test 
+  #if PS3 || XENON
+    #if !%TEMP_TERRAIN
+
+      #if %_RT_ALPHATEST
+		    #if !%GRASS
+			    cOutNormal.a *= half(fDiffuseAlpha > IN.baseTC.w);
+		    #else
+			    cOutNormal.a = fDiffuseAlpha - IN.baseTC.w;
+		    #endif
+	    #endif
+
+    #endif
+  #endif
+
+  #if %GLOSS_MAP && %SPECULARPOW_GLOSSALPHA
+    cOutNormal.w *= GetTexture2D(glossMapSampler, IN.baseTC.xy).w;
+  #endif
+
+  CompressUnsignedNormalToNormalsBuffer(cOutNormal);
+
+  #ifdef %_RT_ALPHABLEND || PS3 || XENON
+    OUT.Color = cOutNormal;
+  #else
+    OUT.Color1 = cOutNormal;
+  #endif
+
+
+#endif
+
+	return OUT;
+}
+
+
+//////////////////////////////// technique ////////////////
+
+technique ZPass
+{
+  pass p0
+  {
+#if %PARALLAX_OCCLUSION_MAPPING
+    VertexShader = compile vs_3_0 Common_ZPassVS() ZVS;
+    PixelShader = compile ps_3_0 Common_ZPassPS() ZPS;
+#else
+    VertexShader = compile vs_Auto Common_ZPassVS() ZVS;
+    PixelShader = compile ps_Auto Common_ZPassPS() ZPS;
+#endif    
+    ZEnable = true;
+    ZWriteEnable = true;        
+    CullMode = Back;        
+     
+#if %GRASS || %LEAVES || %HAIR_PASS
+    CullMode = None;
+#endif
+  }
+}

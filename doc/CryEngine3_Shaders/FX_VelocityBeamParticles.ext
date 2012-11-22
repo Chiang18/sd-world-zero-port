@@ -1,0 +1,26 @@
+////////////////////////////////////////////////////////////////////////////
+//
+//  Crytek Engine Source File.
+//  Shader extension
+//  Copyright (C), Crytek Studios, 2001-2004.
+// -------------------------------------------------------------------------
+//  File name:   FX_VelocityBeamParticles.ext
+//  Version:     v1.00
+//  Created:     16/2/2004 by Tiago Sousa
+//  Compilers:   
+//  Description: Particles shader extension used by the editor
+//               for automatic shader generation (based on "Particles" shader template)
+// -------------------------------------------------------------------------
+//  History:
+//
+////////////////////////////////////////////////////////////////////////////
+
+Version (1.00)
+
+Property
+{
+  Name = %CONSTANT_DIRECTION
+  Mask = 0x1
+  Property    (Constant direction)
+  Description (Use for using contant direction)
+}

@@ -1,0 +1,767 @@
+
+//=== FX config =================================================================
+#include "FXSetupEnvVars.cfi"
+
+#define INST_STREAM_CUSTOM   \
+
+//=== Render targets custom ID's ================================================
+
+#define _RT2D_WATER_ID 0
+#define _RT2D_DEPTH_ID 1
+#define _RT2D_SCREEN_ID 2
+#define _RT2D_REFRACT_ID 3
+#define _RT2D_TRANSLUCENCE_ID 4
+#define _RT2D_SILHOUETTE_ID 5
+
+// === HDR fake definitions =====================================================
+
+#define HDR_OVERBRIGHT 8
+#define HDR_FAKE_MAXOVERBRIGHT 16
+#define HDR_EXP_OFFSET 128
+#define HDR_EXP_BASE   1.06
+
+// === Lights definitions ========================================================
+
+#define LT_DIRECTIONAL 0
+#define LT_OMNI        1
+#define LT_PROJECTED   2
+
+//=== PS3 specifics ==============================================================
+
+#if !PS3
+  
+  // half/full precision fetches - ps3 specific
+  half4 h4tex2D(sampler2D smp, float2 tc)
+  {
+    return tex2D(smp, tc);
+  }
+
+  half4 h4tex2Dproj(sampler2D smp, float4 tc)
+  {
+    return tex2Dproj(smp, tc);
+  }
+
+  half4 h4tex2Dlod(sampler2D smp, float4 tc)
+  {
+    return tex2Dlod(smp, tc);
+  }
+
+  float4 f4tex2D(sampler2D smp, float2 tc)
+  {
+    return tex2D(smp, tc);
+  }
+
+  float4 f4tex2Dproj(sampler2D smp, float4 tc)
+  {
+    return tex2Dproj(smp, tc);
+  }
+
+  float4 f4tex2Dlod(sampler2D smp, float4 tc)
+  {
+    return tex2Dlod(smp, tc);
+  }
+        
+#endif
+
+//=== Common definitions =========================================================
+
+#include "FXStreamDefs.cfi"
+#include "FXConstantDefs.cfi"
+#include "FXSamplerDefs.cfi"
+
+//=== Common functions ===========================================================
+
+void ComputeGlobalFogPS(inout half3 cOut, float fDist)
+{
+#if %_RT_FOG
+  cOut.xyz = lerp(g_PS_FogColor.xyz, cOut.xyz, fDist);
+#endif  
+}
+
+// Common functions
+half4 EXPAND( half4 a )
+{
+  return a * 2 - 1;
+}
+half3 EXPAND( half3 a )
+{
+  return a * 2 - 1;
+}
+half EXPAND( half a )
+{
+  return a * 2 - 1;
+}
+half2 EXPAND( half2 a )
+{
+  return a * 2 - 1;
+}
+
+float3 TangNormalUnnormalized(float4 Tangent, float4 Binormal)
+{
+  return cross(Tangent.xyz, Binormal.xyz) * Tangent.w;
+}
+
+float3 TangNormal(float4 Tangent, float4 Binormal)
+{
+  return normalize(TangNormalUnnormalized(Tangent, Binormal));
+}
+
+//========================================================
+                          
+half4 EncodeHDR_RGB_RGBE8(in float3 rgb)
+{
+  // Compute a common exponent
+  half fLen = dot(rgb.rgb, 1.0);
+  half fExp = LOG(HDR_EXP_BASE, fLen);
+
+  half4 ret;
+  ret.a = (fExp + HDR_EXP_OFFSET) / 256;
+  ret.rgb = rgb / fLen;
+
+  return ret;
+}
+
+half3 DecodeHDR_RGBE8_RGB(in float4 rgbe)
+{
+  half fExp = rgbe.a * 256 - HDR_EXP_OFFSET;
+  half fScale = pow(HDR_EXP_BASE, fExp);
+
+  return rgbe.rgb * fScale);
+}
+
+half3 GetBumpMap(sampler2D bumpMap, float2 bumpTC)
+{
+  half3 bumpNormal; 
+#if PS3
+  bumpNormal.xy = tex2D(bumpMap, bumpTC.xy).ga;  
+#elif XENON || D3D10
+  bumpNormal.xy = tex2D(bumpMap, bumpTC.xy).yx;  
+#else
+  bumpNormal.xy = tex2D(bumpMap, bumpTC.xy).xy;  
+#endif
+
+  bumpNormal.z = 1;
+  return bumpNormal;
+}
+
+half2 FetchNormalMap(sampler2D bumpMap, float2 bumpTC)
+{
+  half2 bumpNormal = GetBumpMap( bumpMap, bumpTC.xy );
+
+#if XENON
+  // temporary normals quick-fix for 360 since we changed to signed format
+  // this is needed mostly for very specific cases in ocean/caustics, etc
+  bumpNormal = bumpNormal* 0.5 +0.5;
+#endif
+
+  return bumpNormal;
+}
+
+half3 GetNormalMap(sampler2D bumpMap, float2 bumpTC)
+{
+  half3 bumpNormal; 
+  bumpNormal.xy = GetBumpMap(bumpMap, bumpTC.xy);
+#if !XENON
+	// we use custom signed format for Xbox 360
+  bumpNormal.xy = EXPAND(bumpNormal.xy);
+#endif
+  bumpNormal.z = sqrt(saturate(1.h + dot(bumpNormal.xy, -bumpNormal.xy)));  
+  return bumpNormal;
+}
+
+half3 GetNormalMapLod(sampler2D bumpMap, float4 bumpTC)
+{
+  half3 bumpNormal;
+#if PS3
+  bumpNormal.xy = EXPAND(tex2Dlod(bumpMap, bumpTC).ga);  
+#elif XENON
+  bumpNormal.xy = tex2Dlod(bumpMap, bumpTC).yx;  
+#elif D3D10
+  bumpNormal.xy = EXPAND(tex2Dlod(bumpMap, bumpTC).yx);  
+#else
+  bumpNormal.xy = EXPAND(tex2Dlod(bumpMap, bumpTC).xy);  
+#endif
+  bumpNormal.z = sqrt(saturate(1.h + dot(bumpNormal.xy, -bumpNormal.xy)));  
+  return bumpNormal;
+}
+
+#if !XENON && !PS3
+half3 GetNormalMapGrad(sampler2D bumpMap, float2 bumpTC, float4 ddx_bumpTC, float4 ddy_bumpTC)
+{
+  half3 bumpNormal;
+
+#if D3D10
+  bumpNormal.xy = EXPAND(tex2Dgrad(bumpMap, bumpTC, ddx_bumpTC, ddy_bumpTC).yx);  
+#else
+	// DX9
+  bumpNormal.xy = EXPAND(tex2Dgrad(bumpMap, bumpTC, ddx_bumpTC, ddy_bumpTC).xy);  
+#endif
+
+  bumpNormal.z = sqrt(saturate(1 - dot(bumpNormal.xy, bumpNormal.xy)));  
+
+  return bumpNormal;
+}
+#endif
+
+half DepthBias(half fHeight, half3 vNormal, half3 vView, half2 vZW)
+{
+  half3 vN = vNormal * fHeight;
+  half fOffs = dot(vView, vN) * 0.02;
+  half fOrigZ = vZW.x;
+  return (fOrigZ - fOffs) / vZW.y;
+}
+
+half4 GetTexture2D(sampler2D MapSampler, float2 texTC)
+{
+  half4 texColor = tex2D(MapSampler, texTC.xy);
+
+  return texColor;
+}
+
+// Sample the texture with pixel offset which is a multiple of 0.5 (upto 8)
+// fTexelSize should be float in order to avoid precision artifacts
+half4 GetTexture2D_Offset(sampler2D smpl, half2 txCrd, half2 offset, float2 texelSize)
+{
+  half4 res;
+
+#if XENON
+  float offX = offset.x;
+  float offY = offset.y;
+  asm
+  {
+    tfetch2D res, txCrd, smpl, OffsetX = offX, OffsetY = offY, UseComputedLOD = false
+  };
+#else
+	res = tex2D(smpl, txCrd + offset*texelSize);
+#endif
+
+  return res;
+}
+
+#include "VolumetricFog.cfi"
+
+#define USE_DEVICE_DEPTH
+
+#if XENON
+
+  float GetLinearDepth(float fDevDepth)
+  {
+    float fLinearDepth = g_PS_ProjRatio.y/(fDevDepth-g_PS_ProjRatio.x);
+	  return fLinearDepth;
+  }
+  float GetDeviceDepth(float fLinearDepth)
+  {
+    float fDevDepth = g_PS_ProjRatio.x + g_PS_ProjRatio.y/fLinearDepth;
+  	return fDevDepth;
+  }
+
+#elif PS3
+
+	// GetLinearDepth(depth) is not defined for PS3, use GetLinearDepth(smp, uv) instead because it samples 
+	// the native z-buffer directly using a special trick. The 24-bit floating value is exposed as 3 8-bit 
+	// bytes and then converted back to a floating value using shader code.
+
+  float GetDeviceDepth(float fLinearDepth)
+  {
+    float fDevDepth = g_PS_ProjRatio.x + g_PS_ProjRatio.y/fLinearDepth;
+  	return fDevDepth;
+  }
+
+#else
+
+  float GetLinearDepth(float fDevDepth)
+  {
+	  return fDevDepth;
+  } 
+  float GetDeviceDepth(float fLinearDepth)
+  {
+  	return fLinearDepth;
+  }
+#endif
+
+/*
+  float4 GetDepth2D(sampler2D depthSampler, float2 ScreenTC)
+  {
+#ifdef PS3
+		float3 fDepthFactor = float3(255.0/256.0, 255.0/65536.0, 255.0/16777216.0);
+		float4 fDepthRGB = tex2D( depthSampler, ScreenTC.xy );
+		return dot(fDepthRGB.xyz, fDepthFactor);
+#else
+		return tex2D( depthSampler, ScreenTC.xy );
+#endif
+  }
+  
+  float4 GetDepth2DLod(sampler2D depthSampler, float2 ScreenTC)
+  {
+#ifdef PS3
+		float3 fDepthFactor = float3(255.0/256.0, 255.0/65536.0, 255.0/16777216.0);
+		float4 fDepthRGB = tex2Dlod( depthSampler, float4(ScreenTC.xy,0, 0) );
+		return dot(fDepthRGB.xyz, fDepthFactor);
+#else
+    return tex2Dlod( depthSampler, float4(ScreenTC.xy,0, 0) );
+#endif		
+  }
+  
+  float4 GetDepth2DProj(sampler2D depthSampler, float4 ProjTC)
+  {
+#ifdef PS3
+		float3 fDepthFactor = float3(255.0/256.0, 255.0/65536.0, 255.0/16777216.0);
+		float4 fDepthRGB = tex2Dproj( depthSampler, ProjTC );
+		return dot(fDepthRGB.xyz, fDepthFactor);
+#else
+    return tex2Dproj( depthSampler, ProjTC );   
+#endif		
+  }
+*/
+
+#ifdef PS3
+  float GetLinearDepthOffs(sampler2D depthSampler, float2 ScreenTC, float2 fOffset)
+  {
+    float4 fDepthRGB = float4(tex2D( depthSampler, ScreenTC.xy + fOffset.xy).xyz, 1.f);
+    float fDepth = dot(fDepthRGB.xyzw, g_PS_DepthFactor.xyzw);
+    float fLinearDepth = g_PS_ProjRatio.y/fDepth;
+    return fLinearDepth;
+  }
+
+  float GetLinearDepth(sampler2D depthSampler, float2 ScreenTC)
+  {
+    float4 fDepthRGB = float4(tex2D( depthSampler, ScreenTC.xy ).xyz, 1.f);
+    float fDepth = dot(fDepthRGB.xyzw, g_PS_DepthFactor.xyzw);
+    float fLinearDepth = g_PS_ProjRatio.y/fDepth;
+    return fLinearDepth;
+  }
+
+	float GetLinearDepth_Offset(sampler2D depthSampler, half2 ScreenTC, half2 offset, float2 pixelSize)
+	{
+		return GetLinearDepth(depthSampler, ScreenTC + offset * pixelSize);
+	}
+
+  float GetLinearDepth_ProjTC(sampler2D depthSampler, float4 ProjTC)
+  {
+    float4 fDepthRGB = float4(tex2Dproj( depthSampler, ProjTC ).xyz, 1.f);
+    float fDepth = dot(fDepthRGB.xyzw, g_PS_DepthFactor.xyzw);
+    float fLinearDepth = g_PS_ProjRatio.y/fDepth;
+    return fLinearDepth;
+  }
+
+#else
+  float GetLinearDepthOffs(sampler2D depthSampler, float2 ScreenTC, float2 fOffset)
+  {
+    float fDepth;
+    asm
+    {
+      tfetch2D fDepth, ScreenTC, depthSampler, OffsetX = fOffset.x, OffsetY = fOffset.y, UseComputedLOD = false
+    };
+		return GetLinearDepth(fDepth);
+  }
+
+  float GetLinearDepth(sampler2D depthSampler, float2 ScreenTC)
+  {
+		float fDepth = tex2D( depthSampler, ScreenTC.xy ).x;
+		return GetLinearDepth(fDepth);
+  }
+
+	float GetLinearDepth_Offset(sampler2D depthSampler, float2 ScreenTC, half2 offset, float2 pixelSize)
+	{
+		float fDepth = GetTexture2D_Offset(depthSampler, ScreenTC, offset, pixelSize ).x;
+		return GetLinearDepth(fDepth);
+	}
+
+  float GetLinearDepth_ProjTC(sampler2D depthSampler, float4 ProjTC)
+  {
+		float fDepth = tex2Dproj( depthSampler, ProjTC ).x;
+		return GetLinearDepth(fDepth);
+  }
+#endif
+
+
+// NOTE: float[X] was used in favor of half[X] as precision is curcial and half's is not sufficient!
+half4 EncodeSceneDepth( float depth )
+{
+  return half4(depth,depth,depth,depth);
+} 
+
+// This function encodes a depth value so it can be stored in an ARGB8 rendertarget and sets a specific alpha value
+float4 EncodeSceneDepthWithAlpha( float depth, half alpha, half alphaTestRef, float3 WorldPos)
+{
+  float4 ret = EncodeSceneDepth( depth );
+
+	// on consoles we always use alpha test 
+#if !XENON
+  clip(alpha - alphaTestRef); //need to perform texkill in case of r16g16`
+#endif
+
+#if %_RT_FSAA
+	// calculate coverage for A2C
+	//const float dalpha = max(.5/255, abs(ddx(alpha)) + abs(ddy(alpha)));
+	//ret.a = saturate((alpha - alphaTestRef) / dalpha + (((alpha - alphaTestRef)>dalpha)?1:0));
+	ret.a = alpha;
+#else
+	ret.a = alpha;
+#endif
+
+  FogFSAA(ret, WorldPos);
+
+  return ret;
+}
+
+// This function encodes a depth value so it can be stored in an ARGB8 rendertarget and sets a specific alpha value
+float4 EncodeSceneDepthNoAlpha( float depth, float value, float3 WorldPos)
+{
+  float4 ret = EncodeSceneDepth( depth );
+  //ret.g = value;
+
+  FogFSAA(ret, WorldPos);
+
+  return ret;
+}
+
+// This function decodes a depth value coming from an ARGB8 rendertarget/texture 
+// NOTE: 1) float[X] was used in favor of half[X] as precision is curcial and half's is not sufficient!
+//			 2) smpDepth should be set up as follows...
+// 
+float DecodeSceneDepth( sampler2D smpDepth, float4 homogeneousPositionTexProj )
+{
+ 	float depthNormalized = GetLinearDepth_ProjTC( smpDepth, homogeneousPositionTexProj );
+
+	// scale back to full range
+	return depthNormalized * PS_NearFarClipDist.y;
+}
+
+float4 HPosToScreenTC(float4 HPos)
+{
+  float4 ScrTC = HPos;
+  ScrTC.xy = (HPos.xy * float2(1,-1) + HPos.ww  ) * 0.5;
+
+  // No offsets required in d3d10
+#if !D3D10 && !PS3
+  ScrTC.xy += g_VS_ScreenSize.zw*HPos.w;
+#endif
+
+  return ScrTC;
+}
+
+//==========================================================================
+
+void CompressUnsignedNormalToNormalsBuffer(inout half4 vNormal)
+{
+  //vNormal.rgb = vNormal.rgb * 2.h - 1.h;
+
+	//vNormal.rgb = sqrt(abs(vNormal.rgb)) * sign(vNormal.rgb);
+
+  //vNormal.rgb = vNormal.rgb * .5h + .5h;
+}
+
+void ReconstructNormalFromNormalsBuffer(inout half4 vNormal)
+{
+	//vNormal.rgb = abs(vNormal.rgb) * vNormal.rgb;
+}
+
+half4 GetWorldSpaceNormals( half4 vNormals, bool bNormalize )
+{
+#if !XENON
+	// we use custom signed format for Xbox 360
+  vNormals.xyz = EXPAND(vNormals.xyz); 
+#endif
+
+	ReconstructNormalFromNormalsBuffer(vNormals);
+
+  if( bNormalize )
+	  vNormals.xyz = normalize( vNormals.xyz );
+
+  //vNormals.xy = vNormals.xy*2-1;
+  //vNormals.w = vNormals.z;
+  //vNormals.z = sqrt( ( 1.0 - dot( vNormals.xy, vNormals.xy ) ) );
+  //vNormals.xyz = /*normalize*/( mul( vNormals.xyz, (float3x3) g_mCamera ) ); // Put back from view space into world space
+  //vNormals.xyz = normalize( mul( vNormals.xyz*2-1, (float3x3) g_mCamera ) ); // Put back from view space into world space
+
+  return vNormals;
+}
+
+half4 GetWorldSpaceNormals( sampler2D smpNormals, float2 tc, bool bNormalize )
+{
+  half4 vNormals = tex2D( smpNormals, tc.xy );
+	return GetWorldSpaceNormals(vNormals, bNormalize);
+}
+
+//==========================================================================
+
+float  NumInstructions		: PI_NumInstructions;
+
+sampler2D DebugMipColorsDiffuseSampler = sampler_state
+{
+ Texture = $MipColors_Diffuse;
+};
+sampler2D DebugMipColorsBumpSampler = sampler_state
+{
+ Texture = $MipColors_Bump;
+};
+
+float4 DVColor(float2 d)
+{ 
+  float Reso = 512;
+  float TargetDeriv = 1.0f/Reso;
+  float HalfTD = (TargetDeriv*0.5);
+  float TwoTD = (TargetDeriv*2.0);
+
+
+  float4 dd = float4(0,0,0,1);
+  if (d.x > TwoTD) { dd.x = 1.0;}
+  if (d.y > TwoTD) { dd.y = 1.0;}
+  if (d.x < HalfTD) { dd.z = 1.0;}
+  return(dd);
+}
+
+
+void DebugOutput(out half4 Color, in float4 baseTC)
+{
+  Color = 0;
+ #if %_RT_DEBUG0 && !%_RT_DEBUG1 && !%_RT_DEBUG2 && !%_RT_DEBUG3
+  float2 dd = 64.0 * (abs(ddx(baseTC.xy)) + abs(ddy(baseTC.xy)));
+  Color = float4(dd, 0, 1);
+ #elif !%_RT_DEBUG0 && %_RT_DEBUG1 && !%_RT_DEBUG2 && !%_RT_DEBUG3
+  float2 dd = baseTC.xy;
+  Color = float4(dd, 0, 1);
+ #elif %_RT_DEBUG0 && %_RT_DEBUG1 && !%_RT_DEBUG2 && !%_RT_DEBUG3
+  Color = DVColor(abs(ddx(baseTC.xy)));
+ #elif !%_RT_DEBUG0 && !%_RT_DEBUG1 && %_RT_DEBUG2 && !%_RT_DEBUG3
+  Color = DVColor(abs(ddy(baseTC.xy)));
+ #elif %_RT_DEBUG0 && !%_RT_DEBUG1 && %_RT_DEBUG2 && %_RT_DEBUG3
+  Color = DVColor(abs(ddy(baseTC.xy)));
+ #elif !%_RT_DEBUG0 && %_RT_DEBUG1 && %_RT_DEBUG2 && !%_RT_DEBUG3
+  float Reso = 512;
+  float TargetDeriv = 1.0/Reso;
+  float Diagonal = sqrt(2.0*TargetDeriv*TargetDeriv);
+  float HalfDiag = (Diagonal*0.5);
+  float TwoDiag = (Diagonal*2.0);
+  float2 dx = ddx(baseTC.xy);
+  float2 dy = ddy(baseTC.xy);
+  float d = sqrt(dot(dx,dx) + dot(dy,dy));
+  float4 dd = float4(0,0,0,1);
+  if (d > TwoDiag) { dd.x = 1.0;}
+  if (d > TwoDiag) { dd.y = 1.0;}
+  if (d < HalfDiag) { dd.z = 1.0;}
+  Color = dd;
+ #elif %_RT_DEBUG0 && %_RT_DEBUG1 && %_RT_DEBUG2 && !%_RT_DEBUG3
+  float4 mipColor = tex2D(DebugMipColorsDiffuseSampler, baseTC.xy);
+  Color = mipColor;
+ #elif !%_RT_DEBUG0 && !%_RT_DEBUG1 && !%_RT_DEBUG2 && %_RT_DEBUG3
+  float4 mipColor = tex2D(DebugMipColorsBumpSampler, baseTC.xy);
+  Color = mipColor;
+ #elif %_RT_DEBUG0 && %_RT_DEBUG1 && %_RT_DEBUG2 && %_RT_DEBUG3
+  Color.xyz = NumInstructions;	// Measure overdraw
+ #endif
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+// Ambient occlusion research
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+half4 tex2DTerrain(sampler2D s, float2 terrainTC)
+{
+  return tex2D(s, terrainTC);
+
+/*  half4 terrainColor = tex2D(s, terrainTC);
+	float fScale=terrainColor.b;
+	terrainColor.r += 0.001012;		// minor improvement in color reproduction
+	terrainColor.r *= 31.0f/30.0f;		// 
+	terrainColor.g *= 63.0f/63.0f;		//
+	terrainColor.b = 1.0f-terrainColor.r-terrainColor.g;
+	terrainColor.rgb *= 3.0f*fScale;
+	return saturate(terrainColor);*/
+}
+
+sampler2D sRotSamplerCMTerrain = sampler_state
+{
+  Texture = Textures/Defaults/rotrandomCM.dds;
+  MinFilter = LINEAR;
+  MagFilter = LINEAR;
+  MipFilter = NONE; 
+  AddressU = Wrap;
+  AddressV = Wrap;	
+};
+
+sampler2D sceneDepthSamplerAO_ = sampler_state
+{
+	Texture = $ZTarget;
+	MinFilter = POINT;
+	MagFilter = POINT;
+	MipFilter = POINT;
+	AddressU = Clamp;
+	AddressV = Clamp;
+};
+
+float3 GetSkyAmount(sampler2D s0, sampler2D s1, float2 texCoords, 
+									 float fSkyBr, float3 vNormal, float fPixelZ, float fPixelZRange, float fTexCoordsScale,
+									 float4 screenTexCoords)
+{	
+	texCoords += 1.0f/256.f;
+
+	half4 terrainInfo = tex2DTerrain(s0, texCoords);
+
+	float fGroundAOLerped = lerp(terrainInfo.a,1.f,fSkyBr);
+
+#if %TEMP_TERRAIN
+	return fGroundAOLerped;
+#elif %GRASS
+	return fGroundAOLerped;
+#else
+
+//	float4 mapParams = float4(256.f, 256.f, 1.f/256.f, 1.f/256.f);
+
+//	float4 dataS1 = tex2D(s1, texCoords.xy);
+//	float fTerrainZ = dataS1.a*fPixelZRange + dataS1.g/256.f*fPixelZRange;
+
+	float4 dataS1 = tex2D( s1, texCoords.xy );
+	float fTerrainZ = dataS1.a*fPixelZRange;
+
+//	return saturate((fPixelZ>fTerrainZ+1));
+
+	float fGroundIsFar = sqrt(saturate(fPixelZ*0.5f-fTerrainZ*0.5f));
+
+#if !%DECAL
+	float fOffset = 1.f; // bigger number looks bad on faces
+	//texCoords += vNormal.yx*fTexCoordsScale*fOffset;
+	#if !%LEAVES
+//		fPixelZ += vNormal.z*fOffset; // island_v
+	#endif
+#endif
+
+	// get terrain and ao volume elevations
+//	dataS1 = tex2D(s1, texCoords.xy);
+//	dataS1 = tex2DBilinearElevations( s1, texCoords.xy, mapParams ).g;
+//	dataS1.a = dataS1.g;
+//	dataS1.g = dataS1.r;
+
+//	fTerrainZ = dataS1.a*fPixelZRange;
+	float fSolidZMax = fTerrainZ + dataS1.g*32.f;
+
+	// fade sky slowly depending on how depth pixel is in the AO volume
+	float fSkyAmount = lerp(saturate(1.f-0.125f*(fSolidZMax-fPixelZ)),1.f,fSkyBr); 
+
+	// get lerp factor between sky and ground
+	float fNDotSky = saturate(vNormal.z*0.5f+0.5f);
+
+	// get color of the ground
+//	terrainInfo = tex2DTerrain(s0, texCoords);
+//	fGroundAOLerped = lerp(terrainInfo.a,1.f,fSkyBr);
+	terrainInfo.xyz = terrainInfo.xyz * fGroundAOLerped; 
+
+	float3 col = lerp(terrainInfo.xyz*0.66f+fGroundAOLerped*0.33f, 1.f, fNDotSky*fSkyAmount);
+
+#if %TEMP_VEGETATION
+	// modulate by terrain color near the ground
+	col = lerp(col, terrainInfo.xyz, (1.f-fGroundIsFar)*(1.f-fSkyBr));
+#endif
+
+	// use only fGroundAOLerped on roads like objects
+	col = lerp(fGroundAOLerped, col, saturate(saturate(fPixelZ-fTerrainZ-0.25f) + saturate(1-vNormal.z)));
+
+//	return saturate((fPixelZ-fTerrainZ)/(fSolidZMax-fTerrainZ));
+
+	// screen space AO
+//	col *= lerp(GetSSAO(sceneDepthSamplerAO_, screenTexCoords),1.f,fSkyBr);
+
+	return col;
+
+#endif
+}
+
+
+float4 GetInputColor(in float4 Color)
+{
+ #ifdef PS3
+  return Color.yzwx;
+ #endif
+ #if COLOR_SWAP
+  return Color.zyxw;
+ #else
+  return Color;
+ #endif
+}
+
+#define QUALITY_LOW      0
+#define QUALITY_MEDIUM   1
+#define QUALITY_HIGH   	 2
+#define QUALITY_VERYHIGH 3
+
+int GetShaderQuality()
+{
+  int nQuality;
+#if !%_RT_QUALITY && !%_RT_QUALITY1
+   nQuality = QUALITY_LOW;
+#elif %_RT_QUALITY && !%_RT_QUALITY1
+   nQuality = QUALITY_MEDIUM;
+#elif !%_RT_QUALITY && %_RT_QUALITY1
+   nQuality = QUALITY_HIGH;
+#else
+   // #warning Unknown shader quality mode
+   nQuality = QUALITY_HIGH;
+#endif  
+  return nQuality;
+}
+
+float ComputeTextureLOD(in float2 uv, in float2 texDim)
+{
+	uv *= texDim;
+	
+	float2 ddx_ = ddx(uv);
+	float2 ddy_ = ddy(uv);
+	//float2 mag = ddx_ * ddx_ + ddy_ * ddy_;
+	float2 mag = abs(ddx_) + abs(ddy_);
+	
+	//float lod = max(0.5 * log2(max(mag.x, mag.y)), 0);
+	float lod = log2(max(mag.x, mag.y));
+	return lod;
+}
+
+float ComputeTextureLOD(in float2 uv, in float2 texDim, out float2 ddx_uv, out float2 ddy_uv)
+{
+	//float2 uvScaled = uv * texDim;
+	//float2 ddx_, ddy_;
+		
+	//float4(ddx_, ddx_uv) = ddx(float4(uvScaled, uv));
+	//float4(ddy_, ddy_uv) = ddy(float4(uvScaled, uv));	
+	
+	////float2 mag = ddx_ * ddx_ + ddy_ * ddy_;
+	//float2 mag = abs(ddx_uv) + abs(ddy_uv);
+
+	ddx_uv = ddx(uv);
+	ddy_uv = ddy(uv);
+	//float2 mag = (ddx_uv * ddx_uv + ddy_uv * ddy_uv) * texDim * texDim;
+	float2 mag = (abs(ddx_uv) + abs(ddy_uv)) * texDim;
+	
+	//float lod = max(0.5 * log2(max(mag.x, mag.y)), 0);
+	float lod = log2(max(mag.x, mag.y));
+	return lod;
+}
+
+#if XENON
+
+float4 rgb10a2_to_rgb10a2f( float4 InColor )
+{
+	// Shift left 3 bits. This allows us to have the exponent and mantissa on opposite
+	// sides of the decimal point for extraction.
+	float4 OutColor = InColor * 8.0f;
+
+	// Extract the exponent and mantissa that are now on opposite sides of the decimal point
+	float3 e = floor( OutColor.rgb );
+	float3 m = frac( OutColor.rgb );
+	
+	// Perform the 7e3 conversion.  Note that this varies on the value of e for each channel:
+	// if e != 0.0f then the correct conversion is (1+m)/8*pow(2,e).
+	// else it is (1+m)/8*pow(2,e).  
+	OutColor.rgb  = (e == 0.0f) ? 2*m/8 : (1+m)/8 * exp2(e);
+
+	return OutColor;
+}
+
+// Fetches an rgb10a2f texture aliased as a rgb10a2 texture - check xbox documentation (7e3) for more details
+//  - helpfull for specific cases to decrease BW (at cost of ALU) and also to minimize resolve cost
+//  - beware that this doens't support correct bilinear filtering fetches
+float4 tex2D_rgb10a2f( sampler2D s, float2 vTexCoord )
+{
+	return  rgb10a2_to_rgb10a2f( tex2D(s, vTexCoord ) );
+}
+
+#endif

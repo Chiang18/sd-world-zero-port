@@ -1,0 +1,53 @@
+////////////////////////////////////////////////////////////////////////////
+//
+//  Crytek Engine Source File.
+//  Shader extension
+//  Copyright (C), Crytek Studios, 2001-2004.
+// -------------------------------------------------------------------------
+//  File name:   Eye.ext
+//  Version:     v1.00
+//  Created:     06/09/2005 by Tiago Sousa
+//  Compilers:   
+//  Description: Eye shader extension used by the editor
+//               for automatic shader generation (based on "Eye" shader template)
+// -------------------------------------------------------------------------
+//  History:
+//
+////////////////////////////////////////////////////////////////////////////
+
+Version (1.00)
+
+UsesCommonGlobalFlags
+
+Property
+{
+  Name = %IRIS
+  Mask = 0x1
+  Property    (Iris)
+  Description (Use for iris rendering)
+}
+
+Property
+{
+  Name = %ENVIRONMENT_MAP
+  Mask = 0x2
+  Property    (Environment map)
+  Description (Use environment map as separate texture)
+  DependencyReset = $TEX_EnvCM     
+}
+
+Property
+{
+  Name = %EYE_OVERLAY
+  Mask = 0x4
+  Property    (Eye overlay)
+  Description (Use for eye overlay rendering)
+}
+
+Property
+{
+  Name = %DISABLE_RAIN_PASS
+  Mask = 0x8
+  Property    (Disable rain layer)
+  Description (Disables rain layer)
+}

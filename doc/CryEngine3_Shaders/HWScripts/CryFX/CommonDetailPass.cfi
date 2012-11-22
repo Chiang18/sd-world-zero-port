@@ -1,0 +1,241 @@
+////////////////////////////////////////////////////////////////////////////
+//
+//  Crytek Engine Source File.
+//  Shader extension
+//  Copyright (C), Crytek Studios, 2001-2004.
+// -------------------------------------------------------------------------
+//  File name:   CommonDetailPass.cfi
+//  Version:     v1.00
+//  Created:     23/11/2004 by Tiago Sousa
+//  Compilers:   
+//  Description: Common/Shared passes bettwen shaders. Should be included after
+//    main shader technique
+//
+//  NOTE: ALWAYS MAKE SURE VERTEX INPUTS MATCH CORRECTLY BEFORE INCLUDING THIS!
+//  TODO: Add support for texture modifiers, since Illum and others require it
+//  "Common_" name convention - for shader sharing in cache files
+//
+//
+// -------------------------------------------------------------------------
+////////////////////////////////////////////////////////////////////////////
+
+/// Un-Tweakables //////////////////////
+half4 DetailScale = { PB_FromRE[0], PB_FromRE[1], PB_FromRE[2], PB_FromRE[3] };
+half4 DetailParams0 = { PB_FromRE[4], PB_FromRE[5], PB_FromRE[6], PB_FromRE[7] };
+half4 DetailParams1 = { PB_FromRE[8], PB_FromRE[9], PB_FromRE[10], PB_FromRE[11] };
+half4 DetailParams2 = { PB_FromRE[12], PB_FromRE[13], PB_FromRE[14], PB_FromRE[15] };
+
+sampler2D massiveDecalMapSampler = sampler_state { Texture = $DecalOverlay;  /*sRGBLookup = true;*/ };
+sampler2D massiveDecalIDMapSampler = sampler_state { Texture = $CustomMap; /*sRGBLookup = true;*/ };
+
+sampler2D massiveDecalNoiseSampler = sampler_state
+{
+  Texture = textures/defaults/detailDecalVariation.dds; 
+  MinFilter = LINEAR;  
+  MagFilter = LINEAR;
+  MipFilter = LINEAR; 
+  AddressU = Wrap;
+  AddressV = Wrap;
+};
+
+
+////////////////////////////////////////////////////////
+//                DETAIL PASS
+////////////////////////////////////////////////////////
+
+///////////////// vertex input/output //////////////////
+struct vert2fragDetail
+{
+  OUT_P
+  float4 tcDetail0 : TEXCOORDN;
+  
+#if !%_RT_SAMPLE1
+
+  #if %_RT_SAMPLE2
+    float2 tcDetail1 : TEXCOORDN;
+  #endif
+  #if %_RT_SAMPLE3
+    float2 tcDetail2 : TEXCOORDN;
+  #endif
+
+#else
+  float2 tcDetail1 : TEXCOORDN;
+#endif
+
+  half3 vView  : TEXCOORDN; 
+  float4 screenProj : TEXCOORDN;
+};
+
+///////////////// vertex shaders //////////////////
+vert2fragDetail Common_DetailPassVS(app2vertZGeneral IN)
+{
+  vert2fragDetail OUT = (vert2fragDetail) 0;
+
+  streamPos vertPassPos = (streamPos)0;
+  streamPos_FromZ(IN, vertPassPos);
+
+#if %TEMP_TERRAIN
+  OUT.HPosition = Pos_VS_Terrain(fTerrainOffset, g_VS_ViewProjZeroMatr, vertPassPos);
+#else  
+  OUT.HPosition = Pos_VS_General(g_VS_ViewProjZeroMatr, vertPassPos);
+#endif
+  
+  OUT.vView = mul(vertPassPos.InstMatrix, vertPassPos.Position).xyz;
+#if %_RT_OBJ_IDENTITY
+  OUT.vView -= g_VS_WorldViewPos.xyz;
+#endif
+
+#if !%_RT_SAMPLE1
+  OUT.vView /= DetailScale.w*0.8; 
+#endif
+  
+#if !%_RT_SAMPLE1
+
+  OUT.tcDetail0.xy = vertPassPos.baseTC.xy * DetailScale.xy;
+  OUT.tcDetail0.zw = vertPassPos.baseTC.xy;
+
+
+  #if %_RT_SAMPLE2
+    OUT.tcDetail1.xy = OUT.tcDetail0.xy*1.5;
+  #endif
+  #if %_RT_SAMPLE3
+    OUT.tcDetail2.xy = OUT.tcDetail0.xy*3;
+  #endif
+ 
+  #if %ALPHAMASK_DETAILMAP
+    OUT.tcDetail0.wz = vertPassPos.baseTC;
+  #endif
+#else
+
+  OUT.tcDetail0.xyzw = vertPassPos.baseTC.xyxy;
+  OUT.tcDetail0.xy *= DetailScale.xy;
+  OUT.tcDetail0.xy += DetailParams0.xy;
+  
+  OUT.tcDetail0.xy = float2(OUT.tcDetail0.x * cos(DetailParams1.x)  -OUT.tcDetail0.y * sin(DetailParams1.x),
+                            OUT.tcDetail0.y * cos(DetailParams1.x)  +OUT.tcDetail0.x * sin(DetailParams1.x));
+
+  OUT.tcDetail1.xy = vertPassPos.baseTC.xy * DetailScale.zw + DetailParams0.zw;
+  OUT.tcDetail1.xy = float2(OUT.tcDetail1.x * cos(DetailParams1.y)  -OUT.tcDetail1.y * sin(DetailParams1.y),
+                            OUT.tcDetail1.y * cos(DetailParams1.y)  +OUT.tcDetail1.x * sin(DetailParams1.y));
+#endif
+
+  OUT.screenProj = HPosToScreenTC(OUT.HPosition);;
+
+  return OUT;    
+}
+
+///////////////// pixel shaders //////////////////
+pixout Common_DetailPassPS(vert2fragDetail IN)
+{
+#if PS3  
+  #pragma sce-cgc("-texformat default COMPRESSED_RGBA_S3TC_DXT5");
+#endif
+
+  pixout OUT = (pixout)0;
+
+ #if %_RT_DEBUG0 || %_RT_DEBUG1 || %_RT_DEBUG2 || %_RT_DEBUG3
+   DebugOutput(OUT.Color, float4(IN.tcDetail0.xy, 0, 0));
+   return OUT;
+ #endif
+    
+#if !%_RT_SAMPLE1
+
+  // load the detail
+  half4 detColor = tex2D(detailMapSampler, IN.tcDetail0.xy);
+  half fLerp = length(IN.vView);
+
+#if %ALPHAMASK_DETAILMAP
+  half fMask = tex2D(diffuseMapSampler, IN.tcDetail0.wz).w;
+  fLerp /= fMask + 0.001;
+#endif
+
+  detColor.xyz = lerp(detColor.xyz, 0.5, saturate(fLerp));
+  
+  half4 vColor = detColor;  
+#if %_RT_SAMPLE2
+  detColor = tex2D(detailMapSampler, IN.tcDetail1.xy);
+  detColor.xyz = lerp(detColor.xyz, 0.5, saturate(fLerp*1.5));
+  vColor.xyz *= detColor.xyz * 2;
+#endif  
+#if %_RT_SAMPLE3
+  detColor = tex2D(detailMapSampler, IN.tcDetail2.xy);
+  detColor.xyz = lerp(detColor.xyz, 0.5, saturate(fLerp*3));
+  vColor.xyz *= detColor.xyz * 2;
+#endif
+
+  OUT.Color = vColor;
+
+#else
+
+  half4 cOut = 0.5;
+
+  half fNoise = tex2D(massiveDecalNoiseSampler, IN.tcDetail0.xy).x;
+  half4 cSticker = tex2D(massiveDecalMapSampler, IN.tcDetail0.xy + fNoise*DetailParams2.x);
+  half cStickerID = tex2D(massiveDecalIDMapSampler, IN.tcDetail0.xy + fNoise*DetailParams2.x);
+  
+  half tcObjOffs = 1.0 + (ceil(IN.tcDetail0.x) + ceil(IN.tcDetail0.y));
+  cStickerID.x = saturate( frac(  cStickerID.x + (DetailParams1.z) * tcObjOffs ) - 0.5)*2;
+  
+  half fBlendLayer0 =  cSticker.w * saturate( DetailParams2.w * (cStickerID.x -  fNoise) );
+
+  // 1st layer
+  cOut = lerp(cOut, cSticker, fBlendLayer0);
+  
+  //fNoise = tex2D(massiveDecalNoiseSampler, IN.tcDetail1.xy);
+  half4 cSticker2 = tex2D(massiveDecalMapSampler, IN.tcDetail1.xy + fNoise*DetailParams2.y );
+  half4 cStickerID2 = tex2D(massiveDecalIDMapSampler, IN.tcDetail1.xy + fNoise*DetailParams2.y);
+  
+  tcObjOffs = 1.0 + (ceil(IN.tcDetail1.x) + ceil(IN.tcDetail1.y));
+  cStickerID2.x = saturate( frac(  cStickerID2.x + (DetailParams1.w) * tcObjOffs ) - 0.5)*2;
+
+  half fBlendLayer1 =  cSticker2.w * saturate( DetailParams2.w * (cStickerID2.x -  fNoise) );
+
+  // 2nd layer
+  if( cStickerID2.x > cStickerID.x) 
+    cOut = lerp(cOut, cSticker2, fBlendLayer1);
+  else
+  {
+    cOut = lerp(0.5, cSticker2, fBlendLayer1); 
+    cOut = lerp(cOut, cSticker, fBlendLayer0);
+  }
+
+  OUT.Color = cOut;
+
+  #if %_RT_SAMPLE2
+    OUT.Color *= saturate( DetailParams2.z );
+  #endif
+
+#endif
+
+
+#if PS3
+  #if %_RT_HDR_MODE 
+    // Custom blending for PS3 (decode and blend)
+    half4 cDstRT = DecodeHDRBuffer( tex2Dproj( HDRTargetEncodedSampler, IN.screenProj.xyzw ) ); 
+    OUT.Color *= cDstRT * 2;
+
+    OUT.Color = EncodeHDRBuffer( OUT.Color );
+  #endif
+#endif
+      
+  return OUT;
+}
+
+technique DetailPass
+{
+  pass p0
+  {
+    VertexShader = compile vs_Auto Common_DetailPassVS() DetailVS;
+    PixelShader = compile ps_Auto Common_DetailPassPS() DetailPS;
+    
+    ZEnable = true;
+    ZWriteEnable = false;
+    ZFunc = Equal;
+    IgnoreMaterialState = true;
+    
+    
+    SrcBlend = DestColor;
+    DestBlend = SrcColor;
+    AlphaBlendEnable = true;
+  }
+}

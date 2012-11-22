@@ -1,0 +1,60 @@
+//===========================================================================
+// Validations
+// Removing of redundant and mutually exclusive flags to prevent generating
+// of the vertex/pixel shaders
+// TODO: make special validations for PS.1.1 only support
+
+#if %SPECULAR_NCM && %VIEWVEC_NCM
+    #undefine %VIEWVEC_NCM
+    #warning Parameter _VIEWVEC_NCM was ignored
+#endif
+
+#if !%GLOSS_MAP
+  #if %SPECULARPOW_GLOSSALPHA
+      #undefine %SPECULARPOW_GLOSSALPHA 
+  #endif
+#endif
+
+#if %DIFFUSE_PERPIXEL
+  #if %DIFFUSE_NCM
+    #undefine %DIFFUSE_NCM
+    #warning Parameter _DIFFUSE_NCM was ignored
+  #endif
+#endif
+
+#if %ALPHAGLOW && %DIFFUSEALPHA
+    #undefine %DIFFUSEALPHA
+    #warning Parameter _DIFFUSEALPHA was ignored
+#endif
+
+#if %PARALLAX_OCCLUSION_MAPPING
+	#define %EXPOSE_POM_MAT_PARAMS
+	#if !%ALLOW_POM
+    #undefine %PARALLAX_OCCLUSION_MAPPING
+    //#warning Parameter _PARALLAX_OCCLUSION_MAPPING was ignored
+	#endif
+#endif
+
+#if %ALLOW_POM
+	#if !%PARALLAX_OCCLUSION_MAPPING
+    #undefine %ALLOW_POM
+    //#warning Parameter _ALLOW_POM was ignored
+	#endif
+#endif
+
+#if %CHARACTER_DECAL
+    #undefine %DECAL
+    //#warning Parameter _CHARACTER_DECAL was ignored
+#endif
+
+#if %BLENDLAYER
+	#if %DIRTLAYER	
+		#undefine %DIRTLAYER
+	#endif
+	#if %DECAL
+		#undefine %DECAL
+	#endif
+	#if %CHARACTER_DECAL
+		#undefine %CHARACTER_DECAL
+	#endif
+#endif

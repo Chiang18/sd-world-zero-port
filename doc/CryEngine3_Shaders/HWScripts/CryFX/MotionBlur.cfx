@@ -1,0 +1,1024 @@
+////////////////////////////////////////////////////////////////////////////
+//
+//  Crytek Engine Source File.
+//  Shader extension
+//  Copyright (C), Crytek Studios, 2001-2004.
+// -------------------------------------------------------------------------
+//  File name:   PostEffects.cfx
+//  Version:     v1.00
+//  Created:     14/06/2006 by Tiago Sousa
+//  Compilers:   
+//  Description: Engine specific post processing
+//
+//  Todo: Rename/clean up stuff
+//
+// -------------------------------------------------------------------------
+////////////////////////////////////////////////////////////////////////////
+
+#include "Common.cfi"
+#include "ShadeLib.cfi"
+#include "PostEffectsLib.cfi"
+
+// Shader global descriptions
+float Script : STANDARDSGLOBAL
+<
+  string Script =
+           "NoPreview;"
+           "LocalConstants;"
+           "ShaderDrawType = Custom;"
+           "ShaderType = PostProcess;"
+>; 
+
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
+/// Motion Blur technique //////////////////////////////////////////////////////////////////////////
+
+/// Specific data ////////////////////////
+
+struct vtxOutMotionBlurDispl
+{
+  float4 HPosition  : POSITION;
+  float4 tcProj     : TEXCOORDN;
+  float4 vVelocity  : TEXCOORDN;
+  float4 vVelocityPrev  : TEXCOORDN;
+};
+
+/// Constants ////////////////////////////
+
+
+float4 PI_motionBlurParams;
+
+float4 motionBlurParams;
+float4 motionBlurChromaParams;
+float4 motionBlurCamParams;
+float4x4 mViewProjPrev;
+float4 vDirectionalBlur;;
+
+/// Samplers ////////////////////////////
+
+sampler2D motionBlurMaskMap : register(s1);
+
+///////////////// vertex shaders //////////////////
+
+vtxOutMotionBlurDispl MotionBlurDisplVS(vtxIn IN)
+{
+  vtxOutMotionBlurDispl OUT = (vtxOutMotionBlurDispl)0; 
+  
+  float4 vPos = IN.Position;
+  float3 vSphere = normalize(vPos.xyz); // todo: why positions not normalized already ?
+  
+  // position for using correct depth test to exclude weapons
+  vPos.xyz = vSphere + g_VS_WorldViewPos.xyz;
+  OUT.HPosition = mul(vpMatrix, vPos);  
+
+  // position with correct sphere size for motion blur
+  vPos = IN.Position;
+  vPos.xyz = vSphere * 25 + g_VS_WorldViewPos.xyz;
+  float4 HPosition = mul(vpMatrix, vPos);  
+
+  float4 vNewPos = HPosition;
+  float4 vPrevPos =  mul(mViewProjPrev, vPos);
+  
+  OUT.vVelocity =  HPosToScreenTC( vNewPos );
+  OUT.vVelocityPrev = HPosToScreenTC( vPrevPos );  
+
+  OUT.tcProj = HPosToScreenTC( OUT.HPosition );
+
+  return OUT;
+}
+
+///////////////// pixel shaders //////////////////
+
+pixout MotionBlurdDepthMaskPS(vtxOut IN)
+{
+  pixout OUT = (pixout)0;  
+
+  float fDepth = GetLinearDepth(depthMapSampler, IN.baseTC);
+  half mask_accum = exp(-fDepth* 25);
+    //saturate( 1 - fDepth* 20.0 ); // 1 alu
+  mask_accum *= mask_accum; //^2                // 1 alu 
+  //mask_accum *= mask_accum; //^4               // 1 alu
+  //mask_accum *= mask_accum; //^8               // 1 alu
+
+
+  half fRotationAmount = (motionBlurParams.w * 5.0);
+
+  half fNearestMask = ( fDepth * PS_NearFarClipDist.y );  // 1 alu
+
+  // soften focus range
+  const half fAttenRange = 0.1f;
+  half fMask = saturate( (fNearestMask - motionBlurParams.z) * fAttenRange )  ;
+
+  fNearestMask = fMask * saturate(mask_accum + fRotationAmount);       // 2 alu
+  //tcFinal +=  vVelocityLerp.xy * (s - s * fNearestMask);							// 2 alu
+
+  OUT.Color.xyz = tex2D(screenMapSampler, IN.baseTC);
+  OUT.Color.w = fNearestMask;//fNearestMask; // store mask in screen map alpha
+
+  return OUT;
+}
+
+pixout MotionBlurDepthMaskHDRPS(vtxOut IN)
+{
+  pixout OUT = (pixout)0;  
+
+#if D3D10
+  // temporary workaround for d3d10 hlsl compiler bug
+  OUT.Color = tex2D(_tex0, IN.baseTC);
+  OUT.Color += tex2D(_tex1, IN.baseTC);
+#endif
+
+  float fDepth = tex2D(_tex1, IN.baseTC).x;
+  half mask_accum = exp(-fDepth* 25);
+    //saturate( 1 - fDepth* 20.0 ); // 1 alu
+  mask_accum *= mask_accum; //^2                // 1 alu 
+  //mask_accum *= mask_accum; //^4               // 1 alu
+  //mask_accum *= mask_accum; //^8               // 1 alu
+
+
+  half fRotationAmount = (motionBlurParams.w * 5.0);
+
+  half fNearestMask = ( fDepth * PS_NearFarClipDist.y );  // 1 alu
+
+  // soften focus range
+  const half fAttenRange = 0.1f;
+  half fMask = saturate( (fNearestMask - motionBlurParams.z) * fAttenRange )  ;
+
+  fNearestMask = fMask * saturate(mask_accum + fRotationAmount);       // 2 alu
+  //tcFinal +=  vVelocityLerp.xy * (s - s * fNearestMask);							// 2 alu
+
+  OUT.Color.xyz = tex2D(_tex0, IN.baseTC);
+  OUT.Color.w = fNearestMask;//fNearestMask; // store mask in screen map alpha
+
+  return OUT;
+}
+
+float2 GetVelocity( sampler2D sVelocity, float2 tc )
+{
+  float4 cVelocity = tex2Dlod(sVelocity, float4(tc.xy, 0, 0));
+  float fDecodedLenght = cVelocity.z; //dot(cVelocity.zw, float2( 255.0 * 255.0 , 255.0 ) );
+
+  return cVelocity.xy; //(cVelocity.xy*2-1) * fDecodedLenght;
+}
+
+pixout MotionBlurObjectPS(vtxOut IN)
+{
+  pixout OUT = (pixout)0;  
+
+  float4 OriginalUV = IN.baseTC;
+
+	float2 poisson[8] = {  
+	  float2( 0.0,      0.0),
+    float2( 0.527837,-0.085868),
+	  float2(-0.040088, 0.536087),
+	  float2(-0.670445,-0.179949),
+	  float2(-0.419418,-0.616039),
+	  float2( 0.440453,-0.639399),
+	  float2(-0.757088, 0.349334),
+	  float2( 0.574619, 0.685879)
+	};
+	
+  float4 cOrig = tex2Dlod(_tex0, float4(IN.baseTC.xy, 0, 0));
+  float4 cDummyFetchDx10 = tex2Dlod(_tex1, float4(IN.baseTC.xy, 0, 0)); // dummy fetch for dx10 samplers order declaration workaround
+  float fOrigDepth = tex2Dlod(_tex2, float4(IN.baseTC.xy, 0, 0)).x;
+
+  /*OUT.Color.xy = cOrig.xy*0.001 + GetVelocity(_tex1, IN.baseTC.xy);
+  OUT.Color.wz = 0;
+
+  return OUT;
+*/
+  float4 Blurred = 0;  
+  float2 pixelVelocity;
+  
+  int NumberOfPostProcessSamples = 8;           
+  int nSamples = 8;
+  float fUseAllSamples = 0;
+
+  //bool bSingleSample = true;
+
+  //{
+  //  for(int n= 0; n<nSamples; n++)
+  //  {	    
+  //    float2 vOffset = poisson[n]* 0.0333;  // this must scale depending on camera distance
+  //    // Sample neightboord pixels velocity
+  //    float4 curFramePixelVelocity = tex2Dlod(_tex0, float4(OriginalUV + vOffset, 0, 0));
+	 // 	if( !dot(curFramePixelVelocity, 1) )
+  //    {
+  //      fUseAllSamples = 1;
+  //      break;
+  //    }
+  //  }
+  //}
+
+  int s= 0;
+
+#if D3D10
+  [unroll]
+#endif
+  for(int n= 0; n<nSamples; n++)
+  {	    
+    // todo: this must scale depending on camera distance or object size on screen
+    float2 vOffset = poisson[n]* 0.0333 * saturate((1-fOrigDepth)*(1-fOrigDepth) );
+    float  fCurrDepth = tex2Dlod(_tex2, float4(OriginalUV + vOffset, 0, 0)).x;
+    if ( fCurrDepth > fOrigDepth )
+      continue;
+
+    // Sample neightboord pixels velocity
+    float2 curFramePixelVelocity = GetVelocity(_tex1, OriginalUV + vOffset);
+    pixelVelocity.xy =  curFramePixelVelocity;
+        
+    half fLen = dot(pixelVelocity.xy,pixelVelocity.xy);
+		if( fLen )
+		{	           
+#if D3D10
+  [unroll]
+#endif
+	    for(float i = 0; i < NumberOfPostProcessSamples; i++)
+	    {   
+	    	float2 lookup = pixelVelocity * ((i / NumberOfPostProcessSamples)-0.5) * PI_motionBlurParams.x + OriginalUV;
+	      	      
+	      // Lookup color/velocity at this new spot
+	      float4 Current = tex2Dlod(_tex0, float4(lookup.xy, 0, 0));
+	    	float4 curVelocity = tex2Dlod(_tex1, float4(lookup.xy, 0, 0));
+	    	half fBlend = ( length(curVelocity)); 
+	    	//float2 curVelocity = GetVelocity(_tex1, lookup.xy);
+	    	//float fBlend = length(curVelocity); 
+	    		    		      
+	      Blurred.xyz += Current;
+	      Blurred.w  += fBlend;	      
+	      s++;
+	    }            
+    }
+
+//    if( !fUseAllSamples )
+  //    break;
+  }
+
+  OUT.Color = float4( cOrig.xyz, 1);
+  if( s )
+  {
+    // Return the average color of all the samples
+    float fLerp = Blurred.w/(float)s;     
+    OUT.Color.xyz =float4(lerp(cOrig.xyz, Blurred.xyz/(float)s, saturate(fLerp*3)), 1);
+  }
+
+  return OUT;
+}
+
+pixout MotionBlurObjectMaskPS(vtxOut IN)
+{
+  pixout OUT = (pixout)0;  
+
+  float4 OriginalUV = IN.baseTC;
+
+	float2 poisson[7] = {  
+    float2( 0.527837,-0.085868),
+	  float2(-0.040088, 0.536087),
+	  float2(-0.670445,-0.179949),
+	  float2(-0.419418,-0.616039),
+	  float2( 0.440453,-0.639399),
+	  float2(-0.757088, 0.349334),
+	  float2( 0.574619, 0.685879)
+	};
+	
+  half2 cOrigVelocity = tex2Dlod(_tex0, float4(IN.baseTC.xy, 0, 0)).xy;
+  float fOrigDepth = tex2Dlod(_tex1, float4(IN.baseTC.xy, 0, 0)).x;
+
+  float4 Blurred = 0;  
+  float2 pixelVelocity;
+  
+  int nSamples = 7;
+
+  const half fOffsetRange = 100.0;
+  
+  PS_ScreenSize.zw *= fOffsetRange;
+  const half2 vOffsetScale = PS_ScreenSize.zw; // 0.0333 old hardcoded scale
+
+  const half fMinVelocityThreshold = 0.0001;
+
+  half fCenterVelocity = dot( cOrigVelocity.xy, cOrigVelocity.xy);
+
+  if(( fCenterVelocity ) ) // Inside case 
+  {
+    OUT.Color.x = 1;
+    OUT.Color.w = fCenterVelocity > fMinVelocityThreshold.xx; // set second pass mask
+    return OUT;
+  }
+  else 
+  {
+#if D3D10
+  [unroll]
+#endif
+    for(int n= 0; n<nSamples; n++) // Borders case 
+    {	    
+      // todo: this must scale depending on camera distance or object size on screen
+      float2 vOffset = poisson[n]* vOffsetScale;
+
+      // Sample neightboord pixels velocity
+      pixelVelocity.xy = tex2Dlod(_tex0, float4(OriginalUV + vOffset, 0, 0)).xy;
+
+      half fLen = dot(pixelVelocity.xy,pixelVelocity.xy);
+      OUT.Color.y += fLen;
+    }
+    
+
+    OUT.Color.y = OUT.Color.y / (float) nSamples;
+    OUT.Color.w = OUT.Color.yy > fMinVelocityThreshold.xx;
+    OUT.Color.y = (OUT.Color.y > 0.0); // set second pass mask
+
+    return OUT;
+  }
+
+//  OUT.Color = saturate( OUT.Color * 10000 );
+
+  return OUT;
+}
+
+pixout MotionBlurObjectUsingMaskPS(vtxOut IN)
+{
+  // premiliary object motion blur optimization using motion mask
+
+  pixout OUT = (pixout)0;  
+
+  float4 OriginalUV = IN.baseTC;
+
+	float2 poisson[7] = {  
+    float2( 0.527837,-0.085868),
+	  float2(-0.040088, 0.536087),
+	  float2(-0.670445,-0.179949),
+	  float2(-0.419418,-0.616039),
+	  float2( 0.440453,-0.639399),
+	  float2(-0.757088, 0.349334),
+	  float2( 0.574619, 0.685879)
+	};
+	
+  float4 cOrig = tex2Dlod(_tex0, float4(IN.baseTC.xy, 0, 0));
+  float4 cDummyFetchDx10 = tex2Dlod(_tex1, float4(IN.baseTC.xy, 0, 0)); // dummy fetch for dx10 samplers order declaration workaround
+  float fOrigDepth = tex2Dlod(_tex2, float4(IN.baseTC.xy, 0, 0)).x;
+  half4 cMask = tex2Dlod(_tex3, float4(IN.baseTC.xy, 0, 0)).xyzw;
+
+  // dx10 sampler binding workaround...
+  //OUT.Color = (cOrig + cDummyFetchDx10 + fOrigDepth + cMask)*0.000001;
+
+  OUT.Color = cOrig;//
+
+  if( dot( cMask.xy, 1) == 0.0 ) 
+    return OUT;
+
+  float4 Blurred = 0;
+  float2 pixelVelocity;
+
+  int nSamples = 8;
+
+  const int nSamplesEdges = 7;
+  const float nRecipSamples = 1.0 / (float)nSamples;
+
+  float s= 0;
+
+  if( cMask.x ) // sample is inside mesh - do regular motion blurring
+  {
+    // get velocity
+    pixelVelocity.xy = GetVelocity(_tex1, OriginalUV) * PI_motionBlurParams.x;
+  #if D3D10
+    [unroll]
+  #endif
+    for(float i = 0; i < nSamples; i++)
+    {   
+  	  float2 lookup = pixelVelocity * ((i * nRecipSamples)-0.5) + OriginalUV;
+      Blurred.xyz += tex2Dlod(_tex0, float4(lookup.xy, 0, 0)).xyz;
+    }
+
+    OUT.Color = half4(Blurred.xyz * nRecipSamples, 1);
+    return OUT;
+  }  
+  else // samples are in mesh edges
+  {
+
+  #if D3D10
+    [unroll]
+  #endif
+    for(int n= 0; n<nSamplesEdges; n++)
+    {	    
+      // todo: this must scale depending on camera distance or object size on screen
+      float2 vOffset = poisson[n]* 0.0333 * saturate((1-fOrigDepth)*(1-fOrigDepth) );
+      float  fCurrDepth = tex2Dlod(_tex2, float4(OriginalUV + vOffset, 0, 0)).x;
+      if ( fCurrDepth > fOrigDepth )
+        continue;
+
+      // Sample neightboord pixels velocity
+      float2 curFramePixelVelocity = GetVelocity(_tex1, OriginalUV + vOffset);
+      pixelVelocity.xy =  curFramePixelVelocity ;
+          
+      half fLen = dot(pixelVelocity.xy,pixelVelocity.xy);
+		  if( fLen )
+		  {
+  #if D3D10
+    [unroll]
+  #endif
+        for(float i = 0; i < nSamples; i++)
+        {   
+	    	  float2 lookup = pixelVelocity * ((i * nRecipSamples)-0.5)* PI_motionBlurParams.x + OriginalUV;
+
+          // Lookup color/velocity at this new spot
+	        float3 Current = tex2Dlod(_tex0, float4(lookup.xy, 0, 0));
+	    	  float4 curVelocity = tex2Dlod(_tex1, float4(lookup.xy, 0, 0));
+	    	  half fBlend = ( dot(curVelocity, curVelocity)); 
+
+	        Blurred += half4(Current.xyz, fBlend);
+	      }
+
+	      s+= nSamples;
+      }
+    }
+
+    if( s )
+    {
+      // Return the average color of all the samples
+      half fLerp = Blurred.w/s;     
+      OUT.Color.xyz =float4(lerp(cOrig.xyz, Blurred.xyz/s, saturate(fLerp*3)), 1);
+    }
+  }
+
+  return OUT;
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////////////////////////
+
+pixout OMB_VelocityIDRescalePS(vtxOut IN)
+{
+  pixout OUT = (pixout)0;  
+
+  float2 vScreenSizeRecip = PI_motionBlurParams.zw; //1.0 / PS_ScreenSize;
+  float4 t0 = tex2D(_tex0, IN.baseTC.xy);
+  float4 t1 = tex2D(_tex0, IN.baseTC.xy + float2(1,1) * vScreenSizeRecip);
+  float4 t2 = tex2D(_tex0, IN.baseTC.xy - float2(1,1) * vScreenSizeRecip);
+  float4 t3 = tex2D(_tex0, IN.baseTC.xy + float2(-1,1)* vScreenSizeRecip);
+  float4 t4 = tex2D(_tex0, IN.baseTC.xy + float2(1,-1)* vScreenSizeRecip);
+
+  // Use maximum depth
+  t0 = (t0.z>t1.z)? t0: t1;
+  t0 = (t0.z>t2.z)? t0: t2;
+  t0 = (t0.z>t3.z)? t0: t3;
+  t0 = (t0.z>t4.z)? t0: t4;
+  
+  OUT.Color = t0;
+
+  return OUT;
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////////////////////////
+
+float GetResampledOrigDepth( float2 tc )
+{
+  float2 vScreenSizeRecip = PI_motionBlurParams.xy; //1.0 / PS_ScreenSize; //0.25*PI_motionBlurParams.zw;  // hardcoded half-texel size 
+  float t0 = tex2Dlod(_tex1, float4(tc.xy, 0, 0)).x;
+  t0 = max(t0, tex2Dlod(_tex1, float4(tc.xy + float2(1,1) * vScreenSizeRecip, 0, 0)).x );
+  t0 = max(t0, tex2Dlod(_tex1, float4(tc.xy - float2(1,1) * vScreenSizeRecip, 0, 0)).x );
+  t0 = max(t0, tex2Dlod(_tex1, float4(tc.xy + float2(-1,1)* vScreenSizeRecip, 0, 0)).x );
+  
+  t0 = max(t0, tex2Dlod(_tex1, float4(tc.xy + float2(1,-1)* vScreenSizeRecip, 0, 0)).x );
+
+  return t0;
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////////////////////////
+
+pixout OMB_OffsetMapPS(vtxOut IN)
+{
+  pixout OUT = (pixout)0;  
+
+  float4 t0 = tex2D(_tex0, IN.baseTC);
+
+  float fLen = length(t0.xy);
+  float fSizeScale = 1 - saturate(t0.z * PS_NearFarClipDist.y / 200);
+  fSizeScale *= fSizeScale;
+  fSizeScale *= fSizeScale;
+  fSizeScale *= fSizeScale;
+
+  t0.xyz = min( fLen * 100.0 , 1) ; // *0.25; ///** */
+
+  OUT.Color = t0;
+  return OUT;
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////////////////////////
+
+pixout OMB_CopyAlphaIDPS(vtxOut IN)
+{
+  pixout OUT = (pixout)0;  
+
+  float4 t0 = tex2D(_tex0, IN.baseTC);
+  //float4 t1 = tex2D(_tex1, IN.baseTC);
+
+  OUT.Color = t0; //float4(t0.xyw, t1.w);
+  return OUT;
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////////////////////////
+
+pixout OMB_VelocityDilationPS(vtxOut IN)
+{
+  float2 vOffsets[8] = {  
+	  float2(-1.0f , 0.0f),
+	  float2(1.0f , 0.0f),
+
+	  float2(-2.0f , 0.0f),
+	  float2(2.0f , 0.0f),
+
+	  float2(-3.0f , 0.0f),
+	  float2(3.0f , 0.0f),
+
+	  float2(-4.0f , 0.0f),
+	  float2(4.0f , 0.0f)
+  };
+
+  pixout OUT = (pixout)0;  
+
+  const int nOffsets = 8;
+
+  float4 OriginalUV = IN.baseTC;
+
+	//due to cgc error "non constant expression for array size"
+
+  float2 vScrSizeRecip = PI_motionBlurParams.zw;
+
+  float4 vCenterVelocity = tex2Dlod(_tex0, float4(IN.baseTC.xy, 0, 0));
+  float fCenterDepth = GetResampledOrigDepth(IN.baseTC.xy );
+  float fOffsetScale = tex2Dlod(_tex2, float4(IN.baseTC.xy, 0, 0)).x;
+
+  if( fOffsetScale == 0 || dot(vCenterVelocity.xy, vCenterVelocity.xy) )
+  {
+    // Inside
+    OUT.Color = float4(vCenterVelocity.xyzw) ; 
+    return OUT;
+  }
+
+  // Check edges
+  float4 Blurred = 0;
+  float nSamplesCount = 0;
+
+#if D3D10
+  [unroll]
+#endif
+  for(int n = 0; n < nOffsets; n++ )
+  {
+    float2 vOffset = vOffsets[n].xy;
+#if !%_RT_SAMPLE1
+    vOffset = vOffsets[n].yx;
+#endif
+
+    float2 tcLookup = IN.baseTC.xy + vOffset *vScrSizeRecip*2; //*3;
+    float4 vCurrVelocityDepthID = tex2Dlod(_tex0, float4(tcLookup , 0, 0));
+
+    float fDepthCmp = saturate( fCenterDepth-  vCurrVelocityDepthID.z );
+    fDepthCmp *= dot( vCurrVelocityDepthID.xy, vCurrVelocityDepthID.xy);
+		fDepthCmp = Blurred.z == 0?fDepthCmp:0.f;
+    
+    if( fDepthCmp)
+      Blurred = vCurrVelocityDepthID ;
+  }
+
+  OUT.Color = float4(Blurred);
+  return OUT;
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////////////////////////
+
+pixout OMB_UsingVelocityDilationPS(vtxOut IN)
+{
+  pixout OUT = (pixout)0;  
+
+  float4 OriginalUV = IN.baseTC;
+  float4 cOrig = tex2Dlod(_tex0, float4(IN.baseTC.xy, 0, 0));
+  float4 cOrigVelocity = tex2Dlod(_tex1, float4(IN.baseTC.xy, 0, 0));
+
+  OUT.Color = cOrig;
+  if( dot(cOrigVelocity.xy, cOrigVelocity.xy) == 0.0)
+    return OUT;
+
+  float4 Blurred = 0;
+  float2 pixelVelocity;
+
+  const int nSamples = 8;
+  const float nRecipSamples = 1.0 / (float)nSamples;
+  const float nRecipSamplesAcc = 1.0 / (float)(nSamples-1);
+
+  // get velocity
+  pixelVelocity.xy = cOrigVelocity ;
+
+  float fLen = length(pixelVelocity.xy);
+  if( fLen )
+    pixelVelocity.xy /= fLen;
+
+  float2 vScrSizeRecip = 1.0 / PS_ScreenSize;
+  const float2 vMaxRange =   48 *vScrSizeRecip.xy; //48.0
+
+  pixelVelocity.xy *= min(fLen, vMaxRange)* PI_motionBlurParams.x;
+
+  float nSamplesCount = 0;
+#if D3D10
+  [unroll]
+#endif
+  for(float i = 0; i < nSamples; i++)
+  {   
+	  float2 lookup = pixelVelocity * ((i * nRecipSamplesAcc)-0.5) + OriginalUV;
+   
+    float4 tcMB = tex2Dlod(_tex0, float4(lookup.xy, 0, 0));
+    Blurred.xyz += tcMB.xyz;
+
+   
+#if !%_RT_SAMPLE1
+      Blurred.w += saturate(100000 * tcMB.w);
+#else
+      // reusing previous pass blending results
+      Blurred.w += tcMB.w;
+#endif
+  }
+
+  // Blend results with scene
+  if( Blurred.w )
+  {
+    Blurred.xyz *= nRecipSamples;
+#if !%_RT_SAMPLE1
+    OUT.Color = lerp(cOrig, Blurred,saturate( saturate( Blurred.w*nRecipSamples)*2+ saturate(cOrig.w*1000)));
+#else
+    OUT.Color = lerp(cOrig, Blurred,saturate( saturate( Blurred.w*nRecipSamples)*2));
+#endif
+  }
+
+   OUT.Color.w = Blurred.w * nRecipSamples;
+
+  return OUT;
+}
+
+pixout MotionBlurDisplPS(vtxOutMotionBlurDispl IN)
+{  
+  pixout OUT = (pixout)0;  
+
+  int nQuality = GetShaderQuality();
+
+  half4 cMidCurr = tex2Dproj(screenMapSampler, IN.tcProj.xyzw);  
+  half fDepth = GetLinearDepth_ProjTC(depthMapSampler, IN.tcProj)*  PS_NearFarClipDist.y;               // 1 alu
+  
+  OUT.Color = cMidCurr;
+
+  const half fSamples = 8.0;
+  const half fWeight = (1.0 / fSamples);  
+  const half fWeightStep = (2.0 / fSamples);
+  
+  //motionBlurParams.w = 1.5;
+
+  const float2 vVelocityPrev = ( (IN.vVelocityPrev.xy/IN.vVelocityPrev.w))* PI_motionBlurParams.w;	// 1 div, 1 mul
+  
+  float2 vVelocity = (IN.vVelocity.xy/IN.vVelocity.w);									// 1 div
+  float2 vVelocityDiv = vVelocity;
+  vVelocity *= PI_motionBlurParams.w;
+
+  float2 vVelocityLerp = vVelocityPrev - vVelocity;										// 1 sub							
+
+  vVelocityDiv.xy += vDirectionalBlur.xy *  PI_motionBlurParams.w;
+  vVelocityLerp.xy += vDirectionalBlur.xy *  PI_motionBlurParams.w;
+      
+  half4 accum = 0;
+
+/*
+//if D3D10 || XENON
+//  [unroll]
+//endif
+
+  for(half s = -1.0; s < 1.0 ; s += fWeightStep )										// 1 add
+  {																						
+	  float2 tcFinal =  vVelocityDiv.xy - vVelocityLerp.xy * s;							// 1 alu
+    
+    if( nQuality == QUALITY_HIGH )
+    {
+      half fDepthMask = tex2D(screenMapSampler, tcFinal).w;
+      tcFinal +=  vVelocityLerp.xy * (s - s * fDepthMask);							// 2 alu
+    }
+
+    accum += tex2D(screenMapSampler, tcFinal ); // 1 alu
+  }
+*/
+  
+  half s=-1.0;
+
+  float2 tcFinal=vVelocityDiv.xy-vVelocityLerp.xy*s;
+
+  half fDepthMask=tex2D(screenMapSampler,tcFinal).w;
+	if( nQuality == QUALITY_HIGH )
+		tcFinal+=vVelocityLerp.xy*(s-s*fDepthMask);
+
+  accum+=tex2D(screenMapSampler,tcFinal);
+  s+=fWeightStep;
+
+  tcFinal=vVelocityDiv.xy-vVelocityLerp.xy*s;
+	if( nQuality == QUALITY_HIGH )
+	{
+		fDepthMask=tex2D(screenMapSampler,tcFinal).w;
+		tcFinal+=vVelocityLerp.xy*(s-s*fDepthMask);
+	}
+
+  accum+=tex2D(screenMapSampler,tcFinal);
+  s+=fWeightStep;
+
+  tcFinal=vVelocityDiv.xy-vVelocityLerp.xy*s;
+	if( nQuality == QUALITY_HIGH )
+	{
+		fDepthMask=tex2D(screenMapSampler,tcFinal).w;
+		tcFinal+=vVelocityLerp.xy*(s-s*fDepthMask);
+	}
+
+  accum+=tex2D(screenMapSampler,tcFinal);
+  s+=fWeightStep;
+
+  tcFinal=vVelocityDiv.xy-vVelocityLerp.xy*s;
+	if( nQuality == QUALITY_HIGH )
+	{
+		fDepthMask=tex2D(screenMapSampler,tcFinal).w;
+		tcFinal+=vVelocityLerp.xy*(s-s*fDepthMask);
+	}
+
+  accum+=tex2D(screenMapSampler,tcFinal);
+  s+=fWeightStep;
+
+  tcFinal=vVelocityDiv.xy-vVelocityLerp.xy*s;
+	if( nQuality == QUALITY_HIGH )
+	{
+		fDepthMask=tex2D(screenMapSampler,tcFinal).w;
+		tcFinal+=vVelocityLerp.xy*(s-s*fDepthMask);
+	}
+
+  accum+=tex2D(screenMapSampler,tcFinal);
+  s+=fWeightStep;
+
+  tcFinal=vVelocityDiv.xy-vVelocityLerp.xy*s;
+	if( nQuality == QUALITY_HIGH )
+	{
+		fDepthMask=tex2D(screenMapSampler,tcFinal).w;
+		tcFinal+=vVelocityLerp.xy*(s-s*fDepthMask);
+	}
+
+  accum+=tex2D(screenMapSampler,tcFinal);
+  s+=fWeightStep;
+
+  tcFinal=vVelocityDiv.xy-vVelocityLerp.xy*s;
+	if( nQuality == QUALITY_HIGH )
+	{
+		fDepthMask=tex2D(screenMapSampler,tcFinal).w;
+		tcFinal+=vVelocityLerp.xy*(s-s*fDepthMask);
+	}
+
+  accum+=tex2D(screenMapSampler,tcFinal);
+  s+=fWeightStep;
+
+  tcFinal=vVelocityDiv.xy-vVelocityLerp.xy*s;
+	if( nQuality == QUALITY_HIGH )
+	{
+		fDepthMask=tex2D(screenMapSampler,tcFinal).w;
+		tcFinal+=vVelocityLerp.xy*(s-s*fDepthMask);
+	}
+
+  accum+=tex2D(screenMapSampler,tcFinal);
+
+  accum *= fWeight;                                                                                 // 1 alu
+   
+  // Remove scene bleeding from 1st player hands
+  OUT.Color = lerp(cMidCurr, accum, saturate(fDepth-PI_motionBlurParams.z) );                                        // 3 alu //fDepth*100; //
+  
+  return OUT;
+}
+
+pixout MotionBlurDisplHDRPS(vtxOutMotionBlurDispl IN)
+{  
+  pixout OUT = (pixout)0;  
+
+  int nQuality = GetShaderQuality();
+
+  half4 cMidCurr = tex2Dproj(_tex0, IN.tcProj.xyzw);  
+  float fDepth = tex2Dproj(_tex1, IN.tcProj.xyzw).x * PS_NearFarClipDist.y;               // 1 alu
+
+  OUT.Color = cMidCurr;
+  
+  // skip bellow min threshold (usually sky and nearby geometry) with slow movement
+#if %_RT_SAMPLE0
+  const float fMinDepthMaskThreshold = 0.05;
+
+  // this is not 100% correct since still needed to sample faraway pixels
+  // but for 1st pass is ok - artefacts mostly noticable with fast camera movement
+  if( cMidCurr.w < fMinDepthMaskThreshold )   // saves about 1 ms 
+    return OUT;
+#endif
+
+  // skip nearby geometry with fast movement
+  if( fDepth - PI_motionBlurParams.z <= 0.0f)
+    return OUT;
+
+  half2 vVelocityPrev = ( (IN.vVelocityPrev.xy/IN.vVelocityPrev.w))* PI_motionBlurParams.w;	// 1 div, 1 mul
+  
+  half2 vVelocity = (IN.vVelocity.xy/IN.vVelocity.w);									// 1 div
+  half2 vVelocityDiv = vVelocity;
+  vVelocity *= PI_motionBlurParams.w;
+
+  half2 vVelocityLerp = vVelocityPrev - vVelocity;										// 1 sub							
+
+  vVelocityDiv.xy += vDirectionalBlur.xy *  PI_motionBlurParams.w;
+  vVelocityLerp.xy += vDirectionalBlur.xy *  PI_motionBlurParams.w;
+      
+  half4 accum = 0;
+
+  half fSamples = 8.0;
+
+#if %_RT_SAMPLE1
+  fSamples = 4.0;
+#endif
+
+#if %_RT_SAMPLE0
+
+  // use-lower quality masking for first pass
+
+  const half fWeight = (1.0 / fSamples);;  
+  const half fWeightStep = (2.0 / fSamples);
+
+#if D3D10
+  [unroll]
+#endif
+  for(half s = -1.0; s < 1.0 ; s += fWeightStep )										// 1 add
+  {																
+    half2 tcFinal =  vVelocityDiv.xy - vVelocityLerp.xy * s;							// 1 alu
+    half4 col = tex2Dlod(_tex0, float4(tcFinal.xy, 0, 0) ); // 1 alu
+    accum += lerp(cMidCurr, col, col.w );
+  }
+
+  accum *= fWeight;                                                                                 // 1 alu
+  // Remove scene bleeding from 1st player hands
+  OUT.Color = accum; //lerp(cMidCurr, accum, saturate(fDepth-1.0) ); 
+#else
+
+  int scount = 0;
+
+  const half fWeight = (1.0 / fSamples);;  
+  const half fWeightStep = (2.0 / fSamples);
+
+#if D3D10
+  [unroll]
+#endif
+  for(half s = -1.0; s < 1.0 ; s += fWeightStep )										// 1 add
+  {																
+    half2 tcFinal =  vVelocityDiv.xy - vVelocityLerp.xy * s;							// 1 alu
+    half fDepthMask = tex2Dlod(_tex0, float4(tcFinal.xy, 0, 0)).w;
+    if( fDepthMask )
+    {
+      tcFinal +=  vVelocityLerp.xy * (s - s * fDepthMask);							// 2 alu
+      accum += tex2Dlod(_tex0, float4(tcFinal.xy, 0, 0) ); // 1 alu
+      scount++;
+    }
+
+  }
+
+  // Remove scene bleeding from 1st player hands
+  if( scount )
+  {
+    accum /= (half) scount ;
+    // Remove scene bleeding from 1st player hands
+    OUT.Color = accum; //lerp(cMidCurr, accum, saturate(fDepth-1.0) ); 
+  }
+
+#endif
+
+  return OUT;
+}
+
+////////////////// technique /////////////////////
+
+technique MotionBlurMaskGen
+{
+  pass p0
+  {
+    VertexShader = compile vs_Auto BaseVS();
+    PixelShader = compile ps_Auto MotionBlurdDepthMaskPS();
+    CullMode = None;        
+  }
+}
+
+technique MotionBlurMaskGenHDR
+{
+  pass p0
+  {
+    VertexShader = compile vs_Auto BaseVS();
+    PixelShader = compile ps_Auto MotionBlurDepthMaskHDRPS();
+    CullMode = None;        
+  }
+}
+
+technique MotionBlurDispl
+{
+  pass p0
+  {
+    VertexShader = compile vs_Auto MotionBlurDisplVS();
+    PixelShader = compile ps_Auto MotionBlurDisplPS();
+    CullMode = None;        
+  }
+}
+
+technique OMB_OffsetMap
+{
+  pass p0
+  {
+    VertexShader = compile vs_Auto BaseVS();
+    PixelShader = compile ps_Auto OMB_OffsetMapPS();
+    CullMode = None;        
+  }
+}
+
+technique OMB_CopyAlphaID
+{
+  pass p0
+  {
+    VertexShader = compile vs_Auto BaseVS();
+    PixelShader = compile ps_Auto OMB_CopyAlphaIDPS();
+    CullMode = None;        
+  }
+}
+
+
+#if %DYN_BRANCHING_POSTPROCESS
+
+technique MotionBlurDisplHDR
+{
+  pass p0
+  {
+    VertexShader = compile vs_3_0 MotionBlurDisplVS();
+    PixelShader = compile ps_3_0 MotionBlurDisplHDRPS();
+    CullMode = None;        
+  }
+}
+
+technique MotionBlurObject
+{
+  pass p0
+  {
+    VertexShader = compile vs_3_0 BaseVS();
+    PixelShader = compile ps_3_0 MotionBlurObjectPS();
+    CullMode = None;      
+  }
+}
+
+technique MotionBlurObjectUsingMask
+{
+  pass p0
+  {
+    VertexShader = compile vs_3_0 BaseVS();
+    PixelShader = compile ps_3_0 MotionBlurObjectUsingMaskPS();
+    CullMode = None;      
+  }
+}
+
+technique MotionBlurObjectMask
+{
+  pass p0
+  {
+    VertexShader = compile vs_3_0 BaseVS();
+    PixelShader = compile ps_3_0 MotionBlurObjectMaskPS();
+    CullMode = None;      
+  }
+}
+
+technique OMB_VelocityIDRescale
+{
+  pass p0
+  {
+    VertexShader = compile vs_3_0 BaseVS();
+    PixelShader = compile ps_3_0 OMB_VelocityIDRescalePS();
+    CullMode = None;      
+  }
+}
+
+technique OMB_VelocityDilation
+{
+  pass p0
+  {
+    VertexShader = compile vs_3_0 BaseVS();
+    PixelShader = compile ps_3_0 OMB_VelocityDilationPS();
+    CullMode = None;      
+  }
+}
+
+technique OMB_UsingVelocityDilation
+{
+  pass p0
+  {
+    VertexShader = compile vs_3_0 BaseVS();
+    PixelShader = compile ps_3_0 OMB_UsingVelocityDilationPS();
+    CullMode = None;      
+  }
+}
+
+#endif
+
+/////////////////////// eof ///
