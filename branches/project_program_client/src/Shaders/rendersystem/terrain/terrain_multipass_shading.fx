@@ -8,6 +8,8 @@
 #include "terrain_common.h"
 
 //---------------------------------------------------------------------------------------
+// 输入变量
+//---------------------------------------------------------------------------------------
 float4 g_vRecipUVRepeats[3]	: GLOBAL;
 
 //---------------------------------------------------------------------------------------
@@ -61,19 +63,19 @@ VS_OUTPUT VS_Main(VS_INPUT kInput)
 	VS_OUTPUT kOutput;
 
 	// 转换到投影坐标
-	kOutput.vProjPos = float4(kInput.vPos, 1.0);
+	kOutput.vProjPos = float4(kInput.vPos, 1.f);
 	
 	// 纠正半像素偏移的屏幕纹理坐标
 	kOutput.vUVSetScreenTex = kInput.vUVSet0 + g_vHalfPixelOffset;
 	
 	// 当前点对应远裁剪面上的点的世界坐标
-	float4 vUVFarClipProjPos  = float4(kInput.vPos.xy, 1.0, 1.0);
+	float4 vUVFarClipProjPos  = float4(kInput.vPos.xy, 1.f, 1.f);
 	float4 vUVFarClipWorldPos = mul(vUVFarClipProjPos, g_mDepthToWorld);
 	kOutput.vUVFarClipWorldPos = vUVFarClipWorldPos.xyz;
 	
 	// 当前点对应远裁剪面上的点的观察坐标
 	// (替换掉w分量是为了避免计算误差累积?)
-	kOutput.vUVFarClipViewPos  = mul(float4(vUVFarClipWorldPos.xyz, 1.0), g_mView).xyz;
+	kOutput.vUVFarClipViewPos  = mul(float4(vUVFarClipWorldPos.xyz, 1.f), g_mView).xyz;
 	
 	return kOutput;
 }
@@ -105,27 +107,27 @@ float4 PS_Main_Planar_XY(VS_OUTPUT kInput) : COLOR0
 	// 解出倾斜情况
 	float3 vPlanarWeight;
 	vPlanarWeight.xy 	= vBaseNormalTex.zw;
-	vPlanarWeight.z 	= saturate(1.0 - vBaseNormalTex.z - vBaseNormalTex.w);	
+	vPlanarWeight.z 	= saturate(1.f - vBaseNormalTex.z - vBaseNormalTex.w);	
 	
-	clip(vPlanarWeight.z - 0.001);
+	clip(vPlanarWeight.z - 0.001f);
 	// @}
 	
 	
 	// BlendMap
 	// @{
 	// 计算UV
-	float2 vUVSet1 = vUVSet * 0.5;
+	float2 vUVSet1 = vUVSet * 0.5f;
 	
 	// 采样BlendMap
 	float4 vBlendWeight00 = tex2D(sdBlendSampler, vUVSet1);
-	float4 vBlendWeight01 = tex2D(sdBlendSampler, vUVSet1 + float2(0.5, 0.0));
-	float4 vBlendWeight02 = tex2D(sdBlendSampler, vUVSet1 + float2(0.0, 0.5));
+	float4 vBlendWeight01 = tex2D(sdBlendSampler, vUVSet1 + float2(0.5f, 0.0f));
+	float4 vBlendWeight02 = tex2D(sdBlendSampler, vUVSet1 + float2(0.0f, 0.5f));
 	
 	//
-	float fTotalWeight = dot(float3(dot(vBlendWeight00, 1.0), dot(vBlendWeight01, 1.0), dot(vBlendWeight02, 1.0)), 1.0);
+	float fTotalWeight = dot(float3(dot(vBlendWeight00, 1.f), dot(vBlendWeight01, 1.f), dot(vBlendWeight02, 1.f)), 1.f);
 	
 	// 采样BlendMap
-	float4 vBaseDiffuseDarkColor = tex2D(sdBlendSampler, vUVSet1 + float2(0.5, 0.5));
+	float4 vBaseDiffuseDarkColor = tex2D(sdBlendSampler, vUVSet1 + float2(0.5f, 0.5f));
 
 #ifdef _SD_EDITOR
 	vBaseDiffuseDarkColor =  max(vBaseDiffuseDarkColor, float4(g_vVertexColorMask, g_fLightMapMask));
@@ -158,7 +160,7 @@ float4 PS_Main_Planar_XY(VS_OUTPUT kInput) : COLOR0
 	vDiffuseGloss = max(vDiffuseGloss, float4(g_vDiffuseMapMask, g_fGlossMapMask));
 #endif
 	
-	vDiffuseGloss *= float4(vBaseDiffuseDarkColor.rgb, 1.0);
+	vDiffuseGloss *= float4(vBaseDiffuseDarkColor.rgb, 1.f);
 	// @}
 	
 	
@@ -183,7 +185,7 @@ float4 PS_Main_Planar_XY(VS_OUTPUT kInput) : COLOR0
 	vColor *= vPlanarWeight.z;
 	// @}
 	
-	return float4(vColor, 0);
+	return float4(vColor, 0.f);
 }
 
 //---------------------------------------------------------------------------------------
@@ -209,27 +211,27 @@ float4 PS_Main_Planar_YZ(VS_OUTPUT kInput) : COLOR0
 	// 解出倾斜情况
 	float3 vPlanarWeight;
 	vPlanarWeight.xy 	= vBaseNormalTex.zw;
-	vPlanarWeight.z 	= saturate(1.0 - vBaseNormalTex.z - vBaseNormalTex.w);	
+	vPlanarWeight.z 	= saturate(1.f - vBaseNormalTex.z - vBaseNormalTex.w);	
 	
-	clip(vPlanarWeight.x - 0.001);
+	clip(vPlanarWeight.x - 0.001f);
 	// @}
 	
 	
 	// BlendMap
 	// @{
 	// 计算UV
-	float2 vUVSet1 = vUVSet * 0.5;
+	float2 vUVSet1 = vUVSet * 0.5f;
 	
 	// 采样BlendMap
 	float4 vBlendWeight00 = tex2D(sdBlendSampler, vUVSet1);
-	float4 vBlendWeight01 = tex2D(sdBlendSampler, vUVSet1 + float2(0.5, 0.0));
-	float4 vBlendWeight02 = tex2D(sdBlendSampler, vUVSet1 + float2(0.0, 0.5));
+	float4 vBlendWeight01 = tex2D(sdBlendSampler, vUVSet1 + float2(0.5f, 0.0f));
+	float4 vBlendWeight02 = tex2D(sdBlendSampler, vUVSet1 + float2(0.0f, 0.5f));
 	
 	//
-	float fTotalWeight = dot(float3(dot(vBlendWeight00, 1.0), dot(vBlendWeight01, 1.0), dot(vBlendWeight02, 1.0)), 1.0);
+	float fTotalWeight = dot(float3(dot(vBlendWeight00, 1.f), dot(vBlendWeight01, 1.f), dot(vBlendWeight02, 1.f)), 1.f);
 	
 	// 采样BlendMap
-	float4 vBaseDiffuseDarkColor = tex2D(sdBlendSampler, vUVSet1 + float2(0.5, 0.5));
+	float4 vBaseDiffuseDarkColor = tex2D(sdBlendSampler, vUVSet1 + float2(0.5f, 0.5f));
 
 #ifdef _SD_EDITOR
 	vBaseDiffuseDarkColor =  max(vBaseDiffuseDarkColor, float4(g_vVertexColorMask, g_fLightMapMask));
@@ -240,7 +242,7 @@ float4 PS_Main_Planar_YZ(VS_OUTPUT kInput) : COLOR0
 	// NormalMap
 	// @{
 	// 计算UV
-	float2 vUVSet2 = float2(vWorldPos.y * sign(vBaseNormalTex.x - 0.5), -vWorldPos.z);
+	float2 vUVSet2 = float2(vWorldPos.y * sign(vBaseNormalTex.x - 0.5f), -vWorldPos.z);
 	
 	// 采样NormalMap
 	float4 vDiffuseGloss = tex2D(sdDiffuseSampler00, vUVSet2 * g_vRecipUVRepeats[0].x) * vBlendWeight00.a;
@@ -260,7 +262,7 @@ float4 PS_Main_Planar_YZ(VS_OUTPUT kInput) : COLOR0
 	vDiffuseGloss = max(vDiffuseGloss, float4(g_vDiffuseMapMask, g_fGlossMapMask));
 #endif
 	
-	vDiffuseGloss *= float4(vBaseDiffuseDarkColor.rgb, 1.0);
+	vDiffuseGloss *= float4(vBaseDiffuseDarkColor.rgb, 1.f);
 	// @}
 	
 	
@@ -311,27 +313,27 @@ float4 PS_Main_Planar_XZ(VS_OUTPUT kInput) : COLOR0
 	// 解出倾斜情况
 	float3 vPlanarWeight;
 	vPlanarWeight.xy 	= vBaseNormalTex.zw;
-	vPlanarWeight.z 	= saturate(1.0 - vBaseNormalTex.z - vBaseNormalTex.w);	
+	vPlanarWeight.z 	= saturate(1.f - vBaseNormalTex.z - vBaseNormalTex.w);	
 	
-	clip(vPlanarWeight.y - 0.001);
+	clip(vPlanarWeight.y - 0.001f);
 	// @}
 	
 	
 	// BlendMap
 	// @{
 	// 计算UV
-	float2 vUVSet1 = vUVSet * 0.5;
+	float2 vUVSet1 = vUVSet * 0.5f;
 	
 	// 采样BlendMap
 	float4 vBlendWeight00 = tex2D(sdBlendSampler, vUVSet1);
-	float4 vBlendWeight01 = tex2D(sdBlendSampler, vUVSet1 + float2(0.5, 0.0));
-	float4 vBlendWeight02 = tex2D(sdBlendSampler, vUVSet1 + float2(0.0, 0.5));
+	float4 vBlendWeight01 = tex2D(sdBlendSampler, vUVSet1 + float2(0.5f, 0.0f));
+	float4 vBlendWeight02 = tex2D(sdBlendSampler, vUVSet1 + float2(0.0f, 0.5f));
 	
 	//
-	float fTotalWeight = dot(float3(dot(vBlendWeight00, 1.0), dot(vBlendWeight01, 1.0), dot(vBlendWeight02, 1.0)), 1.0);
+	float fTotalWeight = dot(float3(dot(vBlendWeight00, 1.f), dot(vBlendWeight01, 1.f), dot(vBlendWeight02, 1.f)), 1.f);
 	
 	// 采样BlendMap
-	float4 vBaseDiffuseDarkColor = tex2D(sdBlendSampler, vUVSet1 + float2(0.5, 0.5));
+	float4 vBaseDiffuseDarkColor = tex2D(sdBlendSampler, vUVSet1 + float2(0.5f, 0.5f));
 
 #ifdef _SD_EDITOR
 	vBaseDiffuseDarkColor =  max(vBaseDiffuseDarkColor, float4(g_vVertexColorMask, g_fLightMapMask));
@@ -342,7 +344,7 @@ float4 PS_Main_Planar_XZ(VS_OUTPUT kInput) : COLOR0
 	// NormalMap
 	// @{
 	// 计算UV
-	float2 vUVSet2 = float2(-vWorldPos.x * sign(vBaseNormalTex.y - 0.5), -vWorldPos.z);
+	float2 vUVSet2 = float2(-vWorldPos.x * sign(vBaseNormalTex.y - 0.5f), -vWorldPos.z);
 	
 	// 采样NormalMap
 	float4 vDiffuseGloss = tex2D(sdDiffuseSampler00, vUVSet2 * g_vRecipUVRepeats[0].x) * vBlendWeight00.a;
@@ -364,7 +366,7 @@ float4 PS_Main_Planar_XZ(VS_OUTPUT kInput) : COLOR0
 	vDiffuseGloss = max(vDiffuseGloss, float4(g_vDiffuseMapMask, g_fGlossMapMask));
 #endif
 	
-	vDiffuseGloss *= float4(vBaseDiffuseDarkColor.rgb, 1.0);
+	vDiffuseGloss *= float4(vBaseDiffuseDarkColor.rgb, 1.f);
 	// @}
 	
 	
@@ -391,17 +393,6 @@ float4 PS_Main_Planar_XZ(VS_OUTPUT kInput) : COLOR0
 	
 	return float4(vColor, 0);
 }
-
-
-
-
-
-
-
-
-
-
-
 
 //---------------------------------------------------------------------------------------
 // 着色技术

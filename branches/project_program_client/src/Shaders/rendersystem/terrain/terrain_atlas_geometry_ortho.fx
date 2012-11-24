@@ -16,7 +16,7 @@ SD_LINEAR_WRAP_SAMPLE(2, sdBaseNormalSampler, 		sdBaseNormalTex, 	false);		// 地
 SD_POINT_CLAMP_SAMPLE(3, sdTileSampler,				sdTileTex,			false);		// 地形TileMap
 SD_LINEAR_WRAP_SAMPLE(4, sdBlendSampler,			sdBlendTex,			false);		// 地形混合权重贴图
 SD_POINT_CLAMP_SAMPLE(5, sdAtlasTableSampler,		sdAtlasTableTex,	false);		// 地形法线贴图查询表
-SD_LINEAR_CLAMP_SAMPLE(6, sdNormalAtlasSampler,		sdNormalAtlasTex,	false);		// 地形法线贴图图集
+SD_LINEAR_WRAP_SAMPLE(6, sdNormalAtlasSampler,		sdNormalAtlasTex,	false);		// 地形法线贴图图集
 
 //---------------------------------------------------------------------------------------
 // 顶点着色器输入数据流
@@ -46,14 +46,14 @@ VS_OUTPUT VS_Main(VS_INPUT kInput)
 	VS_OUTPUT kOutput;
 
 	// 投影坐标
-	kOutput.vProjPos = float4(kInput.vPos, 1.0);
+	kOutput.vProjPos = float4(kInput.vPos, 1.f);
 	
 	// 纠正半像素偏移的屏幕纹理坐标
 	kOutput.vUVSetScreenTex = kInput.vUVSet0 + g_vHalfPixelOffset;
 	
 	// 当前点对应近远裁剪面上的点的世界坐标
-	kOutput.vUVNearClipWorldPos = mul(float4(kInput.vPos.xy, 0.0, 1.0), g_mDepthToWorld).xyz;
-	kOutput.vUVFarClipWorldPos  = mul(float4(kInput.vPos.xy, 0.0, 1.0), g_mDepthToWorld).xyz;
+	kOutput.vUVNearClipWorldPos = mul(float4(kInput.vPos.xy, 0.f, 1.f), g_mDepthToWorld).xyz;
+	kOutput.vUVFarClipWorldPos  = mul(float4(kInput.vPos.xy, 1.f, 1.f), g_mDepthToWorld).xyz;
 	
 	return kOutput;
 }
@@ -88,11 +88,11 @@ float4 PS_Main_Far_BaseNormal(VS_OUTPUT kInput) : COLOR0
 	
 	// 解出世界空间法线
 	float3 vWorldNormal;
-	vWorldNormal.xy	= vBaseNormalTex.xy * 2.0 - 1.0;
-	vWorldNormal.z 	= sqrt(dot(float3(1.0, vBaseNormalTex.xy), float3(1.0, -vBaseNormalTex.xy)));
+	vWorldNormal.xy	= vBaseNormalTex.xy * 2.f - 1.f;
+	vWorldNormal.z 	= sqrt(dot(float3(1.f, vBaseNormalTex.xy), float3(1.f, -vBaseNormalTex.xy)));
 	
 	// 变换Normal到观察空间
-	float3 vViewNormal = mul(float4(vWorldNormal.xyz, 0.0), g_mView).xyz;
+	float3 vViewNormal = mul(float4(vWorldNormal.xyz, 0.f), g_mView).xyz;
 	// @}
 	
 	
@@ -123,29 +123,29 @@ float4 PS_Main_Near_BaseNormalAndNormalMap(VS_OUTPUT kInput) : COLOR0
 	
 	// 解出世界空间法线
 	float3 vWorldNormal;
-	vWorldNormal.xy	= vBaseNormalTex.xy * 2.0 - 1.0;
-	vWorldNormal.z 	= sqrt(dot(float3(1.0, vBaseNormalTex.xy), float3(1.0, -vBaseNormalTex.xy)));
+	vWorldNormal.xy	= vBaseNormalTex.xy * 2.f - 1.f;
+	vWorldNormal.z 	= sqrt(dot(float3(1.f, vBaseNormalTex.xy), float3(1.f, -vBaseNormalTex.xy)));
 	// @}
 	
 	
 	// TileMap
 	// @{
 	// 根据UV采样TileMap,
-	float4 vIndices = tex2D(sdTileSampler, vUVSet) * 255.0;
+	float4 vIndices = tex2D(sdTileSampler, vUVSet) * 255.f;
 	// @}
 	
 	
 	// BlendMap
 	// @{
 	// 计算新的UV(不解,大概是为了在Tile边缘进行融合)
-	//float2 tileCenterOffset = frac(vUVSet * (2048.0 / 4.0)) - 0.5;
-	//vUVSet -= tileCenterOffset * (1.0 / 2048.0);
-
+	float2 tileCenterOffset = frac(vUVSet * g_fTileMapSize) - 0.5f;
+	float2 vUVSet2 = vUVSet - tileCenterOffset * g_fRecipBlendMapSize;
+	
 	// 根据UV采样BlendMap
-	float4 vBlendTex = tex2D(sdBlendSampler, vUVSet);
+	float4 vBlendTex = tex2D(sdBlendSampler, vUVSet2);
 	
 	// 归一化权重
-	float fTotalWeight = dot(vBlendTex.xyz, 1.0);
+	float fTotalWeight = dot(vBlendTex.xyz, 1.f);
 	vBlendTex.rgb /= fTotalWeight;
 	// @}
 	
@@ -153,13 +153,13 @@ float4 PS_Main_Near_BaseNormalAndNormalMap(VS_OUTPUT kInput) : COLOR0
 	// 计算切线空间
 	// @{
 	// 采样立方体纹理
-	float4 vPlanarVec = texCUBE(sdPlanarTableSampler, vWorldNormal.xzy) * 255 - 1;
+	float4 vPlanarVec = texCUBE(sdPlanarTableSampler, vWorldNormal.xzy) * 255.f - 1.f;
 	
 	// 计算新的地形UV
-	float2 vUVSet2 = float2(dot(vWorldPos.xy, vPlanarVec.xy), dot(vWorldPos.yz, vPlanarVec.zw));
+	float2 vUVSet3 = float2(dot(vWorldPos.xy, vPlanarVec.xy), dot(vWorldPos.yz, vPlanarVec.zw));
 	
 	// 计算当前点的切线空间
-	float3 vWorldBinormal 	= cross(float3(vPlanarVec.xy, 0), vWorldNormal);
+	float3 vWorldBinormal 	= cross(float3(vPlanarVec.xy, 0.f), vWorldNormal);
 	float3 vWorldTangent 	= cross(vWorldNormal, vWorldBinormal);
 	// @}
 	
@@ -172,29 +172,29 @@ float4 PS_Main_Near_BaseNormalAndNormalMap(VS_OUTPUT kInput) : COLOR0
 	vWorldViewVector /= fWorldDistance;
 	
 	// 计算当前像素应取LOD(这里不解,有待进一步关注)(靠,固定编码)
-	float fLodLevel = log2(2.0 * fWorldDistance / 768.0 / max(sqrt(dot(vWorldViewVector, vWorldNormal)), 0.25));
+	float fLodLevel = log2(2.f * fWorldDistance / 768.f / max(sqrt(dot(vWorldViewVector, vWorldNormal)), 0.25f));
 	
 	// 计算图集UV
 	float4 vUVSetTableU = saturate(vIndices.bgra * g_fNormalAtlasIdScale + g_fNormalAtlasIdOffset);
 	float vUVSetTableV	= saturate(fLodLevel * g_fNormalAtlasLevelScale + g_fNormalAtlasLevelOffset);
 	
 	// 贴图混合
-	float3 vNormal = SamplerAtlasMap(sdNormalAtlasSampler, sdAtlasTableSampler, float2(vUVSetTableU.x, vUVSetTableV), vUVSet2) * vBlendTex.b +
-					 SamplerAtlasMap(sdNormalAtlasSampler, sdAtlasTableSampler, float2(vUVSetTableU.y, vUVSetTableV), vUVSet2) * vBlendTex.g +
-					 SamplerAtlasMap(sdNormalAtlasSampler, sdAtlasTableSampler, float2(vUVSetTableU.z, vUVSetTableV), vUVSet2) * vBlendTex.r;
+	float3 vNormal = SamplerAtlasMap(sdNormalAtlasSampler, sdAtlasTableSampler, float2(vUVSetTableU.x, vUVSetTableV), vUVSet3) * vBlendTex.b +
+					 SamplerAtlasMap(sdNormalAtlasSampler, sdAtlasTableSampler, float2(vUVSetTableU.y, vUVSetTableV), vUVSet3) * vBlendTex.g +
+					 SamplerAtlasMap(sdNormalAtlasSampler, sdAtlasTableSampler, float2(vUVSetTableU.z, vUVSetTableV), vUVSet3) * vBlendTex.r;
 	
-	vNormal = vNormal * 2.0 - 1.0;
+	vNormal = vNormal * 2.f - 1.f;
 	
 	vNormal.xy *= g_fTerrainNormalScale;
 	
-	float fNormalSmooth = saturate(5.0 -5.0 * length(vWorldPos - kInput.vUVNearClipWorldPos) / g_fTerrainFarStart);
+	float fNormalSmooth = saturate(5.f - 5.f * length(vWorldPos - kInput.vUVNearClipWorldPos) / g_fTerrainFarStart);
 	vNormal.xy *= fNormalSmooth;
 	vNormal = normalize(vNormal);
 	
 	vNormal = vNormal.z * vWorldNormal.xyz + vWorldNormal.y * vWorldBinormal + vWorldBinormal.x * vWorldTangent;
 	
 	// 转换到观察坐标系
-	vNormal = mul(float4(vNormal, 0), g_mView);
+	vNormal = mul(float4(vNormal, 0.f), g_mView);
 	// @}
 	
 	return float4(vPackedDepth, PackNormal(vNormal));

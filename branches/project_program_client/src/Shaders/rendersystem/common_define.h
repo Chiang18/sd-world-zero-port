@@ -13,8 +13,11 @@
 // 调试参数
 // float4 	g_DebugParam			: GLOBAL;
 
+//*****************************************************************************
+// GB内建参数
+//*****************************************************************************
 //-----------------------------------------------------------------------------
-// 变换矩阵(GB内建)
+// 变换矩阵
 float4x4	g_mWorld				: WORLD;
 float4x4	g_mInvWorld				: INVWORLD;
 
@@ -35,12 +38,16 @@ float4x4	g_mWorldViewProj		: WORLDVIEWPROJ;
 float4x4	g_mInvWorldViewProj		: INVWORLDVIEWPROJ;
 
 //-----------------------------------------------------------------------------
-// 硬件骨骼
-#define BONEMATRIX_TYPE	float4x3
+// 硬件骨骼矩阵
+#if defined (DIRECT3D)
+	#define BONEMATRIX_TYPE	float4x3
+#else
+	#define BONEMATRIX_TYPE	float3x4
+#endif
+
 static const int MAX_BONES = 32;
 
 BONEMATRIX_TYPE	g_mSkinnedBoneMatrix3[MAX_BONES] : SKINBONEMATRIX3;
-
 
 //-----------------------------------------------------------------------------
 // 相机
@@ -58,19 +65,20 @@ float4x4	g_mDepthToView			: GLOBAL;
 
 //-----------------------------------------------------------------------------
 // 窗口
+float2		g_vPixelSize			: GLOBAL;	// 像素尺寸
 float2		g_vHalfPixelOffset		: GLOBAL;	// 半像素偏移
-float2		g_vPixToTexOffset		: GLOBAL;	// 投影坐标到屏幕纹理坐标的偏移(貌似不是很必要)
-float2		g_vWindowSize			: GLOBAL;	// 屏幕尺寸
+float2		g_vPixToTexOffset		: GLOBAL;	// 投影坐标到屏幕纹理坐标的偏移
+float2		g_vWindowSize			: GLOBAL;	// 窗口尺寸
 
 //-----------------------------------------------------------------------------
 // 时间
 float		g_fTime					: GLOBAL;
 
 //-----------------------------------------------------------------------------
-// 
+// 调试着色
 float4		g_vWireframeColor		: GLOBAL = float4(1.0f, 1.0f, 1.0f, 1.0f);
 float4		g_vSolidColor			: GLOBAL = float4(0.75f, 0.75f, 0.75f, 1.0f);
-float4 		g_vFloatShadingColor 	: GLOBAL = float4(1.0f, 0, 0, 1.0f);
+float4 		g_vFlatShadingColor 	: GLOBAL = float4(1.0f, 0, 0, 1.0f);
 
 //*****************************************************************************
 // 环境变量(光照/全局雾)
@@ -97,61 +105,55 @@ float4		g_vLightFactor				: GLOBAL;
 #define		g_fMainLightLightMapFactor	g_vLightFactor.w
 
 // 不知道是什么
-//float 		a_fMainLightOcclusion		: ATTRIBUTE = 1.0f;
+float		a_fMainLightOcclusion		: GLOBAL = 1.0f;
 
-// rimlight控制参数(角色轮廓灯光?)
+// rimlight控制参数(角色轮廓灯光)
 // [fresnel-eta][fresnel-power][brightness]
 // [color.r][color.g][color.b]
 // [dir.x][dir.y][dir.z]
 float3x3	a_mRimLightParam			: ATTRIBUTE;
-#define 	a_fRimLightEta				mRimLightParam[0][0]
-#define 	a_fRimLightPower			mRimLightParam[0][1]	
-#define 	a_fRimBrightness			mRimLightParam[0][2]
-#define 	a_vRimLightColor			float3(mRimLightParam[1][0], mRimLightParam[1][1], mRimLightParam[1][2])	
-#define 	a_vRimLightDirection		float3(mRimLightParam[2][0], mRimLightParam[2][1], mRimLightParam[2][2])
+#define 	a_fRimLightEta				a_mRimLightParam[0][0]
+#define 	a_fRimLightPower			a_mRimLightParam[0][1]	
+#define 	a_fRimBrightness			a_mRimLightParam[0][2]
+#define 	a_vRimLightColor			float3(a_mRimLightParam[1][0], a_mRimLightParam[1][1], a_mRimLightParam[1][2])	
+#define 	a_vRimLightDirection		float3(a_mRimLightParam[2][0], a_mRimLightParam[2][1], a_mRimLightParam[2][2])
+
+// 彩色转灰度的系数
+// (参考http://blog.csdn.net/xueyong1203/article/details/2214311)
+#define		g_vLuminScale				float3(0.299f, 0.587f, 0.114f)		// Digital CCIR601, ITU-CCR 601
+#define		g_vLuminScale2				float3(0.2125f, 0.7154f, 0.0721f)	// 另一组
+#define		g_vLuminScale3				float3(0.2126f, 0.7152f, 0.0722f)	// Photometric/digital ITU-R Recommendation BT. 709
+
+// 本地灯光范围[0, 4.0f]
+#define		g_fLocalLightRange			4.0f							
+#define		g_fLocalLightScale			(1.0f / g_fLocalLightRange)	
 
 //
-#define		g_vLuminScale				float3(0.299, 0.587, 0.114)
-#define		g_fLocalLightRange			4.0f;							// 本地灯光范围[0, 4.0f]
-#define		g_fLocalLightScale			(1.0f / g_fLocalLightRange)	
-#define		g_fFogCameraFar				2500.0f
+#define		PI							3.1415926535
 
 //*****************************************************************************
 // 后期特效
 //*****************************************************************************
 // Gamma
-float		g_fGammaValue				: GLOBAL;
-float		g_fFinalGammaValue			: GLOBAL;
+//float		g_fGammaValue				: GLOBAL;
+//float		g_fFinalGammaValue			: GLOBAL;
 
-// HDR
-bool		g_bUseToneMapping			: GLOBAL;
-
-// DoF
-float2		g_vDoF_akSampleOffsets[9]	: GLOBAL;
-float		g_vDoF_akSampleWeights[9]	: GLOBAL;
-float3		g_vDoFStartEnd				: GLOBAL;
-#define		g_vDoFStartZ				g_vDoFStartEnd.z
-
+//-----------------------------------------------------------------------------
 // 全局雾
 float4		g_vFogColorDensity			: GLOBAL;
 float4		g_vFogStartEnd				: GLOBAL;
 float4		g_vFogDensityParams			: GLOBAL;
 float		g_fFogColorFactor			: GLOBAL;
-#define		g_vFogColor					g_vFogColorDensity.rgb
-#define		g_fFogDensity				g_vFogColorDensity.a
+#define		g_vFogColor					g_vFogColorDensity.rgb	// 全局雾颜色
+#define		g_fFogDensity				g_vFogColorDensity.a	// 全局雾强度
 #define		g_fFogDistanceScale			g_vFogColorDensity.a
-//#define	g_fFogStartZ				g_vFogStartEnd.z		// 木有被使用
-//#define	g_fFogEndZ					g_vFogStartEnd.w		// 木有被使用
 #define		g_fFogStartDistance			g_vFogStartEnd.x		// 全局雾近平面
 #define		g_fFogEndDistance			g_vFogStartEnd.y		// 全局雾远平面
-#define		g_fFogHeightStartEnd		g_vFogStartEnd.zw		// 全局雾高度因子
+#define		g_fFogStartHeight			g_vFogStartEnd.z		// 全局雾起始高度
+#define		g_fFogEndHeight				g_vFogStartEnd.w		// 全局雾终止高度
 #define		g_fFogExtinctionDistance	5000.0f
+#define		g_fFogCameraFar				2500.0f
 #define		g_fFogSkyDensity			g_vFogDensityParams.x
-
-float4		g_vSkyFogColorDensity		: GLOBAL;
-float2		g_vSkyFogTopBottom			: GLOBAL;
-#define		g_vSkyFogColor				g_vFogColorDensity.rgb
-#define		g_fSkyFogDensity			g_vFogColorDensity.a
 
 //*****************************************************************************
 // 材质
@@ -168,10 +170,17 @@ float4 		g_vSpecularMaterial			: GLOBAL = float4(1.0f, 1.0f, 1.0f, 1.0f);
 #define 	g_fShiness					g_vSpecularMaterial.a
 
 float4 		g_vEmissiveMaterial			: GLOBAL = float4(0.0f, 0.0f, 0.0f, 0.0f);
+#define		g_vEmissiveMaterialColor	g_vEmissiveMaterial.rgb
 
+// 用于Shader执行AlphaTest的参考值
 float 		g_fAlphaTestRef				: GLOBAL;
+
+//
 float 		g_fEdgeEnhancement			: GLOBAL;
 
+// (旧Shader参数)
+float4 		g_vDiffuseMapSize			: GLOBAL;
+float2		g_vDensityThreshold			: GLOBAL;
 
 //*****************************************************************************
 // 纹理参数
@@ -181,9 +190,6 @@ float4		g_vNormalScale				: GLOBAL;
 #define 	g_fLeafcardNormalScale		(g_vNormalScale.y)
 #define 	g_fTerrainNormalScale		(g_vNormalScale.z)
 #define 	g_fRoadNormalScale			(g_vNormalScale.w)
-
-// 
-float4 	g_vDiffuseMapSize			: GLOBAL;
 
 // 编辑器状态下
 float3		g_vVertexColorMask			: GLOBAL;
@@ -200,45 +206,61 @@ float4x4	g_mGlowMapTextureTransform		: TexTransformGlow;
 //*****************************************************************************
 // 渲染通道
 //*****************************************************************************
-// 用于标记当前贴图通道是否被使用(使Shader适用于多种参数情况)
-#define DIFFUSEMAP_CHANNEL		0x01
-#define NORMALMAP_CHANNEL		0x02
-#define GLOSSMAP_CHANNEL		0x04
-#define LIGHTMAP_CHANNEL		0x08
-#define MONO_CHANNEL			0x08	// 单色通道
-#define AOMAP_CHANNEL			0x10
-#define FILTERMAP_CHANNEL		0x10
-#define GLOWMAP_CHANNEL			0x20
-#define ENVMAP_CHANNEL			0x80	// GB的BumpMap通道
-
-// 
-//#define	FINALPROCESS_DOF			0x01
-//#define	FINALPROCESS_CURVED_DOF	0x02
-//#define	FINALPROCESS_GODRAY		0x04
-//#define	FINALPROCESS_COLOR_GRADING 0x08
 //
-//#define	COPY_RED_ALERT		0x01
-//#define	COPY_DEAD_EFFECT		0x02
+//-----------------------------------------------------------------------------
+// 用于标记当前贴图通道是否被使用
+#define DIFFUSEMAP_CHANNEL		0x00000001	// 漫反射通道
+#define NORMALMAP_CHANNEL		0x00000002	// 法线贴图通道
+#define GLOSSMAP_CHANNEL		0x00000004	// 高光贴图通道
+#define LIGHTMAP_CHANNEL		0x00000008	// 光照贴图通道
+#define GLOWMAP_CHANNEL			0x00000010	// 辉光贴图通道
+
+//#define MONOMAP_CHANNEL		0x00000008
+//#define AOMAP_CHANNEL			0x00000010	
+//#define FILTERMAP_CHANNEL		0x00000010
+//#define DETAILMAP_CHANNEL		0x00000020	// 细节纹理贴图通道
+#define ENVMAP_CHANNEL			0x00000020	// GB的BumpMap通道
 
 // 用于MRT渲染
-#define DETAIL_NORMAL_CHANNEL	0x10	
-#define ALPHA_TEST_FLAG			0x20
-#define VERTEX_COLOR_CHANNEL	0x40
-#define RIMLIGHT_CHANNEL		0x08
-#define SINGLEBONE_CHANNEL		0x10	// 简单骨骼变换
+#define DETAIL_NORMAL_CHANNEL	0x00000100	// 细节贴图通道
+#define ALPHA_TEST_FLAG			0x00000200
+#define VERTEX_COLOR_CHANNEL	0x00000400
+#define	SPECLIGHT_CHANNEL		0x00000800	// 高光
+#define RIMLIGHT_CHANNEL		0x00001000	// 轮廓光,rimlight
+#define	GLOWLIGHT_CHANNEL		0x00002000	// 辉光
+#define SINGLEBONE_CHANNEL		0x00004000	// 简单骨骼变换
+
+// 用于标记前向着色通道是否被使用
+#define FR_ALPHATEST_CHANNEL	0x00000001
+#define FR_NORMALMAP_CHANNEL	0x00000002
+#define FR_GLOSSMAP_CHANNEL		0x00000004
+#define FR_GLOWMAP_CHANNEL		0x00000008
+#define FR_PURECOLOR_CHANNEL	0x00000010
+#define FR_HARDWARESKIN_CHANNEL	0x00000020
+#define FR_ENVMAP_CHANNEL		0x00000040
+
+// 用于标记后期特效
+//#define	FINALPROCESS_DOF			0x01
+//#define	FINALPROCESS_CURVED_DOF		0x02
+//#define	FINALPROCESS_GODRAY			0x04
+//#define	FINALPROCESS_COLOR_GRADING 	0x08
+//
+//#define	COPY_RED_ALERT			0x01
+//#define	COPY_DEAD_EFFECT		0x02
 
 // 用于Effect渲染
-//#define	EFFECT_DARKMAP			0x01
-//#define	EFFECT_DETAILMAP		0x02
-//#define	EFFECT_BASEUVANI		0x04
-//#define	EFFECT_ALPHAADD			0x08
-//#define	EFFECT_HAEDWARESKIN		0x10
-//#define	EFFECT_VERTEXCOLOR		0x20
+#define	EFFECT_DARKMAP			0x01	// 0000 0001
+#define	EFFECT_DETAILMAP		0x02	// 0000 0010
+#define	EFFECT_BASEUVANI		0x04	// 0000 0100
+#define	EFFECT_ALPHAADD			0x08	// 0000 1000
+#define	EFFECT_HAEDWARESKIN		0x10	// 0001 0000
+#define	EFFECT_VERTEXCOLOR		0x20	// 0010 0000
+#define	EFFECT_SOFTPD			0x40
 
 // 用于根据flag动态生成变量名函数名之类的
 #define HEADER_KEY(header, flag)	header##flag
 
-//
+// 用于连接字符串
 #define LINK_MACRO(a,b)	a##b
 
 // 用于生成字符串

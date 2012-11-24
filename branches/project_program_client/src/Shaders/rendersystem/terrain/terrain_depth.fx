@@ -8,6 +8,14 @@
 #include "terrain_common.h"
 
 //---------------------------------------------------------------------------------------
+// 全局变量
+//---------------------------------------------------------------------------------------
+
+//---------------------------------------------------------------------------------------
+// 输入纹理采样器
+//---------------------------------------------------------------------------------------
+
+//---------------------------------------------------------------------------------------
 // 顶点着色器输出数据流
 //---------------------------------------------------------------------------------------
 struct VS_OUTPUT
@@ -25,11 +33,11 @@ VS_OUTPUT VS_Main(float2 vPos : POSITION0)
 
 	// 提取压缩的XY
 	//	ix * 129 + iy
-	float2 iXY = floor(float2(vPos.x / 129.0, fmod(vPos.x, 129.0) + 0.01));
+	float2 iXY = floor(float2(vPos.x / 129.f, fmod(vPos.x, 129.f) + 0.01f));
 	
 	// 变换到世界坐标
 	// 	floor(fH * 20.0f + 0.5f)
-	float4 vWorldPosition = float4(iXY * a_fQuadScale + a_vQuadOrigin, vPos.y * 0.05, 1.0);
+	float4 vWorldPosition = float4(iXY * a_fQuadScale + a_vQuadOrigin, vPos.y * 0.05f, 1.f);
 	
 	// 变换到观察坐标
 	kOutput.vProjPos = mul(vWorldPosition, g_mViewProj);
@@ -45,14 +53,7 @@ VS_OUTPUT VS_Main(float2 vPos : POSITION0)
 //---------------------------------------------------------------------------------------
 float4	PS_Main(VS_OUTPUT kInput) : COLOR0
 {
-	// 归一化到[0,1]
-	return float4(PackDepth(kInput.fDepth / g_fCameraFarClip), 0.0f, 0.0f);
-	
-	//*************************
-	// 测试线性深度
-	//float fDepth = kInput.fDepth / g_fCameraFarClip;
-	//return float4(fDepth, fDepth, fDepth, 0);
-	//*************************	
+	return float4(PackDepth(kInput.fDepth / g_fCameraFarClip), 0.f, 0.f);
 }
 
 //---------------------------------------------------------------------------------------
