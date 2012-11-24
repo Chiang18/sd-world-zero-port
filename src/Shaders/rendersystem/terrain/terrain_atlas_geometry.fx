@@ -46,20 +46,20 @@ VS_OUTPUT VS_Main(VS_INPUT kInput)
 	VS_OUTPUT kOutput;
 
 	// 投影坐标
-	kOutput.vProjPos = float4(kInput.vPos, 1.0);
+	kOutput.vProjPos = float4(kInput.vPos, 1.f);
 	
 	// 纠正半像素偏移的屏幕纹理坐标
 	kOutput.vUVSetScreenTex = kInput.vUVSet0 + g_vHalfPixelOffset;
 	
 	// 当前点对应远裁剪面上的点的世界坐标
-	float4 vUVFarClipProjPos  = float4(kInput.vPos.xy, 1.0, 1.0);
+	float4 vUVFarClipProjPos  = float4(kInput.vPos.xy, 1.f, 1.f);
 	float4 vUVFarClipWorldPos = mul(vUVFarClipProjPos, g_mDepthToWorld);
 	kOutput.vUVFarClipWorldPos = vUVFarClipWorldPos.xyz;
 	
 	// 当前点对应远裁剪面上的点的观察坐标
 	//	1.需要g_mView的平移变换,所以要恢复float4
 	// 	2.替换掉w分量是避免计算误差累积
-	kOutput.vUVFarClipViewPos  = mul(float4(vUVFarClipWorldPos.xyz, 1.0), g_mView).xyz;
+	kOutput.vUVFarClipViewPos  = mul(float4(vUVFarClipWorldPos.xyz, 1.f), g_mView).xyz;
 	
 	return kOutput;
 }
@@ -84,12 +84,12 @@ float4 PS_Main_BaseNormal(VS_OUTPUT kInput) : COLOR0
 	// BaseNormalMap
 	// @{
 	// 计算当前点的地形相对UV(注意,这里没有偏移半像素,因为BaseNormalMap是Linear采样的)
-	float2 vUVSet = vWorldPos.xy * float2(g_fRecipTerrainSize, g_fRecipTerrainSize);
+	float2 vUVSet = vWorldPos.xy * g_vRecipTerrainSize;
 	
 	// 根据UV采样NormalMap
 	float4 vBaseNormalTex 	= tex2D(sdBaseNormalSampler, vUVSet);
 	
-	// 解出世界空间法线
+	// 解出世界空间法线并归一化
 	float3 vWorldNormal;
 	vWorldNormal.xy	= vBaseNormalTex.xy * 2.0 - 1.0;
 	vWorldNormal.z 	= sqrt(dot(float3(1.0, vWorldNormal.xy), float3(1.0, -vWorldNormal.xy)));
@@ -98,13 +98,17 @@ float4 PS_Main_BaseNormal(VS_OUTPUT kInput) : COLOR0
 	// 	1.需要乘以逆转置矩阵,
 	//	2.ViewMatrix旋转部分是正交矩阵,平移部分不是,我们只需要旋转变换
 	//	3.g_mView与g_mInvViewT旋转部分应该是一样的
-	float3 vViewNormal = mul(vWorldNormal, g_mView);
+	float3 vViewNormal = mul(float4(vWorldNormal, 0.f), g_mView).xyz;
 	// @}
 	
 	// 输出打包的法线和深度
 	return float4(vPackedDepth, PackNormal(vViewNormal));
+	
+	//*************************
+	// 测试世界坐标连续性
+	//return float4(vPackedDepth, vBaseNormalTex.xy);
+	//*************************
 }
-
 //---------------------------------------------------------------------------------------
 // 渲染远处,只渲染基础法线贴图
 float4 PS_Main_Far_BaseNormal(VS_OUTPUT kInput) : COLOR0
@@ -124,7 +128,7 @@ float4 PS_Main_Far_BaseNormal(VS_OUTPUT kInput) : COLOR0
 	// BaseNormalMap
 	// @{
 	// 计算当前点的地形相对UV(注意,这里没有偏移半像素,因为BaseNormalMap是Linear采样的)
-	float2 vUVSet = vWorldPos.xy * float2(g_fRecipTerrainSize, g_fRecipTerrainSize);
+	float2 vUVSet = vWorldPos.xy * g_vRecipTerrainSize;
 	
 	// 根据UV采样NormalMap
 	float4 vBaseNormalTex 	= tex2D(sdBaseNormalSampler, vUVSet);
@@ -159,7 +163,7 @@ float4 PS_Main_Near_BaseNormalAndNormalMap(VS_OUTPUT kInput) : COLOR0
 	float3 vWorldPos = lerp(g_vViewPos, kInput.vUVFarClipWorldPos, fDepth);
 	
 	// 计算当前点的地形相对UV(注意,这里没有偏移半像素)
-	float2 vUVSet = vWorldPos.xy * float2(g_fRecipTerrainSize, g_fRecipTerrainSize);
+	float2 vUVSet = vWorldPos.xy * g_vRecipTerrainSize;
 	
 	
 	// NormalMap
@@ -169,15 +173,15 @@ float4 PS_Main_Near_BaseNormalAndNormalMap(VS_OUTPUT kInput) : COLOR0
 	
 	// 解出世界空间法线
 	float3 vWorldNormal;
-	vWorldNormal.xy	= vBaseNormalTex.xy * 2.0 - 1.0;
-	vWorldNormal.z 	= sqrt(dot(float3(1.0, vWorldNormal.xy), float3(1.0, -vWorldNormal.xy)));	
+	vWorldNormal.xy	= vBaseNormalTex.xy * 2.f - 1.f;
+	vWorldNormal.z 	= sqrt(dot(float3(1.f, vWorldNormal.xy), float3(1.f, -vWorldNormal.xy)));	
 	// @}
 	
 	
 	// TileMap
 	// @{
 	// 根据UV采样TileMap(这里从[0,1]恢复到[0,255]的图层索引区间)
-	float3 vIndices = tex2D(sdTileSampler, vUVSet).xyz * 255.0;
+	float3 vIndices = tex2D(sdTileSampler, vUVSet).xyz * 255.f;
 	// @}
 	
 
@@ -199,14 +203,14 @@ float4 PS_Main_Near_BaseNormalAndNormalMap(VS_OUTPUT kInput) : COLOR0
 	// 修订版(修正对BlendMap像素中心偏移)
 	//	float2 vUVSet2 = vUVSet + float2(g_fRecipBlendMapSize, g_fRecipBlendMapSize);
 	//
-	float2 tileCenterOffset = frac(vUVSet * g_fTileMapSize) - 0.5;
+	float2 tileCenterOffset = frac(vUVSet * g_fTileMapSize) - 0.5f;
 	float2 vUVSet2 = vUVSet - tileCenterOffset * g_fRecipBlendMapSize;
 
 	// 根据UV采样BlendMap
 	float3 vBlendTex = tex2D(sdBlendSampler, vUVSet2);
 	
 	// 归一化权重
-	float fTotalWeight = dot(vBlendTex, 1.0);
+	float fTotalWeight = dot(vBlendTex, 1.f);
 	vBlendTex.rgb /= fTotalWeight;
 	// @}
 	
@@ -216,13 +220,13 @@ float4 PS_Main_Near_BaseNormalAndNormalMap(VS_OUTPUT kInput) : COLOR0
 	// 采样立方体纹理
 	//	1.GB坐标系是X向右Y向前Z向上
 	//	2.D3D坐标系是X向右Y向上Z向前
-	float4 vPlanarVec = texCUBE(sdPlanarTableSampler, vWorldNormal.xzy) * 255 - 1;
+	float4 vPlanarVec = texCUBE(sdPlanarTableSampler, vWorldNormal.xzy) * 255.f - 1.f;
 	
 	// 计算新的地形UV
 	float2 vUVSet3 = float2(dot(vWorldPos.xy, vPlanarVec.xy), dot(vWorldPos.yz, vPlanarVec.zw));
 	
 	// 计算当前点的切线空间
-	float3 vWorldBinormal 	= cross(float3(vPlanarVec.xy, 0), vWorldNormal);
+	float3 vWorldBinormal 	= cross(float3(vPlanarVec.xy, 0.f), vWorldNormal);
 	float3 vWorldTangent 	= cross(vWorldNormal, vWorldBinormal);
 	// @}
 	
@@ -236,7 +240,7 @@ float4 PS_Main_Near_BaseNormalAndNormalMap(VS_OUTPUT kInput) : COLOR0
 	//	g_vFarPixelSize				像素在垂直远平面上的对应尺寸(近似尺寸,真实远平面是一个椭球面的一部分)
 	//	g_vFarPixelSize * fDepth	像素在当前距离下的垂直平面上的对应尺寸
 	//	dot(vWorldViewVector, vWorldNormal)	当前像素相对投影方位的角度,即与投影方向的夹角余弦值
-	float2 vLodLevel = log2(g_vFarPixelSize * fDepth / max(dot(vWorldViewVector, vWorldNormal), 0.25));
+	float2 vLodLevel = log2(g_vFarPixelSize * fDepth / max(dot(vWorldViewVector, vWorldNormal), 0.25f));
 	
 	// 计算图集UV
 	//	.xyz 分别是3个Layer的id计算得到的纹理U坐标 	LayerId * (1.0f / uiWidth) + (0.5f / uiWidth)
@@ -251,18 +255,18 @@ float4 PS_Main_Near_BaseNormalAndNormalMap(VS_OUTPUT kInput) : COLOR0
 		SamplerAtlasMap(sdNormalAtlasSampler, sdAtlasTableSampler, vUVSetTable.zw, vUVSet3) * vBlendTex.r;
 	
 	// 从[0,1]变换到[-1,1]
-	vNormal = vNormal * 2.0 - 1.0;
+	vNormal = vNormal * 2.f - 1.f;
 	
 	// 缩放法线贴图结果
 	vNormal.xy *= g_fTerrainNormalScale;
 	
 	// 与远处法线区域做过渡
-	float fNormalSmooth = saturate(5.0 - 5.0 * length(vWorldPos - g_vViewPos) / g_fTerrainFarStart);
+	float fNormalSmooth = saturate(5.f - 5.f * length(vWorldPos - g_vViewPos) / g_fTerrainFarStart);
 	vNormal.xy *= fNormalSmooth;
 	
 	// 归一化
 	vNormal = normalize(vNormal);
-	//vNormal.z = sqrt(dot(float3(1.0, vNormal.xy), float3(1.0, -vNormal.xy)));
+	//vNormal.z = sqrt(dot(float3(1.f, vNormal.xy), float3(1.f, -vNormal.xy)));
 	
 	// 与BaseNormal合成
 	vNormal = vNormal.z * vWorldNormal + vNormal.y * vWorldBinormal + vNormal.x * vWorldTangent;
@@ -275,6 +279,11 @@ float4 PS_Main_Near_BaseNormalAndNormalMap(VS_OUTPUT kInput) : COLOR0
 	// @}
 	
 	return float4(vPackedDepth, PackNormal(vViewNormal));
+	
+	//*************************
+	// 测试
+	//return float4(vPackedDepth, 0, 0);
+	//*************************
 }
 
 //---------------------------------------------------------------------------------------

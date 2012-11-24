@@ -109,24 +109,24 @@ float4 PS_Main_Planar_XY(VS_OUTPUT kInput) : COLOR0
 	// 解出倾斜情况
 	float3 vPlanarWeight;
 	vPlanarWeight.xy 	= vBaseNormalTex.zw;
-	vPlanarWeight.z 	= saturate(1.0 - vBaseNormalTex.z - vBaseNormalTex.w);	
+	vPlanarWeight.z 	= saturate(1.f - vBaseNormalTex.z - vBaseNormalTex.w);	
 	
-	clip(vPlanarWeight.z - 0.001);
+	clip(vPlanarWeight.z - 0.001f);
 	// @}
 	
 	
 	// BlendMap
 	// @{
 	// 计算UV
-	float2 vUVSet1 = vUVSet * 0.5;
+	float2 vUVSet1 = vUVSet * 0.5f;
 	
 	// 采样BlendMap
 	float4 vBlendWeight00 = tex2D(sdBlendSampler, vUVSet1);
-	float4 vBlendWeight01 = tex2D(sdBlendSampler, vUVSet1 + float2(0.5, 0.0));
-	float4 vBlendWeight02 = tex2D(sdBlendSampler, vUVSet1 + float2(0.0, 0.5));
+	float4 vBlendWeight01 = tex2D(sdBlendSampler, vUVSet1 + float2(0.5f, 0.0f));
+	float4 vBlendWeight02 = tex2D(sdBlendSampler, vUVSet1 + float2(0.0f, 0.5f));
 	
 	//
-	float fTotalWeight = dot(float3(dot(vBlendWeight00, 1.0), dot(vBlendWeight01, 1.0), dot(vBlendWeight02, 1.0)), 1.0);
+	float fTotalWeight = dot(float3(dot(vBlendWeight00, 1.f), dot(vBlendWeight01, 1.f), dot(vBlendWeight02, 1.f)), 1.f);
 	
 	// 采样BlendMap
 	float4 vBaseDiffuseDarkColor = tex2D(sdBlendSampler, vUVSet1 + float2(0.5, 0.5));
@@ -195,7 +195,7 @@ float4 PS_Main_Planar_XY(VS_OUTPUT kInput) : COLOR0
 	float3 vSpeculatLight = vDiffuseLight * pow(fViewReflectVector, g_fTerrainShiness);
 	
 	vDiffuseLight 	+= vLocalLight.rgb * g_fLocalLightRange;
-	vSpeculatLight	+= vLocalLight.rgb / (dot(vLocalLight.rgb, g_vLuminScale) + 0.001) * vLocalLight.a;
+	vSpeculatLight	+= vLocalLight.rgb / (dot(vLocalLight.rgb, g_vLuminScale) + 0.001f) * vLocalLight.a;
 	
 	//vDiffuseLight += lerp(g_vTerraimAmbientColor, g_vSkyAmbientColor, (vViewNormal.z + 1.0) * 0.5);
 	vDiffuseLight += g_vSkyAmbientColor;

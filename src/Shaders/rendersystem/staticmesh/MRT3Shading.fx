@@ -1,5 +1,5 @@
 //*************************************************************************************************
-// 内容:	StaticMesh的MRTShadingPass着色器,2种不同的具体着色器
+// 内容:	StaticMesh的MRT3ShadingPass着色器
 //---------------------------------------------------------
 // 作者:		
 // 创建:		2012-07-19
@@ -9,6 +9,30 @@
 #include "MRT3ShadingImplement.h"
 #undef 	CHANNELS_FLAG
 
-#define CHANNELS_FLAG	0x00000008
+#define CHANNELS_FLAG	0x00000800
+#include "MRT3ShadingImplement.h"
+#undef 	CHANNELS_FLAG
+
+#define CHANNELS_FLAG	0x00001000
+#include "MRT3ShadingImplement.h"
+#undef 	CHANNELS_FLAG
+
+#define CHANNELS_FLAG	0x00001800
+#include "MRT3ShadingImplement.h"
+#undef 	CHANNELS_FLAG
+
+#define CHANNELS_FLAG	0x00002000
+#include "MRT3ShadingImplement.h"
+#undef 	CHANNELS_FLAG
+
+#define CHANNELS_FLAG	0x00002800
+#include "MRT3ShadingImplement.h"
+#undef 	CHANNELS_FLAG
+
+#define CHANNELS_FLAG	0x00003000
+#include "MRT3ShadingImplement.h"
+#undef 	CHANNELS_FLAG
+
+#define CHANNELS_FLAG	0x00003800
 #include "MRT3ShadingImplement.h"
 #undef 	CHANNELS_FLAG

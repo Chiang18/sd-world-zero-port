@@ -1,5 +1,6 @@
 //*************************************************************************************************
-// 内容:	StaticMesh的MRTZGeometryPass着色器具体实现
+// 内容:	StaticMesh的MRT3GeometryPass着色器具体实现(V3版)
+//			使用压缩MRT渲染,使用三个RGBA8 RenderTarget
 //---------------------------------------------------------
 // 作者:		
 // 创建:		2012-07-14
@@ -12,16 +13,11 @@
 //---------------------------------------------------------------------------------------
 // 取消一些内部会用到的预定义宏
 //---------------------------------------------------------------------------------------
-// 用于定义着色器输入输出数据结构名称
 #undef VS_INPUT
 #undef VS_OUTPUT
 #undef PS_OUTPUT
-
-// 用于定义着色器名称
 #undef VS_SHADER
 #undef PS_SHADER
-
-// 用于定义
 #undef TECHNIQUE
 
 // 用于定义通道启用情况
@@ -29,6 +25,7 @@
 #undef NORMALMAP
 #undef GLOSSMAP
 #undef LIGHTMAP
+#undef GLOWMAP
 #undef DETAILNORMALMAP
 #undef ALPHATEST
 
@@ -64,6 +61,12 @@
 	#define LIGHTMAP 0
 #endif
 
+#if TEST_CHANNEL(CHANNELS_FLAG, GLOWMAP_CHANNEL)
+	#define GLOWMAP 1
+#else
+	#define GLOWMAP 0
+#endif
+
 #if TEST_CHANNEL(CHANNELS_FLAG, DETAIL_NORMAL_CHANNEL)
 	#define DETAILNORMALMAP 1
 #else
@@ -87,7 +90,7 @@
 #endif
 
 // DiffuseMap/NormalMap/GlossMap共用纹理坐标
-#if (DIFFUSEMAP || NORMALMAP || GLOSSMAP || DETAILNORMALMAP)
+#if (DIFFUSEMAP || NORMALMAP || GLOSSMAP || DETAILNORMALMAP || GLOWMAP)
 	#define VS_OUTPUT_BASE_UV	1
 #else
 	#define VS_OUTPUT_BASE_UV 0
@@ -172,7 +175,7 @@ VS_OUTPUT VS_SHADER(VS_INPUT kInput)
 
 	// 展开纹理坐标
 #if VS_OUTPUT_UNIQUE_UV
-	kOutput.vUVSet1 = kInput.vUVSet1 * vLightMapTransform.zw + vLightMapTransform.xy;
+	kOutput.vUVSet1 = kInput.vUVSet1 * a_vLightMapTransform.zw + a_vLightMapTransform.xy;
 #endif
 
 	// 顶点法线
@@ -194,7 +197,9 @@ VS_OUTPUT VS_SHADER(VS_INPUT kInput)
 void PS_SHADER(VS_OUTPUT kInput, 				\
 			   out float4 geoData	: COLOR0,	\
 			   out float4 matData0	: COLOR1,	\
-			   out float4 matData1	: COLOR2)
+			   out float4 matData1	: COLOR2,	\
+			   out float4 matData2	: COLOR3
+			   )
 {
 	// 计算Diffuse_Tex * Diffuse_Mat
 	// 漫反射贴图的Alpha通道做AlphaTest
@@ -214,7 +219,19 @@ void PS_SHADER(VS_OUTPUT kInput, 				\
 #endif	
 	// @}
 	
-	//*****************************************************
+	
+	// 计算Glow
+	// @{
+#if GLOWMAP
+	float4 vGlowTex = tex2D(sdGlowSampler, kInput.vUVSet0);
+	matData2.rgb 	= g_vEmissiveMaterial.rgb;
+	matData2.a		= vGlowTex.r;
+#else
+	matData2 = 0.f;
+#endif
+	// @}
+	
+
 	// 计算Normal与Depth
 	// @{
 	// 观察空间深度归一化到[0,1]
@@ -225,12 +242,12 @@ void PS_SHADER(VS_OUTPUT kInput, 				\
 	
 	// 合成DetailNormal到Normal
 	#if DETAILNORMALMAP
-		float3 vDetailNormal = tex2D(sdDetailNormalSampler, kInput.vUVSet0 * vDetailNormalUVTiling).rgb;
+		float3 vDetailNormal = tex2D(sdDetailNormalSampler, kInput.vUVSet0 * a_vDetailNormalUVTiling).xyz;
 		vDetailNormal 		= (vDetailNormal - 0.5f) * 2.0f;
-		vDetailNormal		*= vDetailNormalScale;
+		vDetailNormal		*= a_vDetailNormalScale;
 		
 		// 合成
-		vDetailNormal.xy 	*= g_fStaticMeshNormalScale * saturate(1.0f - kInput.fDepth / vDetailNormalScale);
+		vDetailNormal.xy 	*= g_fStaticMeshNormalScale * saturate(1.0f - kInput.fDepth / a_fDetailNormalFadeDistance);
 		vNormal 			+= vDetailNormal;
 	#endif
 	
@@ -238,19 +255,19 @@ void PS_SHADER(VS_OUTPUT kInput, 				\
 	float3 vViewNormal = normalize(mul(float4(vNormal, 1.0f), g_mWorldView)).rgb;
 #else
 	// 采样NormalMap
-	float3 vNormalTex 	= tex2D(sdNormalSampler, kInput.vUVSet0);
+	float3 vNormalTex 	= tex2D(sdNormalSampler, kInput.vUVSet0).xyz;
 	vNormalTex 			= (vNormalTex - 0.5f) * 2.0f;
 	vNormalTex.xy		*= g_fStaticMeshNormalScale;
 
 	// 合成DetailNormal到Normal
 	#if DETAILNORMALMAP
-		float3 vDetailNormal = tex2D(sdDetailNormalSampler, kInput.vUVSet0 * vDetailNormalUVTiling).rgb;
+		float3 vDetailNormal = tex2D(sdDetailNormalSampler, kInput.vUVSet0 * a_vDetailNormalUVTiling).xyz;
 		vDetailNormal 		= (vDetailNormal - 0.5f) * 2.0f;
-		vDetailNormal		*= vDetailNormalScale;
+		vDetailNormal		*= a_vDetailNormalScale;
 		
 		// 合成
 		vNormalTex			+= vDetailNormal;
-		vNormalTex.xy 		*= g_fStaticMeshNormalScale * saturate(1.0f - kInput.fDepth / vDetailNormalScale);
+		vNormalTex.xy 		*= g_fStaticMeshNormalScale * saturate(1.0f - kInput.fDepth / a_fDetailNormalFadeDistance);
 	#endif
 
 	// 归一化,并转换到观察坐标系
@@ -266,17 +283,17 @@ void PS_SHADER(VS_OUTPUT kInput, 				\
 	// @}
 	
 	
-	//*****************************************************
 	// 计算光照贴图
 	//	1.LightMap信息放置在Alpha通道的高7bit
 	//  2.RimLight信息放置在Alpha通道的最低1bit
 	// @{
 #if LIGHTMAP
-	float fLightTex = dot(tex2D(sdDarkSampler, kInput.vUVSet1), vLightMapChannel);
+	float fLightTex = dot(tex2D(sdDarkSampler, kInput.vUVSet1), a_vLightMapChannel);
 #else
-	float fLightTex = 1.0f;	//a_fMainLightOcclusion;
+	float fLightTex = a_fMainLightOcclusion;	// 武器也受到LightDepth遮挡
 #endif
 
+	// 勾边特效,edge enhancement
 	int iDarkness = fLightTex * 127.0f + 0.5f;	// 变换到7bit内,即[0,127],四舍五入
 	int iDarknessShiftLeft = iDarkness * 2;		// 向左平移1bit
 	int iShouldRimLight = 0;
@@ -285,7 +302,6 @@ void PS_SHADER(VS_OUTPUT kInput, 				\
 	// @}
 	
 	
-	//*****************************************************
 	// 计算高光(不知道为什么不预乘以高光材质颜色,后面也没有用到高光材质颜色)
 	// @{
 #if GLOSSMAP

@@ -47,19 +47,19 @@ VS_OUTPUT VS_Main(VS_INPUT kInput)
 	VS_OUTPUT kOutput;
 
 	// 转换到投影坐标
-	kOutput.vProjPos = float4(kInput.vPos, 1.0);
+	kOutput.vProjPos = float4(kInput.vPos, 1.f);
 	
 	// 纠正半像素偏移的屏幕纹理坐标
 	kOutput.vUVSetScreenTex = kInput.vUVSet0 + g_vHalfPixelOffset;
 	
 	// 当前点对应远裁剪面上的点的世界坐标
-	float4 vUVFarClipProjPos  = float4(kInput.vPos.xy, 1.0, 1.0);
+	float4 vUVFarClipProjPos  = float4(kInput.vPos.xy, 1.f, 1.f);
 	float4 vUVFarClipWorldPos = mul(vUVFarClipProjPos, g_mDepthToWorld);
 	kOutput.vUVFarClipWorldPos = vUVFarClipWorldPos.xyz;
 	
 	// 当前点对应远裁剪面上的点的观察坐标
 	// (替换掉w分量是为了避免计算误差累积?)
-	kOutput.vUVFarClipViewPos  = mul(float4(vUVFarClipWorldPos.xyz, 1.0), g_mView).xyz;
+	kOutput.vUVFarClipViewPos  = mul(float4(vUVFarClipWorldPos.xyz, 1.f), g_mView).xyz;
 	
 	return kOutput;
 }
@@ -68,6 +68,123 @@ VS_OUTPUT VS_Main(VS_INPUT kInput)
 // 像素着色器
 //---------------------------------------------------------------------------------------
 // 
+//---------------------------------------------------------------------------------------
+float4 PS_Main_Simple(VS_OUTPUT kInput) : COLOR0
+{
+	// 获取地形深度
+	float4 vGeoTex = tex2D(sdGeomSampler, kInput.vUVSetScreenTex);
+	float fDepth = UnpackDepth(vGeoTex.xy);
+	
+	// 反算世界坐标(根据线性深度,对相机位置和远平面对应点位置进行插值)
+	float3 vWorldPos = lerp(g_vViewPos, kInput.vUVFarClipWorldPos, fDepth);
+	
+	// 计算当前点的地形相对UV(注意,这里没有偏移半像素)
+	float2 vUVSet = vWorldPos.xy * g_vRecipTerrainSize;
+	
+	
+	// NormalMap
+	// @{
+	// 根据UV采样NormalMap
+	float4 vBaseNormalTex 	= tex2D(sdBaseNormalSampler, vUVSet);
+	
+	// 解出倾斜情况,超过一定角度的不进行着色
+	float3 vPlanarWeight;
+	vPlanarWeight.xy 	= vBaseNormalTex.zw;
+	vPlanarWeight.z 	= saturate(1.0 - vPlanarWeight.x - vPlanarWeight.y);
+
+	clip(1.5 - dot(sign(vPlanarWeight), 1));
+	
+	// 解出世界空间法线
+	float3 vWorldNormal;
+	vWorldNormal.xy	= vBaseNormalTex.xy * 2.0 - 1.0;
+	vWorldNormal.z 	= sqrt(dot(float3(1.0, vWorldNormal.xy), float3(1.0, -vWorldNormal.xy)));
+	// @}
+	
+	
+	// TileMap
+	// @{
+	// 根据UV采样TileMap(这里从[0,1]恢复到[0,255]的图层索引区间)
+	float3 vIndices = tex2D(sdTileSampler, vUVSet).xyz * 255.f;
+	// @} 
+	
+	
+	// BlendMap
+	// @{
+	// 计算新的UV(不解,大概是为了在Tile边缘进行融合)
+	float2 tileCenterOffset = frac(vUVSet * g_fTileMapSize) - 0.5f;
+	float2 vUVSet2 = vUVSet - tileCenterOffset * g_fRecipBlendMapSize;
+	
+	// 根据UV采样BlendMap
+	float4 vBlendTex = tex2D(sdBlendSampler, vUVSet2);
+	
+	// 归一化权重
+	float fTotalWeight = dot(vBlendTex.xyz, 1.f);
+	vBlendTex.rgb /= fTotalWeight;
+	
+#ifdef _SD_EDITOR
+	vBlendTex.a = max(vBlendTex.a, g_fLightMapMask);
+#endif
+	// @}
+	
+	
+	// 贴图混合
+	// @{
+	// 采样立方体纹理,计算新的地形UV(GB坐标系与D3D坐标系YZ轴互换)
+	float2 vUVSet3 = float2(vWorldPos.x, -vWorldPos.y);
+	//float4 vPlanarVec = texCUBE(sdPlanarTableSampler, vWorldNormal.xzy) * 255 - 1; 
+	//float2 vUVSet3 = float2(dot(vWorldPos.xy, vPlanarVec.xy), dot(vWorldPos.yz, vPlanarVec.zw));
+
+	// 计算当前像素到观察点的矢量
+	float3 vWorldViewVector = normalize(g_vViewPos - kInput.vUVFarClipWorldPos);
+	
+	// 计算当前像素应取LOD(先计算的是当前Pixel对应的世界空间Pixel的尺寸,然后对2取对数得到LOD)
+	//	g_vFarPixelSize				像素在垂直远平面上的对应尺寸(近似尺寸,真实远平面是一个椭球面的一部分)
+	//	g_vFarPixelSize * fDepth	像素在当前距离下的垂直平面上的对应尺寸
+	//	dot(vWorldViewVector, vWorldNormal)	当前像素相对投影方位的角度,即与投影方向的夹角余弦值
+	float2 vLodLevel = log2(g_vFarPixelSize * fDepth / max(dot(vWorldViewVector, vWorldNormal), 0.25));
+	
+	// 计算图集UV
+	//	.xyz 分别是3个Layer的id计算得到的纹理U坐标 	LayerId * (1.0f / uiWidth) + (0.5f / uiWidth)
+	//	.w	 是像素的lod信息计算得到的纹理V坐标	 	PixelLod * (1.0f / uiHeight) + (-iMinLodFactor / (float)uiHeight)
+	float4 vUVSetTable;
+	vUVSetTable.xyz = saturate(vIndices.bgr * g_fDiffuseAtlasIdScale + g_fDiffuseAtlasIdOffset);
+	vUVSetTable.w	= saturate(max(vLodLevel.x, vLodLevel.y) * g_fDiffuseAtlasLevelScale + g_fDiffuseAtlasLevelOffset);
+	
+	// 贴图混合
+	float4 vDiffuseGloss = SamplerAtlasMap(sdDiffuseAtlasSampler, sdAtlasTableSampler, vUVSetTable.xw, vUVSet3) * vBlendTex.b +
+		SamplerAtlasMap(sdDiffuseAtlasSampler, sdAtlasTableSampler, vUVSetTable.yw, vUVSet3) * vBlendTex.g +
+		SamplerAtlasMap(sdDiffuseAtlasSampler, sdAtlasTableSampler, vUVSetTable.zw, vUVSet3) * vBlendTex.r;
+	
+#ifdef _SD_EDITOR
+	vDiffuseGloss = max(vDiffuseGloss, float4(g_vDiffuseMapMask, g_fGlossMapMask));
+#endif
+	// @}
+
+
+	// 计算最终颜色
+	// @{
+	// 采样LightBuffer
+	float4 vLightTex = tex2D(sdLightSampler, kInput.vUVSetScreenTex);
+	
+	// 计算观察方向与法线
+	float3 vViewVector = -normalize(kInput.vUVFarClipViewPos);
+	float3 vViewNormal 	= UnpackNormal(vGeoTex.zw);
+	
+	// 合成光照
+	float3 vDiffuseLight;
+	AccumLightingOnlyDiffuse(vViewNormal, g_fTerrainUseLightMap > 0.f ? vBlendTex.z : 1.f, vLightTex, vDiffuseLight);
+
+	// 合成最终颜色
+	float3 vColor = vDiffuseLight  * vDiffuseGloss.rgb * g_vTerrainDiffuseMaterial;
+	// @}
+	
+#ifdef _SD_EDITOR
+	vColor = lerp(vColor, float3(1.f, 0.f, 0.f), saturate(1.f - fTotalWeight) * g_fTerrainShowInvisibleLayers);
+	vColor = lerp(vColor, float3(0.f, 1.f, 1.f), any(saturate(abs(tileCenterOffset) - 0.49f)) * g_fTerrainShowTileGrid);
+#endif
+
+	return float4(vColor, 0);
+};
 //---------------------------------------------------------------------------------------
 // 平坦地区着色
 float4 PS_Main_Planar(VS_OUTPUT kInput) : COLOR0
@@ -80,7 +197,7 @@ float4 PS_Main_Planar(VS_OUTPUT kInput) : COLOR0
 	float3 vWorldPos = lerp(g_vViewPos, kInput.vUVFarClipWorldPos, fDepth);
 	
 	// 计算当前点的地形相对UV(注意,这里没有偏移半像素)
-	float2 vUVSet = vWorldPos.xy * float2(g_fRecipTerrainSize, g_fRecipTerrainSize);
+	float2 vUVSet = vWorldPos.xy * g_vRecipTerrainSize;
 	
 	
 	// NormalMap
@@ -116,7 +233,7 @@ float4 PS_Main_Planar(VS_OUTPUT kInput) : COLOR0
 	float2 vUVSet2 = vUVSet - tileCenterOffset * g_fRecipBlendMapSize;
 	
 	// 根据UV采样BlendMap
-	float4 vBlendTex = tex2D(sdBlendSampler, vUVSet);
+	float4 vBlendTex = tex2D(sdBlendSampler, vUVSet2);
 	
 	// 归一化权重
 	float fTotalWeight = dot(vBlendTex.xyz, 1.0);
@@ -180,17 +297,31 @@ float4 PS_Main_Planar(VS_OUTPUT kInput) : COLOR0
 	float3 vColor = vDiffuseLight  * vDiffuseGloss.rgb * g_vTerrainDiffuseMaterial +
 					vSpeculatLight * vDiffuseGloss.a   * g_vTerrainSpecularMaterial;	
 	// @}
+	
+#ifdef _SD_EDITOR
+	vColor = lerp(vColor, float3(1.f, 0.f, 0.f), saturate(1.f - fTotalWeight) * g_fTerrainShowInvisibleLayers);
+	vColor = lerp(vColor, float3(0.f, 1.f, 1.f), any(saturate(abs(tileCenterOffset) - 0.49f)) * g_fTerrainShowTileGrid);
+#endif
 
 	return float4(vColor, 0);
 
 	//*************************
 	//return float4(vDiffuseLight.rgb, 0);
 	
+	//
+	//return float4(vGeoTex.zw, 0, 0);
+	
 	// 测试平坦与陡峭地区的分割
-	//return float4(0,1,0,0);
+	//return float4(0.5,0.5,0.5,0);
+	
+	// 测试屏幕纹理坐标
+	//return float4(kInput.vUVSetScreenTex, 0, 0);
 	
 	// 测试地形纹理坐标
 	//return float4(vUVSet.xy, 0, 0);
+	
+	// 测试地形深度坐标
+	//return float4(fDepth,fDepth,fDepth,0);
 	
 	// 测试法线
 	//return float4(vBaseNormalTex.xy,1,0);
@@ -261,7 +392,7 @@ float4 PS_Main_Seam(VS_OUTPUT kInput) : COLOR0
 	float3 vWorldPos = lerp(g_vViewPos, kInput.vUVFarClipWorldPos, fDepth);
 	
 	// 计算当前点的地形相对UV(注意,这里没有偏移半像素)
-	float2 vUVSet = vWorldPos.xy * float2(g_fRecipTerrainSize, g_fRecipTerrainSize);
+	float2 vUVSet = vWorldPos.xy * g_vRecipTerrainSize;
 	
 	
 	// NormalMap
@@ -358,11 +489,21 @@ float4 PS_Main_Seam(VS_OUTPUT kInput) : COLOR0
 					vSpeculatLight * vDiffuseGloss.a   * g_vTerrainSpecularMaterial;	
 	// @}
 	
+#ifdef _SD_EDITOR
+	vColor = lerp(vColor, float3(1.f, 0.f, 0.f), saturate(1.f - fTotalWeight) * g_fTerrainShowInvisibleLayers);
+	vColor = lerp(vColor, float3(0.f, 1.f, 1.f), any(saturate(abs(tileCenterOffset) - 0.49f)) * g_fTerrainShowTileGrid);
+#endif
+	
 	return float4(vColor, 0);
 	
 	//*************************
 	// 测试平坦与陡峭地区的分割
-	//return float4(1,0,0,0);
+	//return float4(0.5,0.5,0.5,0);
+	
+		// 测试法线
+	//return float4(vBaseNormalTex.xy,1,0);
+	//return float4((vWorldNormal + 1) * 0.5,0);
+	//return float4((vViewNormal + 1) * 0.5,0);
 	
 	// 测试LOD选取情况
 	//if (vLodLevel.x > -1.f)
@@ -384,6 +525,20 @@ float4 PS_Main_Seam(VS_OUTPUT kInput) : COLOR0
 // 着色技术
 //---------------------------------------------------------------------------------------
 //
+//---------------------------------------------------------------------------------------
+technique Terrain_AtlasShading_Simple
+<
+	string Description = "Terrain_AtlasShading_Simple";
+	bool UsesNiRenderState = false;
+	bool UsesNiLightState = false;
+>
+{
+	pass P0
+	{
+		VertexShader 	= compile vs_3_0 VS_Main ();
+		PixelShader 	= compile ps_3_0 PS_Main_Simple ();
+	}
+}
 //---------------------------------------------------------------------------------------
 technique Terrain_AtlasShading_Planar
 <

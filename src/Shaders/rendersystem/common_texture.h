@@ -10,7 +10,7 @@
 #define _COMMON_TEXTURE_H__
 
 //*****************************************************************************
-#define SRGB_DEFINE		false
+#define SRGB_DEFINE		true
 #define SRGB_ENABLE		SRGBTexture = SRGB_DEFINE
 #define SRGB_DISABLE	SRGBTexture = false
 
@@ -127,7 +127,7 @@ sampler sdEnvSampler = sampler_state
 		int 	NTMIndex	= _idx;									\
 	>;																\
 																	\
-	sampler _sampler = sampler_state									\
+	sampler _sampler = sampler_state								\
 	{																\
 		Texture		= (_tex);										\
 		ADDRESSU	= _address;										\
@@ -146,7 +146,7 @@ sampler sdEnvSampler = sampler_state
 		int 	NTMIndex	= _idx;									\
 	>;																\
 																	\
-	samplerCUBE _sampler = sampler_state								\
+	samplerCUBE _sampler = sampler_state							\
 	{																\
 		Texture		= (_tex);										\
 		ADDRESSU	= _address;										\
@@ -164,7 +164,7 @@ sampler sdEnvSampler = sampler_state
 		int 	NTMIndex	= _idx;									\
 	>;																\
 																	\
-	sampler _sampler = sampler_state									\
+	sampler _sampler = sampler_state								\
 	{																\
 		Texture		= (_tex);										\
 		ADDRESSU	= _address;										\
@@ -174,6 +174,25 @@ sampler sdEnvSampler = sampler_state
 		MINFILTER	= _minfilter;									\
 		MIPFILTER	= _mipfilter;									\
 		SRGB_ENABLE;												\
+	};	
+//-----------------------------------------------------------------------------
+#define SD_SAMPLE_EX2(_idx, _ntm, _sampler, _tex, _address, _filter, _srgb)	\
+	texture _tex													\
+	<																\
+		string	NTM 		= _ntm;									\
+		int 	NTMIndex	= _idx;									\
+	>;																\
+																	\
+	sampler _sampler = sampler_state								\
+	{																\
+		Texture		= (_tex);										\
+		ADDRESSU	= _address;										\
+		ADDRESSV	= _address;										\
+		ADDRESSW	= _address;										\
+		MAGFILTER	= _filter;										\
+		MINFILTER	= _filter;										\
+		MIPFILTER	= _filter;										\
+		SRGBTEXTURE	= _srgb;										\
 	};	
 	
 //-----------------------------------------------------------------------------

@@ -11,6 +11,9 @@
 //
 #include "../common.h"
 
+//---------------------------------------------------------------------------------------
+// 相关变量
+//---------------------------------------------------------------------------------------
 // 地形Tile几何信息
 float4	a_vTerrainQuadParam 	: ATTRIBUTE;
 #define	a_vQuadOrigin			float2(a_vTerrainQuadParam[0], a_vTerrainQuadParam[1])
@@ -20,17 +23,19 @@ float4	a_vTerrainQuadParam 	: ATTRIBUTE;
 // 地形一些贴图的尺寸(用于计算UV)
 float4	g_vTerrainMapSize		: GLOBAL;
 #define g_fTerrainSize 			g_vTerrainMapSize.x
+#define g_vTerrainSize 			g_vTerrainMapSize.xx
 #define g_fBlendMapSize 		g_vTerrainMapSize.y
+#define g_vBlendMapSize 		g_vTerrainMapSize.yy
 #define g_fTileMapSize 			g_vTerrainMapSize.z
+#define g_vTileMapSize 			g_vTerrainMapSize.zz
 
 float4	g_vRecipTerrainMapSize	: GLOBAL;
 #define g_fRecipTerrainSize 	g_vRecipTerrainMapSize.x
+#define g_vRecipTerrainSize 	g_vRecipTerrainMapSize.xx
 #define g_fRecipBlendMapSize 	g_vRecipTerrainMapSize.y
+#define g_vRecipBlendMapSize 	g_vRecipTerrainMapSize.yy
 #define g_fRecipTileMapSize 	g_vRecipTerrainMapSize.z
-
-
-//
-//float4	g_vRecipUVRepeats[3]	: GLOBAL;
+#define g_vRecipTileMapSize 	g_vRecipTerrainMapSize.zz
 
 // 地形近与远平面的分界面
 float	g_fTerrainFarStart		: GLOBAL;
@@ -57,14 +62,19 @@ float4	g_vNormalAtlasTableParam	: GLOBAL;
 #define g_fNormalAtlasLevelScale	g_vNormalAtlasTableParam.z
 #define g_fNormalAtlasLevelOffset	g_vNormalAtlasTableParam.w
 
-// 调试参数
-//float2 	g_vTerrainDebugParams		: GLOBAL;
-//#define g_fTerrainShowInvisibleLayers	g_vTerrainDebugParams.x
-//#define g_fTerrainShowTileGrid		g_vTerrainDebugParams.x
+//
+float3	g_vTerrainLODControl		: GLOBAL;
+#define	g_fTerrainUseLightMap		g_vTerrainLODControl.x
+#define	g_fTerrainUseSpecular		g_vTerrainLODControl.y
 
-//*****************************************************************************
+// 调试参数
+float2 	g_vTerrainDebugParams		: GLOBAL;
+#define g_fTerrainShowInvisibleLayers	g_vTerrainDebugParams.x
+#define g_fTerrainShowTileGrid			g_vTerrainDebugParams.y
+
+//---------------------------------------------------------------------------------------
 // 图集采样(用于Diffuse图集和Normal图集)
-//*****************************************************************************
+//---------------------------------------------------------------------------------------
 float4 SamplerAtlasMap(sampler kAtlasMap, sampler kAtlasTable, float2 vTableUV, float2 vTerrainUV)
 {
 	// AtlasTable的像素信息:
@@ -81,7 +91,7 @@ float4 SamplerAtlasMap(sampler kAtlasMap, sampler kAtlasTable, float2 vTableUV, 
 	// 返回贴图采样值
 	return tex2D(kAtlasMap, vAtlasTavleUV);
 }
-//-----------------------------------------------------------------------------
+//---------------------------------------------------------------------------------------
 float4 SamplerAtlasMap_Planar(sampler kAtlasMap, sampler kAtlasTable, float2 vTableUV,
 	float2 vTerrainUV_XY, float2 vTerrainUV_YZ,  float2 vTerrainUV_XZ, float3 vWeight)
 {
@@ -98,5 +108,5 @@ float4 SamplerAtlasMap_Planar(sampler kAtlasMap, sampler kAtlasTable, float2 vTa
 		   tex2D(kAtlasMap, vAtlasTavleUV_YZ) * vWeight.x +
 		   tex2D(kAtlasMap, vAtlasTavleUV_XZ) * vWeight.y;
 }
-//*****************************************************************************
+//---------------------------------------------------------------------------------------
 #endif
