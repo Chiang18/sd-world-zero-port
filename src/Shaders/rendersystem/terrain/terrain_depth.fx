@@ -3,7 +3,7 @@
 //---------------------------------------------------------
 // 作者:		
 // 创建:		2012-07-14
-// 最后修改:
+// 最后修改:	2013-05-02
 //*************************************************************************************************
 #include "terrain_common.h"
 
@@ -42,7 +42,7 @@ VS_OUTPUT VS_Main(float2 vPos : POSITION0)
 	// 变换到观察坐标
 	kOutput.vProjPos = mul(vWorldPosition, g_mViewProj);
 	
-	// 计算深度
+	// 计算深度(直接乘以矩阵最后一列)
 	kOutput.fDepth = dot(vWorldPosition, g_mView._m02_m12_m22_m32);
 	
 	return kOutput;
@@ -53,6 +53,7 @@ VS_OUTPUT VS_Main(float2 vPos : POSITION0)
 //---------------------------------------------------------------------------------------
 float4	PS_Main(VS_OUTPUT kInput) : COLOR0
 {
+	// 转换到深度[0, 1.f]，并打包
 	return float4(PackDepth(kInput.fDepth / g_fCameraFarClip), 0.f, 0.f);
 }
 

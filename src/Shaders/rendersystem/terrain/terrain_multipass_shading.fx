@@ -1,9 +1,9 @@
 //*************************************************************************************************
-// 内容:	地形着色
+// 内容:	地形着色(已废弃)
 //---------------------------------------------------------
 // 作者:		
 // 创建:		2012-08-23
-// 最后修改:
+// 最后修改:	2013-05-02
 //*************************************************************************************************
 #include "terrain_common.h"
 
@@ -15,13 +15,25 @@ float4 g_vRecipUVRepeats[3]	: GLOBAL;
 //---------------------------------------------------------------------------------------
 // 输入纹理采样器
 //---------------------------------------------------------------------------------------
-SD_POINT_CLAMP_SAMPLE(0, sdGeomSampler, 			sdGeomBuf, 			false);		// 屏幕深度与法线缓存
-SD_POINT_CLAMP_SAMPLE(1, sdLightSampler, 			sdLightBuf, 		false);		// 屏幕局部光照缓存
+SD_POINT_CLAMP_SAMPLE(0, sdGeomSampler,			sdGeomBuf, 			false);		// 屏幕深度与法线缓存
+SD_POINT_CLAMP_SAMPLE(1, sdLightSampler,		sdLightBuf, 		false);		// 屏幕局部光照缓存
 
 SD_LINEAR_WRAP_SAMPLE(2, sdBaseDiffuseSampler, 	sdBaseDiffuseTex, 	false);		// 地形基本漫反射贴图
 SD_LINEAR_WRAP_SAMPLE(3, sdBaseNormalSampler, 	sdBaseNormalTex, 	false);		// 地形基本法线贴图
 SD_LINEAR_WRAP_SAMPLE(4, sdBlendSampler,		sdBlendTex,			false);		// 地形混合权重贴图
 
+//SD_LINEAR_WRAP_SAMPLE( 5, sdDiffuseSampler00, sdDiffuseTex00, false)
+//SD_LINEAR_WRAP_SAMPLE( 6, sdDiffuseSampler01, sdDiffuseTex01, false)
+//SD_LINEAR_WRAP_SAMPLE( 7, sdDiffuseSampler02, sdDiffuseTex02, false)
+//SD_LINEAR_WRAP_SAMPLE( 8, sdDiffuseSampler03, sdDiffuseTex03, false)
+//SD_LINEAR_WRAP_SAMPLE( 9, sdDiffuseSampler04, sdDiffuseTex04, false)
+//SD_LINEAR_WRAP_SAMPLE(10, sdDiffuseSampler05, sdDiffuseTex05, false)
+//SD_LINEAR_WRAP_SAMPLE(11, sdDiffuseSampler06, sdDiffuseTex06, false)
+//SD_LINEAR_WRAP_SAMPLE(12, sdDiffuseSampler07, sdDiffuseTex07, false)
+//SD_LINEAR_WRAP_SAMPLE(13, sdDiffuseSampler08, sdDiffuseTex08, false)
+//SD_LINEAR_WRAP_SAMPLE(14, sdDiffuseSampler09, sdDiffuseTex09, false)
+//SD_LINEAR_WRAP_SAMPLE(15, sdDiffuseSampler10, sdDiffuseTex10, false)
+//SD_LINEAR_WRAP_SAMPLE(16, sdDiffuseSampler11, sdDiffuseTex11, false)
 SD_SAMPLE_EX( 5, sdDiffuseSampler00, sdDiffuseTex00, WRAP, LINEAR, ANISOTROPIC, LINEAR)
 SD_SAMPLE_EX( 6, sdDiffuseSampler01, sdDiffuseTex01, WRAP, LINEAR, ANISOTROPIC, LINEAR)
 SD_SAMPLE_EX( 7, sdDiffuseSampler02, sdDiffuseTex02, WRAP, LINEAR, ANISOTROPIC, LINEAR)
@@ -41,7 +53,7 @@ SD_SAMPLE_EX(16, sdDiffuseSampler11, sdDiffuseTex11, WRAP, LINEAR, ANISOTROPIC, 
 struct VS_INPUT
 {
 	float3	vPos			: POSITION0;	// 屏幕矩形顶点
-	float2	vUVSet0			: TEXCOORD0;	// 屏幕矩形顶点纹理坐标
+	float2	vUVSet0			: TEXCOORD0;	// 屏幕矩形纹理坐标
 };
 
 //---------------------------------------------------------------------------------------
@@ -92,22 +104,21 @@ float4 PS_Main_Planar_XY(VS_OUTPUT kInput) : COLOR0
 	float4 vGeoTex = tex2D(sdGeomSampler, kInput.vUVSetScreenTex);
 	float fDepth = UnpackDepth(vGeoTex.xy);
 	
-	// 反算世界坐标
-	// (根据线性深度,对相机位置和远平面对应点位置进行插值)
+	// 反算世界坐标(根据线性深度,对相机位置和远平面对应点位置进行插值)
 	float3 vWorldPos = lerp(g_vViewPos, kInput.vUVFarClipWorldPos, fDepth);
 	
-	// 计算当前点的地形相对UV(注意,这里没有偏移半像素)
+	// 计算当前点的地形相对UV(注意,这里没有偏移)
 	float2 vUVSet = vWorldPos.xy * g_vRecipTerrainSize.xy;
 	
-	// NormalMap
+	// BaseNormalMap
 	// @{
-	// 根据UV采样NormalMap(Sampler是Linear,没有偏移半像素)
+	// 根据UV采样BaseNormalMap(注意,这里没有偏移半像素,因为BaseNormalMap是Linear采样的)
 	float4 vBaseNormalTex = tex2D(sdBaseNormalSampler, vUVSet);
 	
 	// 解出倾斜情况
 	float3 vPlanarWeight;
 	vPlanarWeight.xy 	= vBaseNormalTex.zw;
-	vPlanarWeight.z 	= saturate(1.f - vBaseNormalTex.z - vBaseNormalTex.w);	
+	vPlanarWeight.z 	= saturate(1.f - vPlanarWeight.x - vPlanarWeight.y);	
 	
 	clip(vPlanarWeight.z - 0.001f);
 	// @}
@@ -120,10 +131,10 @@ float4 PS_Main_Planar_XY(VS_OUTPUT kInput) : COLOR0
 	
 	// 采样BlendMap
 	float4 vBlendWeight00 = tex2D(sdBlendSampler, vUVSet1);
-	float4 vBlendWeight01 = tex2D(sdBlendSampler, vUVSet1 + float2(0.5f, 0.0f));
-	float4 vBlendWeight02 = tex2D(sdBlendSampler, vUVSet1 + float2(0.0f, 0.5f));
+	float4 vBlendWeight01 = tex2D(sdBlendSampler, vUVSet1 + float2(0.5f, 0.f));
+	float4 vBlendWeight02 = tex2D(sdBlendSampler, vUVSet1 + float2(0.f,  0.5f));
 	
-	//
+	// 计算总权重
 	float fTotalWeight = dot(float3(dot(vBlendWeight00, 1.f), dot(vBlendWeight01, 1.f), dot(vBlendWeight02, 1.f)), 1.f);
 	
 	// 采样BlendMap
@@ -170,7 +181,7 @@ float4 PS_Main_Planar_XY(VS_OUTPUT kInput) : COLOR0
 	float4 vLightTex = tex2D(sdLightSampler, kInput.vUVSetScreenTex);
 	
 	// 计算观察方向与法线
-	float3 vViewVector = -normalize(kInput.vUVFarClipViewPos);
+	float3 vViewVector = -normalize(kInput.vUVFarClipViewPos);	
 	float3 vViewNormal 	= UnpackNormal(vGeoTex.zw);
 	
 	// 合成光照
@@ -196,22 +207,21 @@ float4 PS_Main_Planar_YZ(VS_OUTPUT kInput) : COLOR0
 	float4 vGeoTex = tex2D(sdGeomSampler, kInput.vUVSetScreenTex);
 	float fDepth = UnpackDepth(vGeoTex.xy);
 	
-	// 反算世界坐标
-	// (根据线性深度,对相机位置和远平面对应点位置进行插值)
+	// 反算世界坐标(根据线性深度,对相机位置和远平面对应点位置进行插值)
 	float3 vWorldPos = lerp(g_vViewPos, kInput.vUVFarClipWorldPos, fDepth);
 	
-	// 计算当前点的地形相对UV(注意,这里没有偏移半像素)
+	// 计算当前点的地形相对UV(注意,这里没有偏移)
 	float2 vUVSet = vWorldPos.xy * g_vRecipTerrainSize.xy;
 	
-	// NormalMap
+	// BaseNormalMap
 	// @{
-	// 根据UV采样NormalMap(Sampler是Linear,没有偏移半像素)
+	// 根据UV采样BaseNormalMap(注意,这里没有偏移半像素,因为BaseNormalMap是Linear采样的)
 	float4 vBaseNormalTex = tex2D(sdBaseNormalSampler, vUVSet);
 	
 	// 解出倾斜情况
 	float3 vPlanarWeight;
 	vPlanarWeight.xy 	= vBaseNormalTex.zw;
-	vPlanarWeight.z 	= saturate(1.f - vBaseNormalTex.z - vBaseNormalTex.w);	
+	vPlanarWeight.z 	= saturate(1.f - vPlanarWeight.x - vPlanarWeight.y);	
 	
 	clip(vPlanarWeight.x - 0.001f);
 	// @}
@@ -224,11 +234,8 @@ float4 PS_Main_Planar_YZ(VS_OUTPUT kInput) : COLOR0
 	
 	// 采样BlendMap
 	float4 vBlendWeight00 = tex2D(sdBlendSampler, vUVSet1);
-	float4 vBlendWeight01 = tex2D(sdBlendSampler, vUVSet1 + float2(0.5f, 0.0f));
-	float4 vBlendWeight02 = tex2D(sdBlendSampler, vUVSet1 + float2(0.0f, 0.5f));
-	
-	//
-	float fTotalWeight = dot(float3(dot(vBlendWeight00, 1.f), dot(vBlendWeight01, 1.f), dot(vBlendWeight02, 1.f)), 1.f);
+	float4 vBlendWeight01 = tex2D(sdBlendSampler, vUVSet1 + float2(0.5f, 0.f));
+	float4 vBlendWeight02 = tex2D(sdBlendSampler, vUVSet1 + float2(0.f,  0.5f));
 	
 	// 采样BlendMap
 	float4 vBaseDiffuseDarkColor = tex2D(sdBlendSampler, vUVSet1 + float2(0.5f, 0.5f));
@@ -287,7 +294,7 @@ float4 PS_Main_Planar_YZ(VS_OUTPUT kInput) : COLOR0
 	vColor *= vPlanarWeight.x;
 	// @}
 	
-	return float4(vColor, 0);
+	return float4(vColor, 0.f);
 }
 
 //---------------------------------------------------------------------------------------
@@ -298,22 +305,21 @@ float4 PS_Main_Planar_XZ(VS_OUTPUT kInput) : COLOR0
 	float4 vGeoTex = tex2D(sdGeomSampler, kInput.vUVSetScreenTex);
 	float fDepth = UnpackDepth(vGeoTex.xy);
 	
-	// 反算世界坐标
-	// (根据线性深度,对相机位置和远平面对应点位置进行插值)
+	// 反算世界坐标(根据线性深度,对相机位置和远平面对应点位置进行插值)
 	float3 vWorldPos = lerp(g_vViewPos, kInput.vUVFarClipWorldPos, fDepth);
 	
-	// 计算当前点的地形相对UV(注意,这里没有偏移半像素)
+	// 计算当前点的地形相对UV(注意,这里没有偏移)
 	float2 vUVSet = vWorldPos.xy * g_vRecipTerrainSize.xy;
 	
-	// NormalMap
+	// BaseNormalMap
 	// @{
-	// 根据UV采样NormalMap(Sampler是Linear,没有偏移半像素)
+	// 根据UV采样BaseNormalMap(注意,这里没有偏移半像素,因为BaseNormalMap是Linear采样的)
 	float4 vBaseNormalTex = tex2D(sdBaseNormalSampler, vUVSet);
 	
 	// 解出倾斜情况
 	float3 vPlanarWeight;
 	vPlanarWeight.xy 	= vBaseNormalTex.zw;
-	vPlanarWeight.z 	= saturate(1.f - vBaseNormalTex.z - vBaseNormalTex.w);	
+	vPlanarWeight.z 	= saturate(1.f - vPlanarWeight.x - vPlanarWeight.y);	
 	
 	clip(vPlanarWeight.y - 0.001f);
 	// @}
@@ -326,11 +332,8 @@ float4 PS_Main_Planar_XZ(VS_OUTPUT kInput) : COLOR0
 	
 	// 采样BlendMap
 	float4 vBlendWeight00 = tex2D(sdBlendSampler, vUVSet1);
-	float4 vBlendWeight01 = tex2D(sdBlendSampler, vUVSet1 + float2(0.5f, 0.0f));
-	float4 vBlendWeight02 = tex2D(sdBlendSampler, vUVSet1 + float2(0.0f, 0.5f));
-	
-	//
-	float fTotalWeight = dot(float3(dot(vBlendWeight00, 1.f), dot(vBlendWeight01, 1.f), dot(vBlendWeight02, 1.f)), 1.f);
+	float4 vBlendWeight01 = tex2D(sdBlendSampler, vUVSet1 + float2(0.5f, 0.f));
+	float4 vBlendWeight02 = tex2D(sdBlendSampler, vUVSet1 + float2(0.f,  0.5f));
 	
 	// 采样BlendMap
 	float4 vBaseDiffuseDarkColor = tex2D(sdBlendSampler, vUVSet1 + float2(0.5f, 0.5f));
@@ -359,8 +362,6 @@ float4 PS_Main_Planar_XZ(VS_OUTPUT kInput) : COLOR0
 	vDiffuseGloss += tex2D(sdDiffuseSampler09, vUVSet2 * g_vRecipUVRepeats[2].y) * vBlendWeight02.r;
 	vDiffuseGloss += tex2D(sdDiffuseSampler10, vUVSet2 * g_vRecipUVRepeats[2].z) * vBlendWeight02.g;
 	vDiffuseGloss += tex2D(sdDiffuseSampler11, vUVSet2 * g_vRecipUVRepeats[2].w) * vBlendWeight02.b;
-	
-	vDiffuseGloss /= fTotalWeight;
 	
 #ifdef _SD_EDITOR
 	vDiffuseGloss = max(vDiffuseGloss, float4(g_vDiffuseMapMask, g_fGlossMapMask));
@@ -391,7 +392,7 @@ float4 PS_Main_Planar_XZ(VS_OUTPUT kInput) : COLOR0
 	vColor *= vPlanarWeight.y;
 	// @}
 	
-	return float4(vColor, 0);
+	return float4(vColor, 0.f);
 }
 
 //---------------------------------------------------------------------------------------

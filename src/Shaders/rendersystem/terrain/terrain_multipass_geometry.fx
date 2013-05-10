@@ -1,12 +1,14 @@
 //*************************************************************************************************
-// 内容:	地形Normal/Depth绘制到G-Buffer
+// 内容:	地形Normal/Depth绘制到G-Buffer(已废弃)
 //---------------------------------------------------------
 // 作者:		
 // 创建:		2012-08-23
-// 最后修改:
+// 最后修改:	2013-05-02
 //*************************************************************************************************
 #include "terrain_common.h"
 
+//---------------------------------------------------------------------------------------
+// 输入变量
 //---------------------------------------------------------------------------------------
 float4 g_vRecipUVRepeats[3]	: GLOBAL;
 
@@ -80,28 +82,30 @@ float4 PS_Main_Far_BaseNormal(VS_OUTPUT kInput) : COLOR0
 	float2 vPackedDepth = tex2D(sdDepthSampler, kInput.vUVSetScreenTex).xy;
 	float fDepth = UnpackDepth(vPackedDepth.xy);
 	
-	// 反算世界坐标
-	// (根据线性深度,对相机位置和远平面对应点位置进行插值)
+	// 反算世界坐标(根据线性深度,对相机位置和远平面对应点位置进行插值)
 	float3 vWorldPos = lerp(g_vViewPos, kInput.vUVFarClipWorldPos, fDepth);
 	
 	// 裁剪掉指定近平面以内的像素
 	clip(length(vWorldPos - g_vViewPos) - g_fTerrainFarStart);
 	
+	// 计算当前点的地形相对UV(注意,这里没有偏移)
+	float2 vUVSet = vWorldPos.xy * g_vRecipTerrainSize;
+	
 	
 	// BaseNormalMap
 	// @{
-	// 计算当前点的地形相对UV(注意,这里没有偏移半像素,因为BaseNormalMap是Linear采样的)
-	float2 vUVSet = vWorldPos.xy * g_vRecipTerrainSize;
-	
-	// 根据UV采样NormalMap
-	float4 vBaseNormalTex 	= tex2D(sdBaseNormalSampler, vUVSet);
+	// 根据UV采样BaseNormalMap(注意,这里没有偏移半像素,因为BaseNormalMap是Linear采样的)
+	float4 vBaseNormalTex = tex2D(sdBaseNormalSampler, vUVSet);
 	
 	// 解出世界空间法线
 	float3 vWorldNormal;
 	vWorldNormal.xy	= vBaseNormalTex.xy * 2.f - 1.f;
-	vWorldNormal.z 	= sqrt(dot(float3(1.f, vBaseNormalTex.xy), float3(1.f, -vBaseNormalTex.xy)));
+	vWorldNormal.z 	= sqrt(dot(float3(1.f, vWorldNormal.xy), float3(1.f, -vWorldNormal.xy)));
 	
 	// 变换Normal到观察空间
+	// 	1.需要乘以逆转置矩阵,
+	//	2.ViewMatrix旋转部分是正交矩阵,平移部分不是,我们只需要旋转变换
+	//	3.g_mView旋转部分(3x3)是正交矩阵，逆转置矩阵是它自己
 	float3 vViewNormal = mul(float4(vWorldNormal.xyz, 0.f), g_mView).xyz;
 	// @}
 	
@@ -118,30 +122,29 @@ float4 PS_Main_Near_BaseNormalAndNormalMap_XY(VS_OUTPUT kInput) : COLOR0
 	float2 vPackedDepth = tex2D(sdDepthSampler, kInput.vUVSetScreenTex).xy;
 	float fDepth = UnpackDepth(vPackedDepth.xy);
 	
-	// 反算世界坐标
-	// (根据线性深度,对相机位置和远平面对应点位置进行插值)
+	// 反算世界坐标(根据线性深度,对相机位置和远平面对应点位置进行插值)
 	float3 vWorldPos = lerp(g_vViewPos, kInput.vUVFarClipWorldPos, fDepth);
 	
-	// 计算当前点的地形相对UV(注意,这里没有偏移半像素)
-	float2 vUVSet = vWorldPos.xy * g_vRecipTerrainSize.xy;
+	// 计算当前点的地形相对UV(注意,这里没有偏移)
+	float2 vUVSet = vWorldPos.xy * g_vRecipTerrainSize;
 	
 	
-	// NormalMap
+	// BaseNormalMap
 	// @{
-	// 根据UV采样NormalMap(Sampler是Linear,没有偏移半像素)
+	// 根据UV采样BaseNormalMap(注意,这里没有偏移半像素,因为BaseNormalMap是Linear采样的)
 	float4 vBaseNormalTex = tex2D(sdBaseNormalSampler, vUVSet);
 	
 	// 解出倾斜情况
 	float3 vPlanarWeight;
 	vPlanarWeight.xy 	= vBaseNormalTex.zw;
-	vPlanarWeight.z 	= saturate(1.f - vBaseNormalTex.z - vBaseNormalTex.w);	
+	vPlanarWeight.z 	= saturate(1.f - vPlanarWeight.x - vPlanarWeight.y);	
 	
 	clip(vPlanarWeight.z - 0.001f);
 	
 	// 解出世界空间法线
 	float3 vWorldNormal;
 	vWorldNormal.xy	= vBaseNormalTex.xy * 2.f - 1.f;
-	vWorldNormal.z 	= sqrt(dot(float3(1.f, vBaseNormalTex.xy), float3(1.f, -vBaseNormalTex.xy)));
+	vWorldNormal.z 	= sqrt(dot(float3(1.f, vWorldNormal.xy), float3(1.f, -vWorldNormal.xy)));
 	
 	// 计算当前点的切线空间
 	float3 vWorldBinormal 	= cross(float3(1.f, 0.f, 0.f), vWorldNormal);
@@ -159,7 +162,7 @@ float4 PS_Main_Near_BaseNormalAndNormalMap_XY(VS_OUTPUT kInput) : COLOR0
 	float4 vBlendWeight01 = tex2D(sdBlendSampler, vUVSet1 + float2(0.5f, 0.f));
 	float4 vBlendWeight02 = tex2D(sdBlendSampler, vUVSet1 + float2(0.f,  0.5f));
 	
-	//
+	// 计算总权重
 	float fTotalWeight = dot(float3(dot(vBlendWeight00, 1.f), dot(vBlendWeight01, 1.f), dot(vBlendWeight02, 1.f)), 1.f);
 	// @}
 	
@@ -185,22 +188,34 @@ float4 PS_Main_Near_BaseNormalAndNormalMap_XY(VS_OUTPUT kInput) : COLOR0
 	
 	vNormal /= fTotalWeight;
 	
+	// 变换DetailNormal(从[0,1]到[-1,1])
 	vNormal = vNormal * 2.f - 1.f;
 	
+	// 缩放DetailNormal
 	vNormal.xy *= g_fTerrainNormalScale;
 	
+	// 与远处法线区域做过渡(从视点到分割线进行线性过渡,过渡效果很差,几乎等于没有,待进一步优化)
 	float fNormalSmooth = saturate(5.f -5.f * length(vWorldPos - g_vViewPos) / g_fTerrainFarStart);
 	vNormal.xy *= fNormalSmooth;
+	
+	// 归一化
 	vNormal = normalize(vNormal);
-	//vNormal = sqrt(dot(float3(1.f, vNormal.xy), float3(1.f, -vNormal.xy)));
+	//vNormal.z = sqrt(dot(float3(1.f, vNormal.xy), float3(1.f, -vNormal.xy)));
 	
-	vNormal = vNormal.z * vWorldNormal.xyz + vNormal.y * vWorldBinormal + vNormal.x * vWorldTangent;
+	// DetailNormal从切线空间转换到世界坐标(http://www.terathon.com/code/tangent.html)
+	//	|Tx Ty Tz|   |X|
+	//	|Bx By Bz| * |Y|
+	//  |Nx Ny Nz|   |Z|
+	vNormal = vNormal.z * vWorldNormal + vNormal.y * vWorldBinormal + vNormal.x * vWorldTangent;
 	
-	// 转换到观察坐标系
-	vNormal = mul(float4(vNormal, 0), g_mView);
+	// 变换Normal到观察空间
+	// 	1.需要乘以逆转置矩阵,
+	//	2.ViewMatrix旋转部分是正交矩阵,平移部分不是,我们只需要旋转变换
+	//	3.g_mView旋转部分(3x3)是正交矩阵，逆转置矩阵是它自己
+	float3 vViewNormal = mul(float4(vWorldNormal.xyz, 0.f), g_mView).xyz;
 	// @}
 	
-	return float4(vPackedDepth, PackNormal(vNormal) * vPlanarWeight.z);
+	return float4(vPackedDepth, PackNormal(vViewNormal) * vPlanarWeight.z);
 }
 
 //---------------------------------------------------------------------------------------
@@ -211,30 +226,29 @@ float4 PS_Main_Near_BaseNormalAndNormalMap_YZ(VS_OUTPUT kInput) : COLOR0
 	float2 vPackedDepth = tex2D(sdDepthSampler, kInput.vUVSetScreenTex).xy;
 	float fDepth = UnpackDepth(vPackedDepth.xy);
 	
-	// 反算世界坐标
-	// (根据线性深度,对相机位置和远平面对应点位置进行插值)
+	// 反算世界坐标(根据线性深度,对相机位置和远平面对应点位置进行插值)
 	float3 vWorldPos = lerp(g_vViewPos, kInput.vUVFarClipWorldPos, fDepth);
 	
-	// 计算当前点的地形相对UV(注意,这里没有偏移半像素)
-	float2 vUVSet = vWorldPos.xy * g_vRecipTerrainSize.xy;
+	// 计算当前点的地形相对UV(注意,这里没有偏移)
+	float2 vUVSet = vWorldPos.xy * g_vRecipTerrainSize;
 	
 	
-	// NormalMap
+	// BaseNormalMap
 	// @{
-	// 根据UV采样NormalMap(Sampler是Linear,没有偏移半像素)
+	// 根据UV采样BaseNormalMap(注意,这里没有偏移半像素,因为BaseNormalMap是Linear采样的)
 	float4 vBaseNormalTex = tex2D(sdBaseNormalSampler, vUVSet);
 	
 	// 解出倾斜情况
 	float3 vPlanarWeight;
 	vPlanarWeight.xy 	= vBaseNormalTex.zw;
-	vPlanarWeight.z 	= saturate(1.f - vBaseNormalTex.z - vBaseNormalTex.w);	
+	vPlanarWeight.z 	= saturate(1.f - vPlanarWeight.x - vPlanarWeight.y);	
 	
 	clip(vPlanarWeight.x - 0.001f);
 	
 	// 解出世界空间法线
 	float3 vWorldNormal;
 	vWorldNormal.xy	= vBaseNormalTex.xy * 2.f - 1.f;
-	vWorldNormal.z 	= sqrt(dot(float3(1.f, vBaseNormalTex.xy), float3(1.f, -vBaseNormalTex.xy)));
+	vWorldNormal.z 	= sqrt(dot(float3(1.f, vWorldNormal.xy), float3(1.f, -vWorldNormal.xy)));
 	
 	// 计算当前点的切线空间
 	float3 vWorldBinormal 	= cross(float3(0.f, sign(vWorldNormal.x), 0.f), vWorldNormal);
@@ -249,8 +263,8 @@ float4 PS_Main_Near_BaseNormalAndNormalMap_YZ(VS_OUTPUT kInput) : COLOR0
 	
 	// 采样BlendMap
 	float4 vBlendWeight00 = tex2D(sdBlendSampler, vUVSet1);
-	float4 vBlendWeight01 = tex2D(sdBlendSampler, vUVSet1 + float2(0.5f, 0.0f));
-	float4 vBlendWeight02 = tex2D(sdBlendSampler, vUVSet1 + float2(0.0f, 0.5f));
+	float4 vBlendWeight01 = tex2D(sdBlendSampler, vUVSet1 + float2(0.5f, 0.f));
+	float4 vBlendWeight02 = tex2D(sdBlendSampler, vUVSet1 + float2(0.f,  0.5f));
 	// @}
 	
 	
@@ -273,22 +287,34 @@ float4 PS_Main_Near_BaseNormalAndNormalMap_YZ(VS_OUTPUT kInput) : COLOR0
 	vNormal += tex2D(sdNormalSampler10, vUVSet2 * g_vRecipUVRepeats[2].z) * vBlendWeight02.g;
 	vNormal += tex2D(sdNormalSampler11, vUVSet2 * g_vRecipUVRepeats[2].w) * vBlendWeight02.b;
 	
+	// 变换DetailNormal(从[0,1]到[-1,1])
 	vNormal = vNormal * 2.f - 1.f;
 	
+	// 缩放DetailNormal
 	vNormal.xy *= g_fTerrainNormalScale;
 	
+	// 与远处法线区域做过渡(从视点到分割线进行线性过渡,过渡效果很差,几乎等于没有,待进一步优化)
 	float fNormalSmooth = saturate(5.f -5.f * length(vWorldPos - g_vViewPos) / g_fTerrainFarStart);
 	vNormal.xy *= fNormalSmooth;
-	vNormal = normalize(vNormal);
-	//vNormal = sqrt(dot(float3(1.f, vNormal.xy), float3(1.f, -vNormal.xy)));
 	
+	// 归一化
+	vNormal = normalize(vNormal);
+	//vNormal.z = sqrt(dot(float3(1.f, vNormal.xy), float3(1.f, -vNormal.xy)));
+	
+	// DetailNormal从切线空间转换到世界坐标(http://www.terathon.com/code/tangent.html)
+	//	|Tx Ty Tz|   |X|
+	//	|Bx By Bz| * |Y|
+	//  |Nx Ny Nz|   |Z|
 	vNormal = vNormal.z * vWorldNormal.xyz + vNormal.y * vWorldBinormal + vNormal.x * vWorldTangent;
 	
-		// 转换到观察坐标系
-	vNormal = mul(float4(vNormal, 0.f), g_mView);
+	// 变换Normal到观察空间
+	// 	1.需要乘以逆转置矩阵,
+	//	2.ViewMatrix旋转部分是正交矩阵,平移部分不是,我们只需要旋转变换
+	//	3.g_mView旋转部分(3x3)是正交矩阵，逆转置矩阵是它自己
+	float3 vViewNormal = mul(float4(vWorldNormal.xyz, 0.f), g_mView).xyz;
 	// @}
 	
-	return float4(vPackedDepth * step(vPlanarWeight.z, 0.001f), PackNormal(vNormal) * vPlanarWeight.x);
+	return float4(vPackedDepth * step(vPlanarWeight.z, 0.001f), PackNormal(vViewNormal) * vPlanarWeight.x);
 }
 
 //---------------------------------------------------------------------------------------
@@ -299,33 +325,32 @@ float4 PS_Main_Near_BaseNormalAndNormalMap_XZ(VS_OUTPUT kInput) : COLOR0
 	float2 vPackedDepth = tex2D(sdDepthSampler, kInput.vUVSetScreenTex).xy;
 	float fDepth = UnpackDepth(vPackedDepth.xy);
 	
-	// 反算世界坐标
-	// (根据线性深度,对相机位置和远平面对应点位置进行插值)
+	// 反算世界坐标(根据线性深度,对相机位置和远平面对应点位置进行插值)
 	float3 vWorldPos = lerp(g_vViewPos, kInput.vUVFarClipWorldPos, fDepth);
 	
-	// 计算当前点的地形相对UV(注意,这里没有偏移半像素)
-	float2 vUVSet = vWorldPos.xy * g_vRecipTerrainSize.xy;
+	// 计算当前点的地形相对UV(注意,这里没有偏移)
+	float2 vUVSet = vWorldPos.xy * g_vRecipTerrainSize;
 	
 	
-	// NormalMap
+	// BaseNormalMap
 	// @{
-	// 根据UV采样NormalMap(Sampler是Linear,没有偏移半像素)
+	// 根据UV采样BaseNormalMap(注意,这里没有偏移半像素,因为BaseNormalMap是Linear采样的)
 	float4 vBaseNormalTex = tex2D(sdBaseNormalSampler, vUVSet);
 	
 	// 解出倾斜情况
 	float3 vPlanarWeight;
 	vPlanarWeight.xy 	= vBaseNormalTex.zw;
-	vPlanarWeight.z 	= saturate(1.f - vBaseNormalTex.z - vBaseNormalTex.w);	
+	vPlanarWeight.z 	= saturate(1.f - vPlanarWeight.x - vPlanarWeight.y);	
 	
 	clip(vPlanarWeight.y - 0.001f);
 	
 	// 解出世界空间法线
 	float3 vWorldNormal;
 	vWorldNormal.xy	= vBaseNormalTex.xy * 2.f - 1.f;
-	vWorldNormal.z 	= sqrt(dot(float3(1.f, vBaseNormalTex.xy), float3(1.f, -vBaseNormalTex.xy)));
+	vWorldNormal.z 	= sqrt(dot(float3(1.f, vWorldNormal.xy), float3(1.f, -vWorldNormal.xy)));
 	
 	// 计算当前点的切线空间
-	float3 vWorldBinormal 	= cross(float3(-sign(vWorldNormal.x), 0.f, 0.f), vWorldNormal);
+	float3 vWorldBinormal 	= cross(float3(-sign(vWorldNormal.y), 0.f, 0.f), vWorldNormal);
 	float3 vWorldTangent 	= cross(vWorldNormal, vWorldBinormal);
 	// @}
 	
@@ -337,8 +362,8 @@ float4 PS_Main_Near_BaseNormalAndNormalMap_XZ(VS_OUTPUT kInput) : COLOR0
 	
 	// 采样BlendMap
 	float4 vBlendWeight00 = tex2D(sdBlendSampler, vUVSet1);
-	float4 vBlendWeight01 = tex2D(sdBlendSampler, vUVSet1 + float2(0.5f, 0.0f));
-	float4 vBlendWeight02 = tex2D(sdBlendSampler, vUVSet1 + float2(0.0f, 0.5f));
+	float4 vBlendWeight01 = tex2D(sdBlendSampler, vUVSet1 + float2(0.5f, 0.f));
+	float4 vBlendWeight02 = tex2D(sdBlendSampler, vUVSet1 + float2(0.f,  0.5f));
 	// @}
 	
 	
@@ -361,23 +386,35 @@ float4 PS_Main_Near_BaseNormalAndNormalMap_XZ(VS_OUTPUT kInput) : COLOR0
 	vNormal += tex2D(sdNormalSampler10, vUVSet2 * g_vRecipUVRepeats[2].z) * vBlendWeight02.g;
 	vNormal += tex2D(sdNormalSampler11, vUVSet2 * g_vRecipUVRepeats[2].w) * vBlendWeight02.b;
 	
+	// 变换DetailNormal(从[0,1]到[-1,1])
 	vNormal = vNormal * 2.f - 1.f;
 	
+	// 缩放DetailNormal
 	vNormal.xy *= g_fTerrainNormalScale;
 	
+	// 与远处法线区域做过渡(从视点到分割线进行线性过渡,过渡效果很差,几乎等于没有,待进一步优化)
 	float fNormalSmooth = saturate(5.f -5.f * length(vWorldPos - g_vViewPos) / g_fTerrainFarStart);
 	vNormal.xy *= fNormalSmooth;
-	vNormal = normalize(vNormal);
-	//vNormal = sqrt(dot(float3(1.f, vNormal.xy), float3(1.f, -vNormal.xy)));
 	
+	// 归一化
+	vNormal = normalize(vNormal);
+	//vNormal.z = sqrt(dot(float3(1.f, vNormal.xy), float3(1.f, -vNormal.xy)));
+	
+	// DetailNormal从切线空间转换到世界坐标(http://www.terathon.com/code/tangent.html)
+	//	|Tx Ty Tz|   |X|
+	//	|Bx By Bz| * |Y|
+	//  |Nx Ny Nz|   |Z|
 	vNormal = vNormal.z * vWorldNormal.xyz + vNormal.y * vWorldBinormal + vNormal.x * vWorldTangent;
 	
-	// 转换到观察坐标系
-	vNormal = mul(float4(vNormal, 0.f), g_mView);
+	// 变换Normal到观察空间
+	// 	1.需要乘以逆转置矩阵,
+	//	2.ViewMatrix旋转部分是正交矩阵,平移部分不是,我们只需要旋转变换
+	//	3.g_mView旋转部分(3x3)是正交矩阵，逆转置矩阵是它自己
+	float3 vViewNormal = mul(float4(vWorldNormal.xyz, 0.f), g_mView).xyz;
 	// @}
 	
 	float2 vOutputDepth = step(vPlanarWeight.xz, 0.001f);
-	return float4(vPackedDepth * vOutputDepth.x * vOutputDepth.y, PackNormal(vNormal) * vPlanarWeight.y);
+	return float4(vPackedDepth * vOutputDepth.x * vOutputDepth.y, PackNormal(vViewNormal) * vPlanarWeight.y);
 }
 
 //---------------------------------------------------------------------------------------
