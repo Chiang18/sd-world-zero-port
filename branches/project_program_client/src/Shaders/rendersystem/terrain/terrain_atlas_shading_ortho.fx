@@ -3,7 +3,7 @@
 //---------------------------------------------------------
 // ×÷Õß:		
 // ´´½¨:		2012-08-23
-// ×îºóĞŞ¸Ä:
+// ×îºóĞŞ¸Ä:	2013-05-02
 //*************************************************************************************************
 #include "terrain_common.h"
 
@@ -15,9 +15,9 @@ SD_POINT_CLAMP_SAMPLE(1, sdGeomSampler, 			sdGeomBuf, 			false);		// ÆÁÄ»Éî¶ÈÓë·
 SD_POINT_CLAMP_SAMPLE(2, sdLightSampler, 			sdLightBuf, 		false);		// ÆÁÄ»¾Ö²¿¹âÕÕ»º´æ
 SD_LINEAR_WRAP_SAMPLE(3, sdBaseNormalSampler, 		sdBaseNormalTex, 	false);		// µØĞÎ»ù±¾·¨ÏßÌùÍ¼
 SD_POINT_CLAMP_SAMPLE(4, sdTileSampler,				sdTileTex,			false);		// µØĞÎTileMap
-SD_LINEAR_WRAP_SAMPLE(5, sdBlendSampler,			sdBlendTex,			false);		// µØĞÎ»ìºÏÈ¨ÖØÌùÍ¼
+SD_LINEAR_WRAP_SAMPLE(5, sdBlendSampler,			sdBlendTex,			false);		// µØĞÎBlendMap
 SD_POINT_CLAMP_SAMPLE(6, sdAtlasTableSampler,		sdAtlasTableTex,	false);		// µØĞÎÂş·´ÉäÌùÍ¼²éÑ¯±í
-SD_LINEAR_CLAMP_SAMPLE(7, sdDiffuseAtlasSampler,	sdDiffuseAtlasTex,	false);		// µØĞÎÂş·´ÉäÌùÍ¼Í¼¼¯
+SD_LINEAR_WRAP_SAMPLE(7, sdDiffuseAtlasSampler,		sdDiffuseAtlasTex,	false);		// µØĞÎÂş·´ÉäÌùÍ¼Í¼¼¯
 
 //---------------------------------------------------------------------------------------
 // ¶¥µã×ÅÉ«Æ÷ÊäÈëÊı¾İÁ÷
@@ -25,7 +25,7 @@ SD_LINEAR_CLAMP_SAMPLE(7, sdDiffuseAtlasSampler,	sdDiffuseAtlasTex,	false);		// 
 struct VS_INPUT
 {
 	float3	vPos			: POSITION0;	// ÆÁÄ»¾ØĞÎ¶¥µã
-	float2	vUVSet0			: TEXCOORD0;	// ÆÁÄ»¾ØĞÎ¶¥µãÎÆÀí×ø±ê
+	float2	vUVSet0			: TEXCOORD0;	// ÆÁÄ»¾ØĞÎÎÆÀí×ø±ê
 };
 
 //---------------------------------------------------------------------------------------
@@ -47,7 +47,7 @@ VS_OUTPUT VS_Main(VS_INPUT kInput)
 {
 	VS_OUTPUT kOutput;
 
-	// ×ª»»µ½Í¶Ó°×ø±ê
+	// Í¶Ó°×ø±ê
 	kOutput.vProjPos = float4(kInput.vPos, 1.f);
 	
 	// ¾ÀÕı°ëÏñËØÆ«ÒÆµÄÆÁÄ»ÎÆÀí×ø±ê
@@ -62,7 +62,8 @@ VS_OUTPUT VS_Main(VS_INPUT kInput)
 	kOutput.vUVFarClipWorldPos = vUVFarClipWorldPos.xyz;
 	
 	// µ±Ç°µã¶ÔÓ¦Ô¶²Ã¼ôÃæÉÏµÄµãµÄ¹Û²ì×ø±ê
-	// (Ìæ»»µôw·ÖÁ¿ÊÇÎªÁË±ÜÃâ¼ÆËãÎó²îÀÛ»ı?)
+	//	1.ĞèÒªg_mViewµÄÆ½ÒÆ±ä»»,ËùÒÔÒª»Ö¸´float4
+	// 	2.Ìæ»»µôw·ÖÁ¿ÊÇ±ÜÃâ¼ÆËãÎó²îÀÛ»ı
 	kOutput.vUVFarClipViewPos  = mul(float4(vUVFarClipWorldPos.xyz, 1.f), g_mView).xyz;
 	
 	return kOutput;
@@ -77,36 +78,50 @@ float4 PS_Main_Planar(VS_OUTPUT kInput) : COLOR0
 	float4 vGeoTex = tex2D(sdGeomSampler, kInput.vUVSetScreenTex);
 	float fDepth = UnpackDepth(vGeoTex.xy);
 	
-	// ·´ËãÊÀ½ç×ø±ê
-	// (¸ù¾İÏßĞÔÉî¶È,¶Ô½üÔ¶Æ½Ãæ¶ÔÓ¦µãÎ»ÖÃ½øĞĞ²åÖµ)
+	// ·´ËãÊÀ½ç×ø±ê(¸ù¾İÏßĞÔÉî¶È,¶ÔÏà»úÎ»ÖÃºÍÔ¶Æ½Ãæ¶ÔÓ¦µãÎ»ÖÃ½øĞĞ²åÖµ)
 	float3 vWorldPos = lerp(kInput.vUVNearClipWorldPos, kInput.vUVFarClipWorldPos, fDepth);
 	
-	// ¼ÆËãµ±Ç°µãµÄµØĞÎÏà¶ÔUV(×¢Òâ,ÕâÀïÃ»ÓĞÆ«ÒÆ°ëÏñËØ)
-	float2 vUVSet = vWorldPos.xy * g_vRecipTerrainSize.xy;
+	// ¼ÆËãµ±Ç°µãµÄµØĞÎÏà¶ÔUV(×¢Òâ,ÕâÀïÃ»ÓĞÆ«ÒÆ)
+	float2 vUVSet = vWorldPos.xy * g_vRecipTerrainSize;
 	
 	
-	// NormalMap
+	// BaseNormalMap
 	// @{
-	// ¸ù¾İUV²ÉÑùNormalMap(SamplerÊÇLinear,Ã»ÓĞÆ«ÒÆ°ëÏñËØ)
+	// ¸ù¾İUV²ÉÑùBaseNormalMap(×¢Òâ,ÕâÀïÃ»ÓĞÆ«ÒÆ°ëÏñËØ,ÒòÎªBaseNormalMapÊÇLinear²ÉÑùµÄ)
 	float2 vBaseNormalTex = tex2D(sdBaseNormalSampler, vUVSet).xy;
 	
 	// ½â³öÊÀ½ç¿Õ¼ä·¨Ïß
 	float3 vWorldNormal;
 	vWorldNormal.xy	= vBaseNormalTex.xy * 2.f - 1.f;
-	vWorldNormal.z 	= sqrt(dot(float3(1.f, vBaseNormalTex.xy), float3(1.f, -vBaseNormalTex.xy)));
+	vWorldNormal.z 	= sqrt(dot(float3(1.f, vWorldNormal.xy), float3(1.f, -vWorldNormal.xy)));
 	// @}
 	
 	
 	// TileMap
 	// @{
-	// ¸ù¾İUV²ÉÑùTileMap,
+	// ¸ù¾İUV²ÉÑùTileMap(ÕâÀï´Ó[0,1]»Ö¸´µ½[0,255]µÄÍ¼²ãË÷ÒıÇø¼ä)
 	float4 vIndices = tex2D(sdTileSampler, vUVSet) * 255.f;
 	// @}
 	
 	
 	// BlendMap
 	// @{
-	// ¼ÆËãĞÂµÄUV(²»½â,´ó¸ÅÊÇÎªÁËÔÚTile±ßÔµ½øĞĞÈÚºÏ)
+	// ¼ÆËãĞÂµÄUV(½«²ÉÑùµã´ÓBlendTexµÄÖĞĞÄµãÏò±³ÀëTileÖĞĞÄ·½ÏòÆ«ÒÆ)
+	//	1.¼ÆËãµ±Ç°FragmentÏà¶ÔTexTileÖĞĞÄµãµÄÆ«ÒÆ(µ¥Î»:TexTile)
+	//	2.½«µ±Ç°FragmentÏà¶ÔTexTileÖĞĞÄµãµÄÆ«ÒÆ×ª»¯Îª¶ÔBlendMapPixelÖĞĞÄÆ«ÒÆ(µ¥Î»:BlendMapPixel)
+	//	3.´ÓUVSet¼õÈ¥¶ÔBlendMapPixelÖĞĞÄÆ«ÒÆ(×¢ÒâUVSet±¾ÉíÃ»ÓĞ´¦Àí°ëÏñËØÆ«ÒÆ)
+	//
+	// WZÔ­Ê½:
+	//	float2 tileCenterOffset = frac(vUVSet * (2048.0 / 4.0)) - 0.5;
+	//	vUVSet -= tileCenterOffset * (1.0 / 2048.0);
+	//
+	// ±¾µØÊµÏÖ:
+	//	float2 tileCenterOffset = frac(vUVSet * g_vTileMapSize) - 0.5;
+	//	float2 vUVSet2 = vUVSet - tileCenterOffset * g_vRecipBlendMapSize;
+	//
+	// ĞŞ¶©°æ(½ö½öĞŞÕı¶ÔBlendMapÏñËØÖĞĞÄÆ«ÒÆ)
+	//	float2 vUVSet2 = vUVSet + g_vRecipBlendMapSize * 0.5f;
+	//
 	float2 tileCenterOffset = frac(vUVSet * g_fTileMapSize) - 0.5f;
 	float2 vUVSet2 = vUVSet - tileCenterOffset * g_fRecipBlendMapSize;
 
@@ -128,7 +143,7 @@ float4 PS_Main_Planar(VS_OUTPUT kInput) : COLOR0
 	// ²ÉÑùÁ¢·½ÌåÎÆÀí
 	float4 vPlanarVec = texCUBE(sdPlanarTableSampler, vWorldNormal.xzy) * 255.f - 1.f;
 	
-	// ¼ÆËãĞÂµÄµØĞÎUV
+	// ¼ÆËãĞÂµÄµØĞÎUV(??)
 	float2 vUVSet3 = float2(dot(vWorldPos.xy, vPlanarVec.xy), dot(vWorldPos.yz, vPlanarVec.zw));
 	
 	// ¼ÆËãµ±Ç°ÏñËØµ½¹Û²ìµãÊ¸Á¿
@@ -147,7 +162,7 @@ float4 PS_Main_Planar(VS_OUTPUT kInput) : COLOR0
 						   SamplerAtlasMap(sdDiffuseAtlasSampler, sdAtlasTableSampler, float2(vUVSetTableU.z, vUVSetTableV), vUVSet3) * vBlendTex.r;
 	
 #ifdef _SD_EDITOR
-	vDiffuseGloss = max(vDiffuse_Gloss, float4(g_vDiffuseMapMask, g_fGlossMapMask));
+	vDiffuseGloss = max(vDiffuseGloss, float4(g_vDiffuseMapMask, g_fGlossMapMask));
 #endif
 	// @}
 	

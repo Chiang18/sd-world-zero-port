@@ -3,7 +3,7 @@
 //---------------------------------------------------------
 // 作者:		
 // 创建:		2012-11-22
-// 最后修改:
+// 最后修改:	2013-05-02
 //*************************************************************************************************
 #include "terrain_common.h"
 
@@ -13,7 +13,7 @@
 //float3 	g_vEyePos			: EYEPOS;
 //float		g_fTime				: GLOBAL;
 //int		g_iTerrainSize		: GLOBAL;
-//float		g_fTerrainMaxHeight	: GLOBAL;
+//float		g_fTerrainMinHeight	: GLOBAL;
 //float		g_fTerrainMaxHeight	: GLOBAL;
 
 //float4x4	g_mViewProj			: VIEWPROJECTION;
@@ -137,6 +137,9 @@ technique Terrain_MeshQuad
 	{
 		VertexShader 	= compile vs_2_0 VS_Main ();
 		PixelShader 	= compile ps_2_0 PS_Main ();
+		
+		//ZEnable = true;
+		//ZWriteEnable = true;
 	}
 }
 //---------------------------------------------------------------------------------------

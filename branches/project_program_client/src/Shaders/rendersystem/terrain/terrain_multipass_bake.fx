@@ -8,7 +8,7 @@
 #include "terrain_common.h"
 
 //---------------------------------------------------------------------------------------
-// 全局变量
+// 输入变量
 //---------------------------------------------------------------------------------------
 float4	g_vBakeUVOffsetScale	: GLOBAL = float4(0.f, 0.f, 1.f, 1.f);
 float4	g_vTerrainUVOffsetScale	: GLOBAL = float4(0.f, 0.f, 1.f, 1.f);
@@ -73,6 +73,8 @@ float4 PS_Main_Planar_XY_Bake(VS_OUTPUT kInput) : COLOR0
 	float3 vPlanarWeight;
 	vPlanarWeight.xy 	= vBaseNormalTex.zw;
 	vPlanarWeight.z 	= saturate(1.f - vBaseNormalTex.z - vBaseNormalTex.w);	
+	
+	//clip(vPlanarWeight.z - 0.001f);
 	// @}
 
 	
@@ -83,11 +85,11 @@ float4 PS_Main_Planar_XY_Bake(VS_OUTPUT kInput) : COLOR0
 	
 	// 采样BlendMap
 	float4 vBlendWeight00 = tex2D(sdBlendSampler, vUVSet1);
-	float4 vBlendWeight01 = tex2D(sdBlendSampler, vUVSet1 + float2(0.5f, 0.0f));
-	float4 vBlendWeight02 = tex2D(sdBlendSampler, vUVSet1 + float2(0.0f, 0.5f));
+	float4 vBlendWeight01 = tex2D(sdBlendSampler, vUVSet1 + float2(0.5f, 0.f));
+	float4 vBlendWeight02 = tex2D(sdBlendSampler, vUVSet1 + float2(0.f,  0.5f));
 	
 	// 采样BlendMap
-	float4 vBaseDiffuseDarkColor = tex2D(sdBlendSampler, vUVSet1 + float2(0.5, 0.5));
+	float4 vBaseDiffuseDarkColor = tex2D(sdBlendSampler, vUVSet1 + float2(0.5f, 0.5f));
 
 #ifdef _SD_EDITOR
 	vBaseDiffuseDarkColor =  max(vBaseDiffuseDarkColor, float4(g_vVertexColorMask, g_fLightMapMask));
@@ -114,7 +116,7 @@ float4 PS_Main_Planar_XY_Bake(VS_OUTPUT kInput) : COLOR0
 	vDiffuseGloss += tex2D(sdDiffuseSampler10, vUVSet2 * g_vRecipUVRepeats[2].z) * vBlendWeight02.g;
 	vDiffuseGloss += tex2D(sdDiffuseSampler11, vUVSet2 * g_vRecipUVRepeats[2].w) * vBlendWeight02.b;
 	
-	vDiffuseGloss *= float4(vBaseDiffuseDarkColor.rgb, 1.0);
+	vDiffuseGloss *= float4(vBaseDiffuseDarkColor.rgb, 1.f);
 	// @}
 	
 	return float4(vDiffuseGloss.rgb, 0.f);
