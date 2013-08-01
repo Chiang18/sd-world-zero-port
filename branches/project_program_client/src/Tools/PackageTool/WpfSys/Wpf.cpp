@@ -1,23 +1,23 @@
-#include "StdAfx.h"
+//#include "StdAfx.h"
 #include "Wpf.h"
+//#include "Compr.h"
+
+#include <vector>
 #include <algorithm>
 #include <stdio.h>
-#include  <io.h>
+#include <io.h>
 #include <fcntl.h>
 #include <sys/stat.h>
 #include <ShlObj.h>
-#include <vector>
-//#include "Compr.h"
-
 
 #pragma comment(lib,"User32.lib")
 #pragma comment(lib,"shell32.lib")
 
-#ifdef _DEBUG
+//#ifdef _DEBUG
 //#pragma comment(lib,"CompressMTd.lib")
-#else
-#pragma comment(lib,"CompressMT.lib")
-#endif
+//#else
+//#pragma comment(lib,"CompressMT.lib")
+//#endif
 
 
 //ms-help://MS.VSCC.v80/MS.MSDN.v80/MS.VisualStudio.v80.chs/dv_vccrt/html/dc7874d3-a91b-456a-9015-4748bb358217.htm
@@ -25,7 +25,7 @@
 #pragma warning(disable:4996)
 
 DWORD CWpf::m_dwCryptTable[MAX_WPF_HASH_BUFFF_SIZE];
-
+//-------------------------------------------------------------------------------------------------
 CWpf::CWpf(void)
 {
 	m_dwExpendLen = 10 * 1024 *1024;
@@ -62,66 +62,68 @@ CWpf::CWpf(void)
 
 	InitBuffer();
 }
-
+//-------------------------------------------------------------------------------------------------
 CWpf::~CWpf(void)
 {
 	WpfClose();
 }
-
-bool CWpf::WpfCreate(const char * strPathName,__int64 iSize,bool bFailExist)
+//-------------------------------------------------------------------------------------------------
+bool CWpf::WpfCreate(const char * strPathName, __int64 iSize, bool bFailExist)
 {
-	if(strPathName == NULL || strlen(strPathName) == 0 || iSize <= 0)
+	if (strPathName == NULL || strlen(strPathName) == 0 || iSize <= 0)
 	{
 		m_eWrLastError = EWR_PARA_ERROR;
 		return false;
 	}
 
-	if(m_bSaving)
+	if (m_bSaving)
 	{
 		m_eWrLastError = EWR_FILE_SAVING;
 		return false;
 	}
 
-	FILE *fp = fopen(strPathName,"rb");
-	if(fp)
+	// 创建文件
+	FILE *fp = fopen(strPathName, "rb");
+	if (fp)
 	{
 		fclose(fp);
-		if(bFailExist)
+		if (bFailExist)
 		{
 			m_eWrLastError = EWR_FILE_EXIST;
 			return false;
 		}
 	}	
-	//创建目录
+
+	// 提取wpf文件路径与文件名
 	m_strWpfDir = strPathName;
-	replace(m_strWpfDir.begin(),m_strWpfDir.end(),'/','\\');
+	replace(m_strWpfDir.begin(), m_strWpfDir.end(), '/', '\\');	///< 替换所有"/"为"\\"
 	size_t iPos = m_strWpfDir.find_last_of("\\");
 	if(iPos != string::npos)
 	{
-		m_strWpfFileName = m_strWpfDir.substr(iPos + 1,m_strWpfDir.length() - iPos - 1);
-		m_strWpfDir = m_strWpfDir.substr(0,iPos);
+		m_strWpfFileName = m_strWpfDir.substr(iPos + 1, m_strWpfDir.length() - iPos - 1);
+		m_strWpfDir = m_strWpfDir.substr(0, iPos);
 	}
 
-	SHCreateDirectoryEx(NULL,m_strWpfDir.c_str(),NULL);
+	// 确保wpf文件所在目录存在
+	::SHCreateDirectoryEx(NULL, m_strWpfDir.c_str(), NULL);
  
-	//先关闭当前打开的wpf文件
+	// 先关闭当前打开的wpf文件
 	WpfClose();
 
-	//打开或创建文件
-	//m_handle = CreateFile(strPathName,GENERIC_WRITE,FILE_SHARE_READ,NULL,CREATE_ALWAYS,FILE_ATTRIBUTE_NORMAL,NULL);
-	errno_t err = _sopen_s(&(m_iFileHandle[EFT_MAIN]), strPathName, _O_BINARY | _O_RDWR | _O_CREAT | _O_TRUNC , _SH_DENYWR,  _S_IREAD | _S_IWRITE );
-	if(err != 0)
+	// 打开或创建文件(_sopen/_wsopen/_sopen_s/_wsopen_s, 打开共享文件)
+	//m_handle = CreateFile(strPathName, GENERIC_WRITE,FILE_SHARE_READ, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
+	errno_t err = _sopen_s(&(m_iFileHandle[EFT_MAIN]), strPathName, _O_BINARY | _O_RDWR | _O_CREAT | _O_TRUNC , _SH_DENYWR,  _S_IREAD | _S_IWRITE);
+	if (err != 0)
 	{
 		m_eWrLastError = EWR_ERROR;
 		return false;
 	}
 
-	//初始化文件头
+	// 初始化文件起始位置
 	m_iWpfStartPos = 0;
 
-
-	//凑成m_WpfHeader.wBytesPerBlock的倍数
-	if((iSize % m_WpfHeader.wBytesPerBlock) != 0)
+	// 文件尺寸凑成m_WpfHeader.wBytesPerBlock的倍数
+	if ((iSize % m_WpfHeader.wBytesPerBlock) != 0)
 	{
 		iSize += m_WpfHeader.wBytesPerBlock - (iSize % m_WpfHeader.wBytesPerBlock);
 	}
@@ -136,42 +138,39 @@ bool CWpf::WpfCreate(const char * strPathName,__int64 iSize,bool bFailExist)
 	m_pBlankBlockList->blankBlock.dwStart = 0;
 	m_pBlankBlockList->blankBlock.dwSize = m_WpfHeader.dwTotalBlocks;
 
-	//指定文件大小
-	err = _chsize_s(m_iFileHandle[EFT_MAIN],m_iWpfStartPos + m_WpfHeader.wHeaderSize + m_WpfHeader.iWpfSize + m_WpfHeader.dwBlankBlockSize * sizeof(BlankBlock) + (m_WpfHeader.dwDirCount + m_WpfHeader.dwFileCount) * FCB_SIZE);
-	if(err != 0)
+	// 指定文件大小
+	err = _chsize_s(m_iFileHandle[EFT_MAIN], m_iWpfStartPos + m_WpfHeader.wHeaderSize + m_WpfHeader.iWpfSize + m_WpfHeader.dwBlankBlockSize * sizeof(BlankBlock) + (m_WpfHeader.dwDirCount + m_WpfHeader.dwFileCount) * FCB_SIZE);
+	if (err != 0)
 	{
 		m_eWrLastError = EWR_ERROR;
 		return false;
 	}
 
-	for (int i = EFT_THREAD ; i < EFT_NUM; i ++)
+	// 为所有线程打开文件
+	for (int i = EFT_THREAD; i < EFT_NUM; i ++)
 	{
-		err = 	_sopen_s(&(m_iFileHandle[i]), strPathName, _O_BINARY | _O_RDONLY , _SH_DENYNO,  _S_IREAD);
-
-		if(err != 0)
+		err = _sopen_s(&(m_iFileHandle[i]), strPathName, _O_BINARY | _O_RDONLY , _SH_DENYNO,  _S_IREAD);
+		if (err != 0)
 		{
 			m_eWrLastError = EWR_FILE_OPEN_FAIL;
 			return false;
 		}
 	}
 
-	m_dwOpenType = EWOT_RDWR|EWOT_LISTDIR;
+	m_dwOpenType = EWOT_RDWR | EWOT_LISTDIR;	///< 当前wpf文件打开方式
 
-	//格式化
+	// 格式化
 	WpfFormat();
 
-	m_WpfHeader_Bak = m_WpfHeader;//备份头
+	m_WpfHeader_Bak = m_WpfHeader;				///< 备份文件头
 
-
-	//把相关信息保存到文件
+	// 把相关信息保存到文件
 	m_bModifyed = true;
-	if(!WpfSave())
+	if (!WpfSave())
 	{
 		m_bModifyed = false;
 		WpfClose();
-
-		::DeleteFile(strPathName);
-
+		::DeleteFile(strPathName);	
 
 		m_eWrLastError = EWR_FILE_SAVE_FAIL;
 		return false;
@@ -179,112 +178,120 @@ bool CWpf::WpfCreate(const char * strPathName,__int64 iSize,bool bFailExist)
 
 	return true;
 }
-
-bool CWpf::WpfOpen(const char * strPathName,__int64 iOffset,DWORD dwOpenType)
+//-------------------------------------------------------------------------------------------------
+bool CWpf::WpfOpen(const char * strPathName, __int64 iOffset, DWORD dwOpenType)
 {
-	if(strPathName == NULL || dwOpenType == 0)
+	if (strPathName == NULL || dwOpenType == 0)
 	{
 		m_eWrLastError = EWR_PARA_ERROR;
 		return false;
 	}
 
-	if(m_bSaving)
+	if (m_bSaving)
 	{
 		m_eWrLastError = EWR_FILE_SAVING;
 		return false;
 	}
 
-	//先关闭当前打开的wpf文件
+	// 先关闭当前打开的wpf文件
 	WpfClose();
 
+	// 提取wpf文件路径与文件名
 	m_strWpfDir = strPathName;
-	replace(m_strWpfDir.begin(),m_strWpfDir.end(),'/','\\');
+	replace(m_strWpfDir.begin(), m_strWpfDir.end(), '/', '\\');	///< 替换所有"/"为"\\"
 	size_t iPos = m_strWpfDir.find_last_of("\\");
 	if (iPos != string::npos)
 	{
-		m_strWpfFileName = m_strWpfDir.substr(iPos + 1,m_strWpfDir.length() - iPos - 1);
-		m_strWpfDir = m_strWpfDir.substr(0,iPos);
+		m_strWpfFileName = m_strWpfDir.substr(iPos + 1, m_strWpfDir.length() - iPos - 1);
+		m_strWpfDir = m_strWpfDir.substr(0, iPos);
 	}
-	//打开或创建文件
+
+	// 为主线程打开文件
 	errno_t err = 0;
 	if (dwOpenType & EWOT_RDWR)
 	{
-		err = 	_sopen_s(&(m_iFileHandle[EFT_MAIN]), strPathName, _O_BINARY | _O_RDWR , _SH_DENYWR,  _S_IREAD | _S_IWRITE );
+		err = _sopen_s(&(m_iFileHandle[EFT_MAIN]), strPathName, _O_BINARY | _O_RDWR , _SH_DENYWR, _S_IREAD | _S_IWRITE);
 		dwOpenType |= EWOT_LISTDIR;
 	}
 	else
 	{
-		err = 	_sopen_s(&(m_iFileHandle[EFT_MAIN]), strPathName, _O_BINARY | _O_RDONLY , /*_SH_DENYWR*/_SH_DENYNO,  _S_IREAD);
+		err = _sopen_s(&(m_iFileHandle[EFT_MAIN]), strPathName, _O_BINARY | _O_RDONLY , /*_SH_DENYWR*/_SH_DENYNO,  _S_IREAD);
 		if (dwOpenType & EWOT_READONLY)
 		{
 			dwOpenType |= EWOT_LISTHASH;
 		}
 	}
 
-	if(err != 0)
+	if (err != 0)
 	{
 		m_eWrLastError = EWR_FILE_OPEN_FAIL;
 		return false;
 	}
 
+	// 为所有其他线程打开文件
 	for (int i = EFT_THREAD ; i < EFT_NUM; i ++)
 	{
-		err = 	_sopen_s(&(m_iFileHandle[i]), strPathName, _O_BINARY | _O_RDONLY , _SH_DENYNO,  _S_IREAD);
-
+		err = _sopen_s(&(m_iFileHandle[i]), strPathName, _O_BINARY | _O_RDONLY , _SH_DENYNO,  _S_IREAD);
 		if(err != 0)
 		{
 			m_eWrLastError = EWR_FILE_OPEN_FAIL;
 			return false;
 		}
 	}
-
+	
+	// 初始化文件偏移
 	m_iWpfStartPos = iOffset;
-	m_WpfHeader.dwMagic = 0;//防止有些文件长度不够sizeof(S_WpfHeader),取到默认值
-	m_WpfHeader_Bak.dwMagic = 0;//防止有些文件长度不够sizeof(S_WpfHeader),取到默认值
-	m_WpfHeader.bySavingHeader = TRUE;//防止有些文件长度不够sizeof(S_WpfHeader),取到默认值
-	m_WpfHeader_Bak.bySavingHeader = TRUE;//防止有些文件长度不够sizeof(S_WpfHeader),取到默认值
 
-	//读入文件头
-	_lseeki64(m_iFileHandle[EFT_MAIN],m_iWpfStartPos,SEEK_SET);
-	_read(m_iFileHandle[EFT_MAIN],&m_WpfHeader,sizeof(S_WpfHeader));
+	// 初始化文件头
+	m_WpfHeader.dwMagic = 0;				///< 防止有些文件长度不够sizeof(S_WpfHeader),取到默认值
+	m_WpfHeader_Bak.dwMagic = 0;			///< 防止有些文件长度不够sizeof(S_WpfHeader),取到默认值
+	m_WpfHeader.bySavingHeader = TRUE;		///< 防止有些文件长度不够sizeof(S_WpfHeader),取到默认值
+	m_WpfHeader_Bak.bySavingHeader = TRUE;	///< 防止有些文件长度不够sizeof(S_WpfHeader),取到默认值
 
-	//读入文件头备份
-	_lseeki64(m_iFileHandle[EFT_MAIN],m_iWpfStartPos + sizeof(S_WpfHeader),SEEK_SET);
-	_read(m_iFileHandle[EFT_MAIN],&m_WpfHeader_Bak,sizeof(S_WpfHeader));
+	// 读入文件头
+	_lseeki64(m_iFileHandle[EFT_MAIN], m_iWpfStartPos, SEEK_SET);		///< 寻址到wpf文件起始位置
+	_read(m_iFileHandle[EFT_MAIN], &m_WpfHeader, sizeof(S_WpfHeader));	///< 读入wpf文件头
 
-	if(m_WpfHeader.bySavingHeader && m_WpfHeader_Bak.bySavingHeader)//该文件在创建的时候出现异常,如断点,程序崩溃等情况,没有正常写入头
+	// 读入文件头备份
+	_lseeki64(m_iFileHandle[EFT_MAIN], m_iWpfStartPos + sizeof(S_WpfHeader), SEEK_SET);
+	_read(m_iFileHandle[EFT_MAIN], &m_WpfHeader_Bak, sizeof(S_WpfHeader));
+
+	// 该文件在创建的时候出现异常,如断点,程序崩溃等情况,没有正常写入头
+	if(m_WpfHeader.bySavingHeader && m_WpfHeader_Bak.bySavingHeader)	
 	{
 		return false;
 	}
 	
-	//如果上次文件头没有正确保存,读取必份的文件
+	// 如果上次文件头没有正确保存,读取备份的文件头
 	if (m_WpfHeader.bySavingHeader)
 	{
 		m_WpfHeader = m_WpfHeader_Bak;
-		m_bModifyed = true;//原来没有保存好,用了备份的,那么这次即使没有修改也要重新保存
+		m_bModifyed = true;	///< 原来没有保存好,用了备份的,那么这次即使没有修改也要重新保存
 	}
 
-	m_WpfHeader_Disk = m_WpfHeader;
+	m_WpfHeader_Disk = m_WpfHeader;		///< 获取读取的文件头
 
-	if(m_WpfHeader.dwMagic != WPF_MAGIC)
+	if (m_WpfHeader.dwMagic != WPF_MAGIC)
 	{
 		m_eWrLastError = EWR_NOT_WPF_FILE;
 		WpfClose();
 		return false;
 	}
 
-	m_WpfHeader.bySavingHeader = FALSE;//理论上不可能出现文件头及备份文件头m_WpfHeader.bySavingHeader同时为TRUE,还是清一下标记
-	m_dwOpenType = dwOpenType;
+	m_WpfHeader.bySavingHeader = FALSE; ///< 理论上不可能出现文件头及备份文件头m_WpfHeader.bySavingHeader同时为TRUE,还是清一下标记
+	
+	m_dwOpenType = dwOpenType;			///< 保存打开方式
 
-	//如果以写方式打开要求读入空闲块描述信息
+	// 如果以写方式打开要求读入空闲块描述信息
 	if ((m_dwOpenType & EWOT_RDWR) && m_WpfHeader.dwBlankBlockSize > 0)
 	{
 		PBlankBlock pBlock = new BlankBlock[m_WpfHeader.dwBlankBlockSize];
-		_lseeki64(m_iFileHandle[EFT_MAIN],m_iWpfStartPos + m_WpfHeader.iBlankBlockPos,SEEK_SET);
-		_read(m_iFileHandle[EFT_MAIN],pBlock,m_WpfHeader.dwBlankBlockSize * sizeof(BlankBlock));
+
+		_lseeki64(m_iFileHandle[EFT_MAIN], m_iWpfStartPos + m_WpfHeader.iBlankBlockPos, SEEK_SET);
+		_read(m_iFileHandle[EFT_MAIN], pBlock, m_WpfHeader.dwBlankBlockSize * sizeof(BlankBlock));
 
 		PBlankBlock p = pBlock;
-		PBlankBlockNode pList = NULL,pList2 = NULL;
+		PBlankBlockNode pList = NULL, pList2 = NULL;
 
 		pList = new BlankBlockNode();
 		pList->blankBlock.dwStart = p->dwStart;
@@ -310,10 +317,10 @@ bool CWpf::WpfOpen(const char * strPathName,__int64 iOffset,DWORD dwOpenType)
 		SAFE_DELETE_ARRAY(pBlock);
 	}
 
-	//载入文件分配表
+	// 载入文件分配表
 	return WpfLoadFat();	
 }
-
+//-------------------------------------------------------------------------------------------------
 void CWpf::WpfClear()
 {
 	PBlankBlockNode pBlankBlockList = m_pBlankBlockList;
@@ -330,8 +337,9 @@ void CWpf::WpfClear()
 		SAFE_DELETE_ARRAY(m_pFcb2List);
 		SAFE_DELETE_ARRAY(m_pFcbList);
 		SAFE_DELETE_ARRAY(m_pDirList);
-		//清除新建目录及文件时申请的内存
-		NEWDIR *p = m_CreateDirHeader.pNext,*p2 = NULL;
+
+		// 清除新建目录及文件时申请的内存
+		NEWDIR *p = m_CreateDirHeader.pNext, *p2 = NULL;
 		while(p)
 		{
 			p2 = p->pNext;
@@ -341,8 +349,9 @@ void CWpf::WpfClear()
 		}
 
 		m_pWpfRoot = NULL;
-		//文件FCB
-		NEWFCB *q = m_CreateFcbHeader.pNext,*q2 = NULL;
+
+		// 文件FCB
+		NEWFCB *q = m_CreateFcbHeader.pNext, *q2 = NULL;
 		while(q)
 		{
 			q2 = q->pNext;
@@ -355,7 +364,7 @@ void CWpf::WpfClear()
 	}
 	else
 	{
-		//释放目录结构
+		// 释放目录结构
 		vector<PWpfFileList> VDirs;
 		VDirs.push_back(m_pWpfRoot);
 
@@ -374,13 +383,13 @@ void CWpf::WpfClear()
 			MList &dirlist = pFront->MDirs;
 			MSFCB &filelist = pFront->MFiles;
 
-			//子目录
-			for (MList::iterator itr = dirlist.begin();itr != dirlist.end(); itr++)
+			// 子目录
+			for (MList::iterator itr = dirlist.begin(); itr != dirlist.end(); itr++)
 			{
 				VDirs.push_back(itr->second);
 			}
 
-			//释放文件结构
+			// 释放文件结构
 			for(MSFCB::iterator itr = filelist.begin(); itr != filelist.end(); itr++)
 			{
 				pfcb = itr->second;
@@ -399,9 +408,9 @@ void CWpf::WpfClear()
 		}
 	}
 
-
 	m_MhashFcb1.clear();
 	m_MhashFcb.clear();
+
 	m_CreateDirHeader.pList = NULL;
 	m_CreateDirHeader.pNext = NULL;
 	m_CreateFcbHeader.pfcb = NULL;
@@ -416,25 +425,23 @@ void CWpf::WpfClear()
 	m_bClearEmptyDirAndFile = false;
 	m_dwAddAttributeToNewFile = 0;
 	m_bMeargeNotNeedUnCopress = false;
-
 }
-
+//-------------------------------------------------------------------------------------------------
 void CWpf::WpfClose()
 {
-	if(m_bSaving)
+	if (m_bSaving)
 	{
 		m_eWrLastError = EWR_FILE_SAVING;
 		return;
 	}
 
 	WpfSave();
-
 	WpfClear();
 
 	m_WpfHeader.Clear();
 	m_WpfHeader_Disk.Clear();
 	m_WpfHeader_Bak.Clear();
-	//关闭文件
+
 	for (int i = 0 ; i < EFT_NUM; i ++)
 	{
 		if(m_iFileHandle[i] != -1)
@@ -447,17 +454,17 @@ void CWpf::WpfClose()
 	m_iWpfStartPos = 0;
 	m_bModifyed = false;
 }
-
+//-------------------------------------------------------------------------------------------------
 E_WPF_RTN CWpf::GetLastError()
 {
 	return m_eWrLastError;
 }
-
+//-------------------------------------------------------------------------------------------------
 PWpfFileList CWpf::GetRoot()
 {
 	return m_pWpfRoot;
 }
-
+//-------------------------------------------------------------------------------------------------
 WpfHeader* CWpf::GetHeader()
 {
 	if (!IsOpenWpfFile())
@@ -468,49 +475,45 @@ WpfHeader* CWpf::GetHeader()
 
 	return &m_WpfHeader;
 }
-
-
+//-------------------------------------------------------------------------------------------------
 const char* CWpf::GetWpfFileDir()
 {
 	return m_strWpfDir.c_str();	
 }
-
+//-------------------------------------------------------------------------------------------------
 const char* CWpf::GetWpfFileName()
 {
 	return m_strWpfFileName.c_str();	
 }
-
+//-------------------------------------------------------------------------------------------------
 bool CWpf::SetExpendLength(DWORD dwLen)
 {
 	if (dwLen <= 0)
-	{
 		return false;
-	}
 
 	m_dwExpendLen = dwLen;
-
 	return true;
 }
-
+//-------------------------------------------------------------------------------------------------
 void CWpf::SetSaveWhenExpended(bool bSave)
 {
 	m_bSaveWhenExpended = bSave;
 }
-
+//-------------------------------------------------------------------------------------------------
 void CWpf::SetAlertError(bool bAlert)
 {
 	m_bAlertError = bAlert;
 }
-
+//-------------------------------------------------------------------------------------------------
 bool CWpf::SetWpfType(DWORD dwType)
 {
-	if(!IsOpenWpfFile() || ((m_dwOpenType & EWOT_RDWR) == 0))
+	if (!IsOpenWpfFile() || ((m_dwOpenType & EWOT_RDWR) == 0))
 	{
 		m_eWrLastError = EWR_FILE_NOT_OPEN;
 		return false;
 	}
 
-	if(m_bSaving)
+	if (m_bSaving)
 	{
 		m_eWrLastError = EWR_FILE_SAVING;
 		return false;
@@ -520,7 +523,7 @@ bool CWpf::SetWpfType(DWORD dwType)
 	m_bModifyed = true;
 	return true;
 }
-
+//-------------------------------------------------------------------------------------------------
 DWORD CWpf::GetWpfType()
 {
 	if (!IsOpenWpfFile())
@@ -531,71 +534,71 @@ DWORD CWpf::GetWpfType()
 
 	return m_WpfHeader.dwWpfType;
 }
-
+//-------------------------------------------------------------------------------------------------
 void CWpf::SetSpeedPrior(bool bSpeedPrior)
 {
 	m_bSpeedPrior = bSpeedPrior;
 }
-
+//-------------------------------------------------------------------------------------------------
 bool CWpf::IsSpeedPrior()
 {
 	return m_bSpeedPrior;
 }
-
+//-------------------------------------------------------------------------------------------------
 void CWpf::SetClearEmptyDirAndFile(bool bClearEmptyDirAndFile)
 {
 	m_bClearEmptyDirAndFile = bClearEmptyDirAndFile;
 }
-
+//-------------------------------------------------------------------------------------------------
 bool CWpf::IsClearEmptyDirAndFile()
 {
 	return m_bClearEmptyDirAndFile;
 }
-
+//-------------------------------------------------------------------------------------------------
 void CWpf::SetAddAttributeToNewFile(DWORD dwAddAttribute)
 {
 	m_dwAddAttributeToNewFile = dwAddAttribute;
 }
-
+//-------------------------------------------------------------------------------------------------
 DWORD CWpf::GetAddAttributeToNewFile()
 {
 	return m_dwAddAttributeToNewFile;
 }
-
+//-------------------------------------------------------------------------------------------------
 void CWpf::SetMeargeNotNeedUnCopress(bool val)
 {
 	m_bMeargeNotNeedUnCopress = val;
 }
-
+//-------------------------------------------------------------------------------------------------
 bool CWpf::GetMeargeNotNeedUnCopress()
 {
 	return m_bMeargeNotNeedUnCopress;
 }
-
-PWpfFileList CWpf::CreateDir(const char *strPathName)
+//-------------------------------------------------------------------------------------------------
+PWpfFileList CWpf::CreateDir(const char* strPathName)
 {
-	if(strPathName == NULL)
+	if (strPathName == NULL)
 	{
 		m_eWrLastError = EWR_PARA_ERROR;
 		return NULL;
 	}
 
-	if(!IsOpenWpfFile() || ((m_dwOpenType & EWOT_RDWR) == 0))
+	if (!IsOpenWpfFile() || ((m_dwOpenType & EWOT_RDWR) == 0))
 	{
 		m_eWrLastError = EWR_FILE_NOT_OPEN;
 		return NULL;
 	}
 
-	if(m_bSaving)
+	if (m_bSaving)
 	{
 		m_eWrLastError = EWR_FILE_SAVING;
 		return NULL;
 	}
 
+	// 去掉路径末尾的"\\"
 	string strPath = strPathName;
-	replace(strPath.begin(),strPath.end(),'/','\\');
-	//去掉后面连续的"\\"
-	size_t iPos2 = strPath.find_last_not_of('\\');
+	replace(strPath.begin(), strPath.end(), '/', '\\');	///< 替换所有"/"为"\\"
+	size_t iPos2 = strPath.find_last_not_of('\\');		///< 去掉后面连续的"\\"
 	if(iPos2 == string::npos)
 	{
 		m_eWrLastError = EWR_PATH_INVALID;
@@ -603,25 +606,25 @@ PWpfFileList CWpf::CreateDir(const char *strPathName)
 	}
 	else if(iPos2 != strPath.length() - 1)
 	{
-		strPath = strPath.substr(0,iPos2 + 1);
+		strPath = strPath.substr(0, iPos2 + 1);
 	}
 
-	if(strPath.empty())
+	if (strPath.empty())
 	{
 		m_eWrLastError = EWR_PATH_INVALID;
 		return false;
 	}
 
+	// 提取要创建目录所在的父目录，查找其Plist对象
 	size_t iPos = strPath.find_last_of('\\');
 	PWpfFileList pList = NULL;
-
 	string strSubDir = "";
 	string strParentPath = strPath;
 	if(iPos != string::npos)
 	{
-		strSubDir = strPath.substr(iPos + 1,strPath.length() - iPos);
-		strParentPath = strPath.substr(0,iPos);
-		pList = FindDirFromList(strParentPath,m_pWpfRoot);
+		strSubDir = strPath.substr(iPos + 1, strPath.length() - iPos);
+		strParentPath = strPath.substr(0, iPos);
+		pList = FindDirFromList(strParentPath, m_pWpfRoot);	///< 查找父目录的FileList
 	}
 	else
 	{
@@ -629,26 +632,24 @@ PWpfFileList CWpf::CreateDir(const char *strPathName)
 		strSubDir = strPath;
 	}
 
+	// 创建目录
 	PWpfFileList prtnlist = NULL;
-
-	if(pList)
+	if (pList)
 	{
-		prtnlist = CreateDirToList(strSubDir,pList);
+		// 父目录存在,直接创建子目录
+		prtnlist = CreateDirToList(strSubDir, pList);
 	}
-	else//父目录不存在,递归创建
+	else
 	{
-		//创建父目录
-		PWpfFileList parentlist = CreateDir(strParentPath.c_str());
-		if(parentlist)//在父目录中创建本身目录
-		{
-			prtnlist = CreateDirToList(strSubDir,parentlist);
-		}
+		// 父目录不存在,递归创建
+		PWpfFileList parentlist = CreateDir(strParentPath.c_str());	///< 创建父目录
+		if(parentlist)	
+			prtnlist = CreateDirToList(strSubDir,parentlist);		///< 在父目录中创建本身目录
 		else
-		{
 			return NULL;
-		}
 	}
 
+	// 生成文件路径Hash值
 	if (prtnlist)
 	{
 		prtnlist->pfcb->pfcb1->iHashKey = HashFileName(strPath.c_str());
@@ -656,56 +657,56 @@ PWpfFileList CWpf::CreateDir(const char *strPathName)
 
 	return prtnlist;
 }
-
-bool CWpf::DeleteDir(const char * strPathName)
+//-------------------------------------------------------------------------------------------------
+bool CWpf::DeleteDir(const char* strPathName)
 {
-	if(strPathName == NULL)
+	if (strPathName == NULL)
 	{
 		m_eWrLastError = EWR_PARA_ERROR;
 		return false;
 	}
 
-	if(!IsOpenWpfFile() || ((m_dwOpenType & EWOT_RDWR) == 0))
+	if (!IsOpenWpfFile() || ((m_dwOpenType & EWOT_RDWR) == 0))
 	{
 		m_eWrLastError = EWR_FILE_NOT_OPEN;
 		return false;
 	}
 
-	if(m_bSaving)
+	if (m_bSaving)
 	{
 		m_eWrLastError = EWR_FILE_SAVING;
 		return false;
 	}
 
+	// 去掉路径末尾的"\\"
 	string strPath = strPathName;
-	replace(strPath.begin(),strPath.end(),'/','\\');
-	//去掉后面连续的"\\"
-	size_t iPos2 = strPath.find_last_not_of('\\');
-	if(iPos2 == string::npos)
+	replace(strPath.begin(), strPath.end(), '/', '\\');	///< 替换所有"/"为"\\"
+	size_t iPos2 = strPath.find_last_not_of('\\');		///< 去掉后面连续的"\\"
+	if (iPos2 == string::npos)
 	{
 		m_eWrLastError = EWR_PATH_INVALID;
 		return NULL;
 	}
-	else if(iPos2 != strPath.length() - 1)
+	else if (iPos2 != strPath.length() - 1)
 	{
-		strPath = strPath.substr(0,iPos2 + 1);
+		strPath = strPath.substr(0, iPos2 + 1);
 	}
 
-	if(strPath.empty())
+	if (strPath.empty())
 	{
 		m_eWrLastError = EWR_PATH_INVALID;
 		return false;
 	}
 
+	// 提取要创建目录所在的父目录，查找其Plist对象
 	size_t iPos = strPath.find_last_of("\\");
 	PWpfFileList pList = NULL;
-
 	string strSubDir = "";
-	if(iPos != string::npos)
+	if (iPos != string::npos)
 	{
-		strSubDir = strPath.substr(iPos + 1,strPath.length() - iPos);
-		string strDir = strPath.substr(0,iPos);
-		pList = FindDirFromList(strDir.c_str(),m_pWpfRoot);
+		strSubDir = strPath.substr(iPos + 1, strPath.length() - iPos);
+		string strDir = strPath.substr(0, iPos);
+		pList = FindDirFromList(strDir.c_str(), m_pWpfRoot);
 	}
 	else
 	{
@@ -713,8 +714,8 @@ bool CWpf::DeleteDir(const char * strPathName)
 		strSubDir = strPath;
 	}
 
+	// 删除目录
 	bool bRtn = false;
-
 	if(pList)
 	{
 		bRtn = DelDirFromList(strSubDir,pList);
@@ -722,45 +723,45 @@ bool CWpf::DeleteDir(const char * strPathName)
 
 	return bRtn;	
 }
-
-PWpfFileList CWpf::CreateDirToList(const string &strSubDir,PWpfFileList pList)
+//-------------------------------------------------------------------------------------------------
+PWpfFileList CWpf::CreateDirToList(const string& strSubDir, PWpfFileList pList)
 {
-	if(!pList || strSubDir.length() > MAX_FILE_NAME_LEN || ((m_dwOpenType & EWOT_RDWR) == 0))
+	if (!pList || strSubDir.length() > MAX_FILE_NAME_LEN || ((m_dwOpenType & EWOT_RDWR) == 0))
 	{
 		if (m_bAlertError)
 		{
 			char szTemp[512] = {0};
-			sprintf(szTemp,"创建目录失败,%s",strSubDir.c_str());
-			MessageBox(NULL,szTemp,"提示",MB_OK|MB_ICONERROR);
+			sprintf(szTemp, "创建目录失败,%s", strSubDir.c_str());
+			::MessageBox(NULL, szTemp, "提示", MB_OK | MB_ICONERROR);
 		}
 
 		m_eWrLastError = EWR_PARA_ERROR;
 		return NULL;
 	}
 
-	if(m_bSaving)
+	if (m_bSaving)
 	{
 		m_eWrLastError = EWR_FILE_SAVING;
 		return NULL;
 	}
 
-	if(pList->MDirs.find(strSubDir) != pList->MDirs.end())
+	if (pList->MDirs.find(strSubDir) != pList->MDirs.end())
 	{
 		m_eWrLastError = EWR_DIR_EXIST;
 		return NULL;
 	}
 
-
+	// 创建PFCB
 	PFCB pfcb = new FCB();
 	pfcb->pfcb1 = new FCB1();
 	pfcb->pfcb2 = new FCB2();
 	pfcb->pParent = pList;
-	
 
+	// 创建PList
 	PWpfFileList sublist = new WpfFileList;
 	sublist->pfcb = pfcb;
 
-	//速度优先时一次性存取整个fcb,这个fcb可以一次性释放,但中间新加的fcb得记下来,以便最后释放
+	// 速度优先时一次性存取整个fcb,这个fcb可以一次性释放,但中间新加的fcb得记下来,以便最后释放
 	if (m_bSpeedPrior)
 	{
 		NEWFCB *newfcb = new NEWFCB();
@@ -768,18 +769,16 @@ PWpfFileList CWpf::CreateDirToList(const string &strSubDir,PWpfFileList pList)
 		newfcb->pNext = m_CreateFcbHeader.pNext;
 		m_CreateFcbHeader.pNext = newfcb;
 
-
 		NEWDIR *newdir = new NEWDIR();
 		newdir->pList = sublist;
 		newdir->pNext = m_CreateDirHeader.pNext;
 		m_CreateDirHeader.pNext = newdir;
 	}
 
-
-	memcpy(sublist->pfcb->pfcb2->strName,strSubDir.c_str(),strSubDir.length());
+	memcpy(sublist->pfcb->pfcb2->strName, strSubDir.c_str(), strSubDir.length());
 	sublist->pfcb->pfcb2->dwAttribute |= EFA_DIR;
 	pList->MDirs[strSubDir] = sublist;
-	pList->pfcb->pfcb1->dwSize ++;
+	pList->pfcb->pfcb1->dwSize++;
 
 	m_WpfHeader.dwDirCount++;
 
@@ -787,22 +786,23 @@ PWpfFileList CWpf::CreateDirToList(const string &strSubDir,PWpfFileList pList)
 
 	return sublist;
 }
-
-bool CWpf::DelDirFromList(const string &strSubDir,PWpfFileList pList)
+//-------------------------------------------------------------------------------------------------
+bool CWpf::DelDirFromList(const string& strSubDir, PWpfFileList pList)
 {
-	if(!pList || strSubDir.length() > MAX_FILE_NAME_LEN || ((m_dwOpenType & EWOT_RDWR) == 0))
+	if (!pList || strSubDir.length() > MAX_FILE_NAME_LEN || ((m_dwOpenType & EWOT_RDWR) == 0))
 	{
 		if (m_bAlertError)
 		{
 			char szTemp[512] = {0};
-			sprintf(szTemp,"删除目录失败,%s",strSubDir.c_str());
-			MessageBox(NULL,szTemp,"提示",MB_OK|MB_ICONERROR);
+			sprintf(szTemp, "删除目录失败,%s", strSubDir.c_str());
+			MessageBox(NULL,szTemp, "提示", MB_OK | MB_ICONERROR);
 		}
+
 		m_eWrLastError = EWR_PARA_ERROR;
 		return false;
 	}
 
-	if(m_bSaving)
+	if (m_bSaving)
 	{
 		m_eWrLastError = EWR_FILE_SAVING;
 		return false;
@@ -815,15 +815,15 @@ bool CWpf::DelDirFromList(const string &strSubDir,PWpfFileList pList)
 		return false;
 	}
 
-	//先删除strSubDir的子目录及子文件再删除strSubDir
+	// 先删除strSubDir的子目录及子文件再删除strSubDir
 	PWpfFileList pSubList = itr->second;
-	if(pSubList)
+	if (pSubList)
 	{
 		MList::iterator itr2;
-		while(!pSubList->MDirs.empty())
+		while (!pSubList->MDirs.empty())
 		{
 			itr2 = pSubList->MDirs.begin();
-			if(!DelDirFromList(itr2->first,pSubList))
+			if (!DelDirFromList(itr2->first, pSubList))
 			{
 				pSubList->MDirs.erase(itr2);
 			}
@@ -834,15 +834,14 @@ bool CWpf::DelDirFromList(const string &strSubDir,PWpfFileList pList)
 		while(!pSubList->MFiles.empty())
 		{
 			itr3 = pSubList->MFiles.begin();
-			if(!DelFileFromList(itr3->first,pSubList))
+			if (!DelFileFromList(itr3->first,pSubList))
 			{
 				pSubList->MFiles.erase(itr3);
 			}
 		}
-
 		pSubList->MFiles.clear();
 
-		//如果非速度优先要delete申请的内存,速度优先在最后关闭或保存时统一Delete,这里只清除
+		// 如果非速度优先要delete申请的内存,速度优先在最后关闭或保存时统一Delete,这里只清除
 		if (!m_bSpeedPrior)
 		{
 			SAFE_DELETE(pSubList->pfcb->pfcb1);
@@ -852,52 +851,49 @@ bool CWpf::DelDirFromList(const string &strSubDir,PWpfFileList pList)
 		}
 	}
 
-
 	pList->MDirs.erase(itr);
 	pList->pfcb->pfcb1->dwSize -= 1;
-	m_WpfHeader.dwDirCount  --;
+
+	m_WpfHeader.dwDirCount--;
 
 	m_bModifyed = true;
 
 	return true;
 }
-
-PWpfFileList CWpf::FindDir(const char * strPathName)
+//-------------------------------------------------------------------------------------------------
+PWpfFileList CWpf::FindDir(const char* strPathName)
 {
-	if(strPathName == NULL || (m_dwOpenType & EWOT_LISTDIR) == 0)
+	if (strPathName == NULL || (m_dwOpenType & EWOT_LISTDIR) == 0)
 	{
 		m_eWrLastError = EWR_PARA_ERROR;
 		return NULL;
 	}
 
-	if(!IsOpenWpfFile())
+	if (!IsOpenWpfFile())
 	{
 		m_eWrLastError = EWR_FILE_NOT_OPEN;
 		return NULL;
 	}
 
 	string strDir = strPathName;
-	replace(strDir.begin(),strDir.end(),'/','\\');
-	if(strDir.empty())
-	{
+	replace(strDir.begin(), strDir.end(), '/', '\\');	///< 替换所有"/"为"\\"
+	if (strDir.empty())
 		return m_pWpfRoot;
-	}
 
-	return FindDirFromList(strDir.c_str(),m_pWpfRoot);
+	return FindDirFromList(strDir.c_str(), m_pWpfRoot);
 }
-
-PWpfFileList CWpf::FindDirFromList(const string &strDir,PWpfFileList pList)
+//-------------------------------------------------------------------------------------------------
+PWpfFileList CWpf::FindDirFromList(const string& strDir, PWpfFileList pList)
 {
-	if(!pList || strDir.empty() || (m_dwOpenType & EWOT_LISTDIR) == 0)
+	if (!pList || strDir.empty() || (m_dwOpenType & EWOT_LISTDIR) == 0)
 		return NULL;
 
 	size_t iPos = strDir.find_first_of("\\");
-
-	MList::iterator itr = pList->MDirs.find( iPos == string::npos?strDir:strDir.substr(0,iPos) );
-	if(itr != pList->MDirs.end())
+	MList::iterator itr = pList->MDirs.find(iPos == string::npos ? strDir : strDir.substr(0, iPos));
+	if (itr != pList->MDirs.end())
 	{
 		if(iPos != string::npos)
-			return FindDirFromList(strDir.substr(iPos + 1,strDir.length() - iPos),itr->second);
+			return FindDirFromList(strDir.substr(iPos + 1, strDir.length() - iPos), itr->second);
 		else
 			return itr->second;
 	}
@@ -906,59 +902,55 @@ PWpfFileList CWpf::FindDirFromList(const string &strDir,PWpfFileList pList)
 		return NULL;
 	}
 }
-
-PFCB CWpf::CreateFile(const char * strPathName,DWORD dwLen,bool bFailExist)
+//-------------------------------------------------------------------------------------------------
+PFCB CWpf::CreateFile(const char* strPathName, DWORD dwLen, bool bFailExist)
 {
-	if(!IsOpenWpfFile() || ((m_dwOpenType & EWOT_RDWR) ==0))
+	if (!IsOpenWpfFile() || ((m_dwOpenType & EWOT_RDWR) ==0))
 	{
 		m_eWrLastError = EWR_FILE_NOT_OPEN;
 		return NULL;
 	}
 
-	if(m_bSaving)
+	if (m_bSaving)
 	{
 		m_eWrLastError = EWR_FILE_SAVING;
 		return NULL;
 	}
 
-	//if(dwLen <= 0)
+	//if (dwLen <= 0)
 	//{
 	//	m_eWrLastError = EWR_PARA_ERROR;
 	//	return NULL;
 	//}
 
-
-	PWpfFileList pList = NULL;
-
 	string strPath = strPathName;
-	replace(strPath.begin(),strPath.end(),'/','\\');
-	size_t iPos = strPath.find_last_of("\\");
+	replace(strPath.begin(), strPath.end(), '/', '\\');	///< 替换所有"/"为"\\"
+	
+	// 提取文件所在目录和文件名,查找目录对应的PList
+	PWpfFileList pList = NULL;
 	string strFileName = strPath;
 	string strDir = "";
-
+	size_t iPos = strPath.find_last_of("\\");
 	if(iPos != string::npos)
 	{
-		strDir = strPath.substr(0,iPos);
-		strFileName = strPath.substr(iPos + 1,strPath.length() - iPos);
-		pList = FindDirFromList(strDir.c_str(),m_pWpfRoot);
-
-		if(NULL == pList)
-		{
+		strDir = strPath.substr(0, iPos);									///< 文件所在目录
+		strFileName = strPath.substr(iPos + 1, strPath.length() - iPos);	///< 文件名
+		pList = FindDirFromList(strDir.c_str(), m_pWpfRoot);
+		if (NULL == pList)
 			pList = CreateDir(strDir.c_str());
-		}
 	}
 	else
 	{
 		pList = m_pWpfRoot;
 	}
 
-	if(strFileName.empty())
+	if (strFileName.empty())
 	{
 		m_eWrLastError = EWR_PARA_ERROR;
 		return NULL;
 	}
 
-	if(NULL == pList)
+	if (NULL == pList)
 	{
 		return NULL;
 	}
@@ -968,37 +960,154 @@ PFCB CWpf::CreateFile(const char * strPathName,DWORD dwLen,bool bFailExist)
 	//	int  i = 3;
 	//}
 
-	PFCB pfcb = AddFileToDir(strDir,strFileName,dwLen,pList,bFailExist);
-
-	if(NULL == pfcb)
-	{
+	// 添加文件到目录
+	PFCB pfcb = AddFileToDir(strDir, strFileName, dwLen, pList, bFailExist);
+	if (NULL == pfcb)
 		return NULL;
-	}
 
+	// 关闭文件
 	FileClose();
 
-	//添加文件成功把文件指针停在这个文件的起始位置
+	// 添加文件成功把文件指针停在这个文件的起始位置
 	FileOpen(pfcb->pfcb1);
 
 	m_bModifyed = true;
 
 	return pfcb;
 }
-
-PFCB CWpf::CreateFileFromBuff(const char * strPathName,const char * buff,DWORD dwLen,bool bFailExist,bool bCompress,bool bUnCompress)
+//-------------------------------------------------------------------------------------------------
+PFCB CWpf::CreateFileFromBuff(const char* strPathName, const char* buff, DWORD dwLen, bool bFailExist, bool bCompress, bool bUnCompress)
 {
-	
+	if (!IsOpenWpfFile() || ((m_dwOpenType & EWOT_RDWR) == 0))
+	{
+		m_eWrLastError = EWR_FILE_NOT_OPEN;
 		return NULL;
-	
-}
+	}
 
-const char *  CWpf::GetDirFullPath(PWpfFileList pList)
+	if (m_bSaving)
+	{
+		m_eWrLastError = EWR_FILE_SAVING;
+		return NULL;
+	}
+
+	if (!buff)
+	{
+		m_eWrLastError = EWR_PARA_ERROR;
+		return NULL;
+	}
+
+	DWORD dwFileLen = dwLen;
+	DWORD dwLeftBytes = dwLen;
+	DWORD dwReadBytes = 0;
+
+	DWORD dwCompressBufLen = BLOCK_SIZE * 4;
+	BYTE *pbCompressBuf = NULL;
+	DWORD dwUnCompressBufLen = BLOCK_SIZE * 8;
+	BYTE * pbUnCompressBuf = NULL;
+
+//	if (bCompress)
+//	{
+//		// 先预压缩一遍得到压缩后文件大小
+//		pbCompressBuf = new BYTE[dwCompressBufLen];
+//		DWORD dwCompressSize = 0;
+//		DWORD dwDestSize = 0;
+//		while (dwLeftBytes > 0)
+//		{
+//			DWORD dwReadBytes = min(BLOCK_SIZE, dwLeftBytes);
+//			dwDestSize = dwCompressBufLen;
+//			Compress(pbCompressBuf, &dwDestSize, (BYTE*)(buff + (dwLen - dwLeftBytes)), dwReadBytes, CL_DEFAULT_COMPRESS);
+//			dwCompressSize += dwDestSize;
+//			dwCompressSize += 4;			///< 用来记录该块压缩后的大小，分块解压时会用到
+//			dwLeftBytes -= dwReadBytes;
+//		}
+//
+//		dwFileLen = dwCompressSize;
+//	}
+//	else if (bUnCompress)
+//	{
+//		// 先预解压一遍得到解压后文件大小
+//		pbUnCompressBuf = new BYTE[dwUnCompressBufLen];
+//		DWORD dwUnCompressSize = 0;
+//		DWORD dwUnCompressByte = 0;
+//		while (dwLeftBytes > 0)
+//		{
+//			DWORD dwReadBytes = *(DWORD*)(buff + (dwLen - dwLeftBytes)); 
+//			if (dwReadBytes <= 0)
+//				break;
+//
+//			dwLeftBytes -= 4;	///< 分块压缩，这四个字节表示后面一段压缩数据长度
+//			dwUnCompressBytes = dwUnCompressBufLen;
+//			UnCompress(pbUnCompressBuf, &dwUnCompressBytes, (BYTE*)(buff + (dwLen - dwLeftBytes)), dwReadBytes);
+//			dwUnCompressSize += dwUnCompressBytes;
+//			dwLeftBytes -= dwReadBytes;
+//		}
+//	}
+//
+//	dwLeftBytes = dwLen;	///< 还原,后面压缩还要用到
+	
+	// 创建文件
+	PFCB pfcb = CreateFile(strPathName, dwFileLen, bFailExist);
+	if (!pfcb)
+	{
+		SAFE_DELETE_ARRAY(pbCompressBuf);
+		SAFE_DELETE_ARRAY(pbUnCompressBuf);
+		return NULL;
+	}
+
+	// 写入数据到文件
+//	if (bCompress && pbCompressBuf)
+//	{
+//		pfcb->pfcb2->dwAttribute |= EFA_COMPRESS;	///< 添加压缩标记
+//		pfcb->pfcb2->dwRev = dwLen;					///< 压缩前文件大小
+//
+//		DWORD dwDestSize = 0;
+//		while (dwLeftBytes > 0)
+//		{
+//			DWORD dwReadBytes = min(BLOCK_SIZE, dwLeftBytes);
+//			dwDestSize = dwCompressBufLen;
+//			Compress(pbCompressBuf, &dwDestSize, (BYTE*)(buff + (dwLen - dwLeftBytes)), dwReadBytes, CL_DEFAULT_COMPRESS);
+//			FileWrite(&dwDestSize, 4);	///< 用来记录该块压缩后的大小，分块解压时会用到
+//			FileWrite(pbCompressBuf, dwDestSize);
+//			dwLeftBytes -= dwReadBytes;
+//		}
+//	}
+//	else if (bUnCompress && pbUnCompressBuf)
+//	{
+//		DWORD dwReadBytes = 0;
+//		DWORD dwUnCompressBytes = 0;
+//		while (dwLeftBytes > 0)
+//		{
+//			DWORD dwReadBytes = *(DWORD*)(buff + (dwLen - dwLeftBytes)); 
+//			if (dwReadBytes <= 0)
+//				break;
+//
+//			dwLeftBytes -= 4;	///< 分块压缩，这四个字节表示后面一段压缩数据长度
+//			dwUnCompressBytes = dwUnCompressBufLen;
+//			UnCompress(pbUnCompressBuf, &dwUnCompressBytes, (BYTE*)(buff + (dwLen - dwLeftBytes)), dwReadBytes);
+//			FileWrite(pbUnCompressBuf, dwUnCompressBytes);
+//			dwLeftBytes -= dwReadBytes;
+//		}
+//	}
+//	else
+//	{
+		FileWrite(buff, dwLen);
+//	}
+
+	m_bModifyed = true;
+
+	SAFE_DELETE_ARRAY(pbCompressBuf);
+	SAFE_DELETE_ARRAY(pbUnCompressBuf);
+
+	return pfcb;
+}
+//-------------------------------------------------------------------------------------------------
+const char* CWpf::GetDirFullPath(PWpfFileList pList)
 {
-	static string strPath = "";//因为有可能要传到动态库之外,所以用static
+	static string strPath = "";	///< 因为有可能要传到动态库之外,所以用static(但是多线程情况貌似可能出问题)
 	string strTemp = "";
 	strPath.clear();
 
-	while(pList && pList->pfcb && pList->pfcb->pParent && pList->pfcb->pfcb2)//root 不包含在全路径中
+	while(pList && pList->pfcb && pList->pfcb->pParent && pList->pfcb->pfcb2)	///< root 不包含在全路径中
 	{
 		strTemp = pList->pfcb->pfcb2->strName;
 		if (strPath.empty())
@@ -1011,15 +1120,165 @@ const char *  CWpf::GetDirFullPath(PWpfFileList pList)
 
 	return strPath.c_str();
 }
-
-PFCB CWpf::ImportFileToDir(CWpfInterface * pWpf,PFCB pfcb,PWpfFileList pList,bool bFailExist)
+//-------------------------------------------------------------------------------------------------
+PFCB CWpf::ImportFileToDir(CWpfInterface* pWpf, PFCB pfcb, PWpfFileList pList, bool bFailExist)
 {
-	
+	if (m_bSaving)
+	{
+		m_eWrLastError = EWR_FILE_NOT_OPEN;
 		return NULL;
-	
-}
+	}
 
-PFCB CWpf::AddFileToDir(const string &strParentDir,const string &strFileName,DWORD dwLen,PWpfFileList pList,bool bFailExist)
+	if (!pWpf || !pfcb || !pfcb->pfcb1 || !pList)
+	{
+		return NULL;
+	}
+
+	// 打开待导出文件
+	if (!pWpf->FileOpen(pfcb->pfcb1))
+	{
+		return NULL;
+	}
+	
+	//
+	string strParentPath = GetDirFullPath(pList);
+
+	bool bSrcCompressed = (pfcb->pfcb2->dwAttribute & EFA_COMPRESS) ? true : false;
+	bool bNeedUnCompress = ((!m_bMeargeNotNeedUnCopress) && (pfcb->pfcb2->dwAttribute & EFA_MEARGE_UNCOMPRESS)) ? true : false;
+
+	DWORD dwDestSize = pfcb->pfcb1->dwSize;
+	BYTE *pUnCompressBuf = NULL;
+	DWORD dwUnCompressBufLen = 0;
+	BYTE *pReadBuf = new BYTE[BLOCK_SIZE + 1024];
+
+//	if (bSrcCompressed && bNeedUnCompress)
+//	{
+//		dwUnCompressBufLen = BLOCK_SIZE * 8;
+//		pUnCompressBuf = new BYTE[dwUnCompressBufLen];
+//
+//		if (pfcb->pfcb2->dwRev > 0)
+//		{
+//			dwDestSize = pfcb->pfcb2->dwRev;	///< 压缩前数据尺寸
+//		}
+//		else
+//		{
+//			//bNeedUnCompress = false;
+//
+//			// 先解压一遍得到解压后文件大小
+//			DWORD dwReadBytes = 0;
+//			DWORD dwDestSize = 0;
+//			DWORD dwUnCompressBytes = 0;
+//			DWORD dwLeftBytes = pfcb->pfcb1->dwSize;
+//			while (dwLeftBytes > 0)
+//			{
+//				if (pWpf->FileRead(*dwReadBytes, 4) <= 0)	///< 分块压缩,这4个字节表示后面一段压缩数据长度
+//					break;
+//
+//				if (dwReadBytes <= 0)
+//					break;
+//
+//				if (pWpf->FileRead(pReadBuf, dwReadBytes) <= 0)
+//					break;
+//
+//				if (pUnCompressBuf)
+//				{
+//					dwUnCompressBytes = dwUnCompressBufLen;
+//					UnCompress(pbUnCompressBuf, &dwUnCompressBytes, pReadBuf, dwReadBytes);
+//					dwDestSize += dwUnCompressBytes;
+//					dwReadBytes +=4;
+//				}
+//
+//				dwLeftBytes -= dwReadBytes;
+//			}
+//		}
+//	}
+
+	// 添加目标文件
+	PFCB newfilefcb = AddFileToDir(strParentPath, pfcb->pfcb2->strName, dwDestSize, pList, bFailExist);
+
+//	// 写入内容
+//	if (newfilefcb)
+//	{
+//		BYTE* buff = new BYTE[BLOCK_SIZE];
+//
+//		DWORD dwLeftBytes = pfcb->pfcb1->dwSize;
+//		while (dwLeftBytes > 0)
+//		{
+//			DWORD dwReadBytes = min(BLOCK_SIZE, dwLeftBytes);
+//			if (pWpf->FileRead(buff, dwReadBytes))
+//				break;
+//
+//			FileWrite(buff, dwReadBytes);
+//			dwLeftBytes -= dwReadBytes;
+//		}
+//
+//		newfilefcb->pfcb2->dwAttribute |= pfcb->pfcb2->dwAttribute;
+//
+//		SAFE_DELETE_ARRAY(buff);
+//	}
+
+	// 写入内容
+	if (newfilefcb)
+	{
+		DWORD dwReadBytes = 0;
+		DWORD dwUnCompressBytes = 0;
+		DWORD dwLeftBytes = pfcb->pfcb1->dwSize;
+
+		// 重新打开源文件，文件指针定位到文件初始位置
+		if (!pWpf->FileOpen(pfcb->pfcb1))
+		{
+			//SAFE_DELETE_ARRAY(pReadBuf);			///< ??内存泄漏??
+			//SAFE_DELETE_ARRAY(pUnCompressBuf);	///< ??内存泄漏??
+			return NULL;
+		}
+
+		while (dwLeftBytes > 0)
+		{
+//			if (pUnCompressBuf)
+//			{
+//				if (pWpf->FileRead(&dwReadBytes, 4) <= 0)	///< 分块压缩,这4个字节表示后面一段压缩数据长度
+//					break;
+//
+//				if (dwReadBytes <= 0)
+//					break;
+//			}
+//			else
+//			{
+				dwReadBytes = min(BLOCK_SIZE, dwLeftBytes);
+//			}
+
+			if (pWpf->FileRead(pReadBuf, dwReadBytes) <= 0)
+				break;
+
+//			if (pUnCompressBuf)
+//			{
+//				dwUnCompressBytes = dwUnCompressBufLen;
+//				UnCompress(pUnCompressBuf, &dwUnCompressBytes, pReadBuf, dwReadBytes);
+//				FileWrite(pUnCompressBuf, dwUnCompressBytes);
+//				dwReadBytes +=4;	///< 分块压缩,这4个字节表示后面一段压缩数据长度
+//			}
+//			else
+//			{
+				FileWrite(pReadBuf, dwReadBytes);
+//			}
+
+			dwLeftBytes -= dwReadBytes;
+		}
+
+		newfilefcb->pfcb2->dwAttribute |= pfcb->pfcb2->dwAttribute;
+
+		// 目标文件已经解压，去掉EFA_COMPRESS和EFA_MEARGE_UNCOMPRESS属性
+		if (bSrcCompressed && bNeedUnCompress)
+			newfilefcb->pfcb2->dwAttribute &= ~(EFA_COMPRESS | EFA_MEARGE_UNCOMPRESS);
+	}
+
+	SAFE_DELETE_ARRAY(pReadBuf);
+	SAFE_DELETE_ARRAY(pUnCompressBuf);
+
+	return NULL;
+}
+//-------------------------------------------------------------------------------------------------
+PFCB CWpf::AddFileToDir(const string& strParentDir, const string& strFileName, DWORD dwLen, PWpfFileList pList, bool bFailExist)
 {
 	if (!IsOpenWpfFile() || (m_dwOpenType & EWOT_RDWR) == 0)
 	{
@@ -1027,12 +1286,12 @@ PFCB CWpf::AddFileToDir(const string &strParentDir,const string &strFileName,DWO
 		return NULL;
 	}
 
-	if(!pList || strFileName.length() > MAX_FILE_NAME_LEN)
+	if (!pList || strFileName.length() > MAX_FILE_NAME_LEN)
 	{
 		if (m_bAlertError)
 		{
 			char szTemp[512] = {0};
-			sprintf(szTemp,"添加文件失败,%s\\%s",strParentDir.c_str(),strFileName.c_str());
+			sprintf(szTemp, "添加文件失败,%s\\%s", strParentDir.c_str(), strFileName.c_str());
 			MessageBox(NULL,szTemp,"提示",MB_OK|MB_ICONERROR);
 		}
 
@@ -1040,13 +1299,14 @@ PFCB CWpf::AddFileToDir(const string &strParentDir,const string &strFileName,DWO
 		return NULL;
 	}
 
-	if(m_bSaving)
+	if (m_bSaving)
 	{
 		m_eWrLastError = EWR_FILE_SAVING;
 		return NULL;
 	}
 
-	if(pList->MFiles.find(strFileName) != pList->MFiles.end())
+	// 查找当前目录该文件是否已经存在
+	if (pList->MFiles.find(strFileName) != pList->MFiles.end())
 	{
 		if (bFailExist)
 		{
@@ -1055,44 +1315,43 @@ PFCB CWpf::AddFileToDir(const string &strParentDir,const string &strFileName,DWO
 		}
 		else
 		{
-			if (!DelFileFromList(strFileName,pList))
+			if (!DelFileFromList(strFileName, pList))
 			{
 				return NULL;
 			}
 		}
 	}
 
-	DWORD dwBlockNum = dwLen / m_WpfHeader.wBytesPerBlock + ( (dwLen % m_WpfHeader.wBytesPerBlock) == 0?0:1 );
-	if (dwBlockNum == 0)//最少占用一块,空文件占一块
+	// 计算文件所占块数(最少占用一块,空文件占一块)
+	DWORD dwBlockNum = dwLen / m_WpfHeader.wBytesPerBlock + ((dwLen % m_WpfHeader.wBytesPerBlock) == 0?0:1);
+	if (dwBlockNum == 0)	
 	{
 		dwBlockNum = 1;
 	}
 
-	//找到连续的空白空间
+	// 找到连续的空白空间,如果空白的空间不够就扩展wpf文件
 	PBlankBlockNode pBlankBlock = NULL;
 	int iTimes = 0;
-	while(NULL == pBlankBlock && iTimes < 1000)
+	while (NULL == pBlankBlock && iTimes < 1000)
 	{
 		pBlankBlock = FindBlankBlock(dwBlockNum);
-		//如果空白的空间不够就扩展它
-		if( NULL == pBlankBlock)
+		if (NULL == pBlankBlock)
 		{
-			if(!WpfExpend(m_dwExpendLen))
+			if (!WpfExpend(m_dwExpendLen))
 			{
 				return NULL;
 			}
 		}
 
-		iTimes ++;
+		iTimes++;
 	}
 
-	if( NULL == pBlankBlock)
+	if (NULL == pBlankBlock)
 	{
 		return false;
 	}
 
-
-	//如果这个文件的写入会覆盖备份的FCB保存一下,要把最后正常保存到磁盘中的FCB作为备份的FCB,重写当前的FCB
+	// 如果这个文件的写入会覆盖备份的FCB保存一下,要把最后正常保存到磁盘中的FCB作为备份的FCB,重写当前的FCB
 	if (m_WpfHeader.wHeaderSize + pBlankBlock->blankBlock.dwStart * m_WpfHeader.wBytesPerBlock + dwLen >= m_WpfHeader_Bak.iBlankBlockPos)
 	{
 		//如果上一次本身就没有保存成功,这一次用得本来就是备份的信息,那么在要覆盖之前先保存一下,不然就有可能会出现m_WpfHeader.bySavingHeader和m_WpfHeader_Bak.bySavingHeader同时为TRUE的情况
@@ -1104,7 +1363,7 @@ PFCB CWpf::AddFileToDir(const string &strParentDir,const string &strFileName,DWO
 			}
 		}
 
-		if(!m_WpfHeader_Bak.bySavingHeader)
+		if (!m_WpfHeader_Bak.bySavingHeader)
 		{
 			//写入备份头及备份FCB需要重置的标记
 			_lseeki64(m_iFileHandle[EFT_MAIN],m_iWpfStartPos + sizeof(S_WpfHeader) * 2 - 1,SEEK_SET);
@@ -1114,16 +1373,15 @@ PFCB CWpf::AddFileToDir(const string &strParentDir,const string &strFileName,DWO
 				return false;
 			}
 		}
-
 	}
 
-
+	// 创建文件FCB
 	PFCB pfcb = new FCB();
 	pfcb->pfcb1 = new FCB1();
 	pfcb->pfcb2 = new FCB2();
 	pfcb->pParent = pList;
 
-	//速度优先时一次性存取整个fcb,这个fcb可以一次性释放,但中间新加的fcb得记下来,以便最后释放
+	// 速度优先时一次性存取整个fcb,这个fcb可以一次性释放,但中间新加的fcb得记下来,以便最后释放
 	if (m_bSpeedPrior)
 	{
 		NEWFCB * newfcb = new NEWFCB();
@@ -1144,18 +1402,18 @@ PFCB CWpf::AddFileToDir(const string &strParentDir,const string &strFileName,DWO
 	}
 	pfcb->pfcb1->iHashKey = HashFileName(strPath.c_str());
 
-	//加入到临时hash表
+	// 加入到临时hash表
 	if (m_bBuildTempFileHashEnabled)
 		m_kTempFileHash[pfcb->pfcb1->iHashKey] = 0;
 
 	pList->MFiles[strFileName] = pfcb;
-	pList->pfcb->pfcb1->dwSize ++;
-	m_WpfHeader.dwFileCount  ++;
+	pList->pfcb->pfcb1->dwSize++;
+
+	m_WpfHeader.dwFileCount++;
 
 	m_MhashFcb[pfcb->pfcb1->iHashKey] = pfcb;
 
-
-	//这块用完了要删除
+	// 更新空闲块记录(这块用完了要删除)
 	if (dwBlockNum >= pBlankBlock->blankBlock.dwSize)
 	{
 		if (pBlankBlock == m_pBlankBlockList)
@@ -1166,7 +1424,7 @@ PFCB CWpf::AddFileToDir(const string &strParentDir,const string &strFileName,DWO
 				m_pBlankBlockList->pParent = NULL;
 			}
 		}
-		else//pParent一定存在
+		else
 		{
 			pBlankBlock->pParent->pNext = pBlankBlock->pNext;
 			if (pBlankBlock->pNext)
@@ -1184,6 +1442,7 @@ PFCB CWpf::AddFileToDir(const string &strParentDir,const string &strFileName,DWO
 		pBlankBlock->blankBlock.dwSize -= dwBlockNum;
 	}
 
+	// 添加指定附加属性
 	pfcb->pfcb2->dwAttribute |= m_dwAddAttributeToNewFile;
 
 	m_bModifyed = true;
@@ -1191,10 +1450,10 @@ PFCB CWpf::AddFileToDir(const string &strParentDir,const string &strFileName,DWO
 
 	return pfcb;
 }
-
-PFCB CWpf::FindFile_PFCB(const char * strPathName)
+//-------------------------------------------------------------------------------------------------
+PFCB CWpf::FindFile_PFCB(const char* strPathName)
 {
-	if(!IsOpenWpfFile() || !strPathName || (m_dwOpenType & EWOT_LISTDIR) == 0)
+	if (!IsOpenWpfFile() || !strPathName || (m_dwOpenType & EWOT_LISTDIR) == 0)
 	{
 		m_eWrLastError = EWR_FILE_NOT_OPEN;
 		return NULL;
@@ -1216,19 +1475,18 @@ PFCB CWpf::FindFile_PFCB(const char * strPathName)
 
 		PWpfFileList pList = NULL;
 		string strFileName = strPathName;
-
 		if(iPos != string::npos)
 		{
-			string strDir = strPath.substr(0,iPos);
-			strFileName = strPath.substr(iPos + 1,strPath.length() - iPos);
-			pList = FindDirFromList(strDir,m_pWpfRoot);
+			string strDir = strPath.substr(0, iPos);
+			strFileName = strPath.substr(iPos + 1, strPath.length() - iPos);
+			pList = FindDirFromList(strDir, m_pWpfRoot);
 		}
 		else
 		{
 			pList = m_pWpfRoot;
 		}
 
-		if(pList)
+		if (pList)
 		{
 			MSFCB::iterator itr = pList->MFiles.find(strFileName);
 			if(itr != pList->MFiles.end())
@@ -1240,15 +1498,15 @@ PFCB CWpf::FindFile_PFCB(const char * strPathName)
 
 	return NULL;
 }
-
-PFCB1 CWpf::FindFile_PFCB1(const char * strPathName)
+//-------------------------------------------------------------------------------------------------
+PFCB1 CWpf::FindFile_PFCB1(const char* strPathName)
 {
-	if(!strPathName)
+	if (!strPathName)
 	{
 		return NULL;
 	}
 
-	if((m_dwOpenType & EWOT_LISTDIR) && !(m_dwOpenType & EWOT_LISTFCBHASH))
+	if ((m_dwOpenType & EWOT_LISTDIR) && !(m_dwOpenType & EWOT_LISTFCBHASH))
 	{
 		PFCB pfcb = FindFile_PFCB(strPathName);
 		if(pfcb)
@@ -1263,10 +1521,10 @@ PFCB1 CWpf::FindFile_PFCB1(const char * strPathName)
 
 	return NULL;
 }
-
+//-------------------------------------------------------------------------------------------------
 PFCB1 CWpf::FindFile_PFCB1(__int64 iHash)
 {
-	if(!IsOpenWpfFile())
+	if (!IsOpenWpfFile())
 	{
 		m_eWrLastError = EWR_FILE_NOT_OPEN;
 		return NULL;
@@ -1294,33 +1552,32 @@ PFCB1 CWpf::FindFile_PFCB1(__int64 iHash)
 
 	return NULL;
 }
-
-bool CWpf::DeleteFile(const char * strPathName)
+//-------------------------------------------------------------------------------------------------
+bool CWpf::DeleteFile(const char* strPathName)
 {
-	if(!IsOpenWpfFile() || ((m_dwOpenType & EWOT_RDWR) == 0 ))
+	if (!IsOpenWpfFile() || ((m_dwOpenType & EWOT_RDWR) == 0))
 	{
 		m_eWrLastError = EWR_FILE_NOT_OPEN;
 		return false;
 	}
 
-	if(m_bSaving)
+	if (m_bSaving)
 	{
 		m_eWrLastError = EWR_FILE_SAVING;
 		return false;
 	}
 
 	string strPath = strPathName;
-	replace(strPath.begin(),strPath.end(),'/','\\');
-	size_t iPos = strPath.find_last_of("\\");
-
-	bool bRtn = false;
+	replace(strPath.begin(), strPath.end(), '/', '\\');
+	
+	// 提取文件所在目录和文件名,查找目录对应的PList
 	PWpfFileList pList = NULL;
 	string strFileName = strPathName;
-
+	size_t iPos = strPath.find_last_of("\\");
 	if(iPos != string::npos)
 	{
-		string strDir = strPath.substr(0,iPos);
-		strFileName = strPath.substr(iPos + 1,strPath.length() - iPos);
+		string strDir = strPath.substr(0, iPos);
+		strFileName = strPath.substr(iPos + 1, strPath.length() - iPos);
 
 		if(strFileName.empty())
 		{
@@ -1328,52 +1585,52 @@ bool CWpf::DeleteFile(const char * strPathName)
 			return false;
 		}
 
-		pList = FindDirFromList(strDir.c_str(),m_pWpfRoot);
+		pList = FindDirFromList(strDir.c_str(), m_pWpfRoot);
 	}
 	else
 	{
 		pList = m_pWpfRoot;
 	}
 
+	//从PList删除文件
+	bool bRtn = false;
 	if(pList)
-	{
-		bRtn =  DelFileFromList(strFileName,pList);
-	}
+		bRtn = DelFileFromList(strFileName, pList);
 
 	return bRtn;
 }
-
-bool CWpf::DelFileFromList(const string &strFileName,PWpfFileList pList)
+//-------------------------------------------------------------------------------------------------
+bool CWpf::DelFileFromList(const string& strFileName, PWpfFileList pList)
 {
-	if(!IsOpenWpfFile() || ((m_dwOpenType & EWOT_RDWR) == 0 ))
+	if (!IsOpenWpfFile() || ((m_dwOpenType & EWOT_RDWR) == 0))
 	{
 		m_eWrLastError = EWR_FILE_NOT_OPEN;
 		return false;
 	}
 
-	if(m_bSaving)
+	if (m_bSaving)
 	{
 		m_eWrLastError = EWR_FILE_SAVING;
 		return false;
 	}
 
 	MSFCB::iterator itr = pList->MFiles.find(strFileName);
-	if(itr != pList->MFiles.end())
+	if (itr != pList->MFiles.end())
 	{
 		PFCB pfcb = itr->second;
 
-		m_WpfHeader.dwFileCount  --;
+		m_WpfHeader.dwFileCount--;
+
+		// 计算文件Block数量
 		DWORD dwBlockNum = pfcb->pfcb1->dwSize / m_WpfHeader.wBytesPerBlock + ( (pfcb->pfcb1->dwSize % m_WpfHeader.wBytesPerBlock) == 0?0:1 );
 		if (dwBlockNum == 0)
-		{
 			dwBlockNum = 1;
-		}
 
-		//回收空间
+		// 回收空间
 		bool bFind = false;
 		PBlankBlockNode pBlankBlock = m_pBlankBlockList,pSmallBlock = NULL;
 		DWORD dwStartBlock = pfcb->pfcb1->dwStart,dwEndBlcokAdd1 = dwStartBlock + dwBlockNum;
-		while(pBlankBlock)
+		while (pBlankBlock)
 		{
 			if (!bFind)
 			{
@@ -1453,7 +1710,7 @@ bool CWpf::DelFileFromList(const string &strFileName,PWpfFileList pList)
 			pBlankBlock = pBlankBlock->pNext;
 		}
 
-		//没插入就新加一块,保证有序,否则合并的地方就会有问题
+		// 没插入就新加一块,保证有序,否则合并的地方就会有问题
 		if (!bFind)
 		{
 			pBlankBlock = new BlankBlockNode();
@@ -1486,7 +1743,6 @@ bool CWpf::DelFileFromList(const string &strFileName,PWpfFileList pList)
 			m_WpfHeader.dwBlankBlockSize ++;
 		}
 
-
 		m_MhashFcb.erase(pfcb->pfcb1->iHashKey);
 
 		if(pfcb->pfcb1 == m_pOpenFileFcb1[EFT_MAIN])
@@ -1494,7 +1750,7 @@ bool CWpf::DelFileFromList(const string &strFileName,PWpfFileList pList)
 			FileClose(EFT_MAIN);
 		}
 
-		//如果非速度优先要delete申请的内存,速度优先在最后关闭或保存时统一Delete,这里只清除
+		// 如果非速度优先要delete申请的内存,速度优先在最后关闭或保存时统一Delete,这里只清除
 		if (!m_bSpeedPrior)
 		{
 			SAFE_DELETE(pfcb->pfcb1);
@@ -1505,7 +1761,6 @@ bool CWpf::DelFileFromList(const string &strFileName,PWpfFileList pList)
 		pList->MFiles.erase(itr);
 		pList->pfcb->pfcb1->dwSize --;
 
-
 		m_bModifyed = true;
 
 		return true;
@@ -1514,38 +1769,37 @@ bool CWpf::DelFileFromList(const string &strFileName,PWpfFileList pList)
 	m_eWrLastError = EWR_FILE_NOT_EXIST;
 	return false;
 }
-
-
-bool CWpf::UpdateFile(const char * strPathName,const char *buff,DWORD dwLen,bool bCompress,bool bUnCompress)
+//-------------------------------------------------------------------------------------------------
+bool CWpf::UpdateFile(const char* strPathName, const char* buff, DWORD dwLen, bool bCompress, bool bUnCompress)
 {
-	if(!IsOpenWpfFile() || ((m_dwOpenType & EWOT_RDWR) == 0))
+	if (!IsOpenWpfFile() || ((m_dwOpenType & EWOT_RDWR) == 0))
 	{
 		m_eWrLastError = EWR_FILE_NOT_OPEN;
 		return false;
 	}
 
-	if(m_bSaving)
+	if (m_bSaving)
 	{
 		m_eWrLastError = EWR_FILE_SAVING;
 		return false;
 	}
 
-	if(!this->CreateFileFromBuff(strPathName,buff,dwLen,false,bCompress,bUnCompress))
+	if (!CreateFileFromBuff(strPathName, buff, dwLen, false, bCompress, bUnCompress))
 	{
 		return false;
 	}
 
 	return true;
 }
-
-PFCB CWpf::FileOpenEx(const char * strPathName,E_FPTYPE fpType)
+//-------------------------------------------------------------------------------------------------
+PFCB CWpf::FileOpenEx(const char* strPathName, E_FPTYPE fpType)
 {
 	if (!strPathName || !IsOpenWpfFile() || (m_dwOpenType & EWOT_LISTDIR) == 0)
 	{
 		return NULL;
 	}
 
-	if(m_bSaving)
+	if (m_bSaving)
 	{
 		m_eWrLastError = EWR_FILE_SAVING;
 		return NULL;
@@ -1560,41 +1814,40 @@ PFCB CWpf::FileOpenEx(const char * strPathName,E_FPTYPE fpType)
 
 	m_pOpenFileFcb1[fpType] = pfcb->pfcb1;
 
-	_lseeki64(m_iFileHandle[fpType],m_iWpfStartPos + m_WpfHeader.wHeaderSize + pfcb->pfcb1->dwStart * m_WpfHeader.wBytesPerBlock,SEEK_SET);	
+	_lseeki64(m_iFileHandle[fpType], m_iWpfStartPos + m_WpfHeader.wHeaderSize + pfcb->pfcb1->dwStart * m_WpfHeader.wBytesPerBlock, SEEK_SET);	
 	m_iOpenFilePointPos[fpType] = 0;
 
 	return pfcb;
 }
-
-PFCB1 CWpf::FileOpen(const char * strPathName,E_FPTYPE fpType)
+//-------------------------------------------------------------------------------------------------
+PFCB1 CWpf::FileOpen(const char* strPathName, E_FPTYPE fpType)
 {
 	if (!strPathName || !IsOpenWpfFile())
 	{
 		return NULL;
 	}
 
-	if(m_bSaving)
+	if (m_bSaving)
 	{
 		m_eWrLastError = EWR_FILE_SAVING;
 		return NULL;
 	}
 
 	m_pOpenFileFcb1[fpType] = FindFile_PFCB1(strPathName);
-
-	if(NULL == m_pOpenFileFcb1[fpType])
+	if (NULL == m_pOpenFileFcb1[fpType])
 	{
 		return NULL;
 	}
 
-	_lseeki64(m_iFileHandle[fpType],m_iWpfStartPos + m_WpfHeader.wHeaderSize + m_pOpenFileFcb1[fpType]->dwStart * m_WpfHeader.wBytesPerBlock,SEEK_SET);	
+	_lseeki64(m_iFileHandle[fpType], m_iWpfStartPos + m_WpfHeader.wHeaderSize + m_pOpenFileFcb1[fpType]->dwStart * m_WpfHeader.wBytesPerBlock, SEEK_SET);	
 	m_iOpenFilePointPos[fpType] = 0;
 
 	return m_pOpenFileFcb1[fpType];
 }
-
-bool CWpf::FileOpen(PFCB1 pfcb1,E_FPTYPE fpType)
+//-------------------------------------------------------------------------------------------------
+bool CWpf::FileOpen(PFCB1 pfcb1, E_FPTYPE fpType)
 {
-	if(m_bSaving)
+	if (m_bSaving)
 	{
 		m_eWrLastError = EWR_FILE_SAVING;
 		return false;
@@ -1603,7 +1856,7 @@ bool CWpf::FileOpen(PFCB1 pfcb1,E_FPTYPE fpType)
 	bool bRtn = false;
 	if (pfcb1)
 	{
-		if (-1 != _lseeki64(m_iFileHandle[fpType],m_iWpfStartPos + m_WpfHeader.wHeaderSize + pfcb1->dwStart * m_WpfHeader.wBytesPerBlock,SEEK_SET))
+		if (-1 != _lseeki64(m_iFileHandle[fpType], m_iWpfStartPos + m_WpfHeader.wHeaderSize + pfcb1->dwStart * m_WpfHeader.wBytesPerBlock,SEEK_SET))
 		{
 			m_pOpenFileFcb1[fpType] = pfcb1;
 			m_iOpenFilePointPos[fpType] = 0;
@@ -1613,8 +1866,8 @@ bool CWpf::FileOpen(PFCB1 pfcb1,E_FPTYPE fpType)
 
 	return bRtn;
 }
-
-PFCB1 CWpf::FileOpen_Hash2FCB1(__int64 iHash,E_FPTYPE fpType)
+//-------------------------------------------------------------------------------------------------
+PFCB1 CWpf::FileOpen_Hash2FCB1(__int64 iHash, E_FPTYPE fpType)
 {
 	MIFCB1::iterator itr = m_MhashFcb1.find(iHash);
 	if (itr != m_MhashFcb1.end())
@@ -1625,8 +1878,8 @@ PFCB1 CWpf::FileOpen_Hash2FCB1(__int64 iHash,E_FPTYPE fpType)
 
 	return NULL;
 }
-
-PFCB CWpf::FileOpen_Hash2FCB(__int64 iHash,E_FPTYPE fpType)
+//-------------------------------------------------------------------------------------------------
+PFCB CWpf::FileOpen_Hash2FCB(__int64 iHash, E_FPTYPE fpType)
 {
 	MIFCB::iterator itr = m_MhashFcb.find(iHash);
 	if (itr != m_MhashFcb.end())
@@ -1637,29 +1890,28 @@ PFCB CWpf::FileOpen_Hash2FCB(__int64 iHash,E_FPTYPE fpType)
 
 	return NULL;
 }
-
+//-------------------------------------------------------------------------------------------------
 bool CWpf::FileClose(E_FPTYPE fpType)
 {
 	m_pOpenFileFcb1[fpType] = NULL;
 	m_iOpenFilePointPos[fpType] = 0;
-
 	return true;
 }
-
-bool CWpf::FileSeek(DWORD dwOffset,int iOrigin,E_FPTYPE fpType)
+//-------------------------------------------------------------------------------------------------
+bool CWpf::FileSeek(DWORD dwOffset, int iOrigin, E_FPTYPE fpType)
 {
-	if(NULL == m_pOpenFileFcb1[fpType])
+	if (NULL == m_pOpenFileFcb1[fpType])
 	{
 		return false;
 	}
 
-	if(m_bSaving)
+	if (m_bSaving)
 	{
 		m_eWrLastError = EWR_FILE_SAVING;
 		return false;
 	}
 
-	switch(iOrigin)
+	switch (iOrigin)
 	{
 	case SEEK_SET:
 		if(dwOffset >= m_pOpenFileFcb1[fpType]->dwSize)
@@ -1694,29 +1946,28 @@ bool CWpf::FileSeek(DWORD dwOffset,int iOrigin,E_FPTYPE fpType)
 		break;
 	}
 
-
 	return true;
 }
-
-DWORD CWpf::FileRead(void* pBbuff,DWORD dwSize,E_FPTYPE fpType)
+//-------------------------------------------------------------------------------------------------
+DWORD CWpf::FileRead(void* pBbuff, DWORD dwSize, E_FPTYPE fpType)
 {
-	if(m_bSaving)
+	if (m_bSaving)
 	{
 		m_eWrLastError = EWR_FILE_SAVING;
 		return 0;
 	}
 
-	if(NULL == m_pOpenFileFcb1[fpType] || dwSize <= 0 || m_iOpenFilePointPos[fpType] >= m_pOpenFileFcb1[fpType]->dwSize)
+	if (NULL == m_pOpenFileFcb1[fpType] || dwSize <= 0 || m_iOpenFilePointPos[fpType] >= m_pOpenFileFcb1[fpType]->dwSize)
 	{
 		return 0;
 	}
 
-	if(m_iOpenFilePointPos[fpType] + dwSize >= m_pOpenFileFcb1[fpType]->dwSize)
+	if (m_iOpenFilePointPos[fpType] + dwSize >= m_pOpenFileFcb1[fpType]->dwSize)
 	{
 		dwSize = m_pOpenFileFcb1[fpType]->dwSize - m_iOpenFilePointPos[fpType];
 	}
 
-	DWORD dwRtn = _read(m_iFileHandle[fpType],pBbuff,dwSize);
+	DWORD dwRtn = _read(m_iFileHandle[fpType], pBbuff, dwSize);
 	if (dwRtn > 0)
 	{
 		m_iOpenFilePointPos[fpType] += dwRtn;
@@ -1724,33 +1975,33 @@ DWORD CWpf::FileRead(void* pBbuff,DWORD dwSize,E_FPTYPE fpType)
 
 	return dwRtn;
 }
-
+//-------------------------------------------------------------------------------------------------
 DWORD CWpf::FileWrite(const void* pBbuff,DWORD dwSize,E_FPTYPE fpType)
 {
-	if(m_bSaving)
+	if (m_bSaving)
 	{
 		m_eWrLastError = EWR_FILE_SAVING;
 		return 0;
 	}
 
-	if(NULL == m_pOpenFileFcb1[fpType] || ((m_dwOpenType & EWOT_RDWR) == 0 ))
+	if (NULL == m_pOpenFileFcb1[fpType] || ((m_dwOpenType & EWOT_RDWR) == 0))
 	{
 		m_eWrLastError = EWR_FILE_NOT_OPEN;
 		return false;
 	}
 
-	if( dwSize <= 0 || m_iOpenFilePointPos[fpType] >= m_pOpenFileFcb1[fpType]->dwSize)
+	if (dwSize <= 0 || m_iOpenFilePointPos[fpType] >= m_pOpenFileFcb1[fpType]->dwSize)
 	{
 		m_eWrLastError = EWR_PARA_ERROR;
 		return false;
 	}
 
-	if(m_iOpenFilePointPos[fpType] + dwSize >= m_pOpenFileFcb1[fpType]->dwSize)
+	if (m_iOpenFilePointPos[fpType] + dwSize >= m_pOpenFileFcb1[fpType]->dwSize)
 	{
 		dwSize = m_pOpenFileFcb1[fpType]->dwSize - m_iOpenFilePointPos[fpType];
 	}
 
-	DWORD dwRtn = _write(m_iFileHandle[fpType],pBbuff,dwSize);
+	DWORD dwRtn = _write(m_iFileHandle[fpType], pBbuff, dwSize);
 	if (dwRtn > 0)
 	{
 		m_iOpenFilePointPos[fpType] += dwRtn;
@@ -1758,56 +2009,48 @@ DWORD CWpf::FileWrite(const void* pBbuff,DWORD dwSize,E_FPTYPE fpType)
 
 	return dwRtn;
 }
-
+//-------------------------------------------------------------------------------------------------
 DWORD CWpf::FileLength(E_FPTYPE fpType)
 {
-	if(NULL == m_pOpenFileFcb1[fpType])
-	{
+	if (NULL == m_pOpenFileFcb1[fpType])
 		return 0;
-	}
 
 	return m_pOpenFileFcb1[fpType]->dwSize;
 }
-
+//-------------------------------------------------------------------------------------------------
 __int64 CWpf::GetFileOffset(E_FPTYPE fpType)
 {
-	if(NULL == m_pOpenFileFcb1[fpType])
-	{
+	if (NULL == m_pOpenFileFcb1[fpType])
 		return -1;
-	}
 
 	return m_iWpfStartPos + m_WpfHeader.wHeaderSize + m_pOpenFileFcb1[fpType]->dwStart * m_WpfHeader.wBytesPerBlock;
 }
-
-__int64 CWpf::GetFileOffset(const char * strPathName,E_FPTYPE fpType)
+//-------------------------------------------------------------------------------------------------
+__int64 CWpf::GetFileOffset(const char* strPathName, E_FPTYPE fpType)
 {
-	if (!FileOpen(strPathName,fpType))
-	{
+	if (!FileOpen(strPathName, fpType))
 		return -1;
-	}
 
-	if(NULL == m_pOpenFileFcb1[fpType])
-	{
+	if (NULL == m_pOpenFileFcb1[fpType])
 		return -1;
-	}
 
 	return m_iWpfStartPos + m_WpfHeader.wHeaderSize + m_pOpenFileFcb1[fpType]->dwStart * m_WpfHeader.wBytesPerBlock;
 }
-
+//-------------------------------------------------------------------------------------------------
 int CWpf::GetFileHandle(E_FPTYPE fpType)
 {
 	return m_iFileHandle[fpType];
 }
-
-__int64 CWpf::WpfSeek(__int64 dwOffset,int iOrigin)
+//-------------------------------------------------------------------------------------------------
+__int64 CWpf::WpfSeek(__int64 dwOffset, int iOrigin)
 {
-	if(!IsOpenWpfFile())
+	if (!IsOpenWpfFile())
 	{
 		m_eWrLastError = EWR_FILE_NOT_OPEN;
 		return -1;
 	}
 
-	if(m_bSaving)
+	if (m_bSaving)
 	{
 		m_eWrLastError = EWR_FILE_SAVING;
 		return -1;
@@ -1815,38 +2058,18 @@ __int64 CWpf::WpfSeek(__int64 dwOffset,int iOrigin)
 
 	FileClose();
 
-	return _lseeki64(m_iFileHandle[EFT_MAIN],m_iWpfStartPos + dwOffset,iOrigin);
+	return _lseeki64(m_iFileHandle[EFT_MAIN], m_iWpfStartPos + dwOffset, iOrigin);
 }
-
-DWORD CWpf::WpfRead(void* pBbuff,DWORD dwSize)
+//-------------------------------------------------------------------------------------------------
+DWORD CWpf::WpfRead(void* pBbuff, DWORD dwSize)
 {
-	if(!IsOpenWpfFile())
+	if (!IsOpenWpfFile())
 	{
 		m_eWrLastError = EWR_FILE_NOT_OPEN;
 		return 0;
 	}
 
-	if(m_bSaving)
-	{
-		m_eWrLastError = EWR_FILE_SAVING;
-		return 0;
-	}
-
-
-	FileClose();
-
-	return _read(m_iFileHandle[EFT_MAIN],pBbuff,dwSize);
-}
-
-DWORD CWpf::WpfWrite(const void* pBbuff,DWORD dwSize)
-{
-	if(!IsOpenWpfFile() || ((m_dwOpenType & EWOT_RDWR) == 0 ))
-	{
-		m_eWrLastError = EWR_FILE_NOT_OPEN;
-		return 0;
-	}
-
-	if(m_bSaving)
+	if (m_bSaving)
 	{
 		m_eWrLastError = EWR_FILE_SAVING;
 		return 0;
@@ -1854,12 +2077,31 @@ DWORD CWpf::WpfWrite(const void* pBbuff,DWORD dwSize)
 
 	FileClose();
 
-	return _write(m_iFileHandle[EFT_MAIN],pBbuff,dwSize);
+	return _read(m_iFileHandle[EFT_MAIN], pBbuff, dwSize);
 }
+//-------------------------------------------------------------------------------------------------
+DWORD CWpf::WpfWrite(const void* pBbuff, DWORD dwSize)
+{
+	if (!IsOpenWpfFile() || ((m_dwOpenType & EWOT_RDWR) == 0))
+	{
+		m_eWrLastError = EWR_FILE_NOT_OPEN;
+		return 0;
+	}
 
+	if (m_bSaving)
+	{
+		m_eWrLastError = EWR_FILE_SAVING;
+		return 0;
+	}
+
+	FileClose();
+
+	return _write(m_iFileHandle[EFT_MAIN], pBbuff, dwSize);
+}
+//-------------------------------------------------------------------------------------------------
 __int64 CWpf::WpfLength()
 {
-	if(!IsOpenWpfFile())
+	if (!IsOpenWpfFile())
 	{
 		m_eWrLastError = EWR_FILE_NOT_OPEN;
 		return 0;
@@ -1867,23 +2109,23 @@ __int64 CWpf::WpfLength()
 
 	return m_WpfHeader.iWpfSize;
 }
-
-
+//-------------------------------------------------------------------------------------------------
 bool CWpf::WpfExpend(DWORD dwLen)
 {
-	if(!IsOpenWpfFile() || ((m_dwOpenType & EWOT_RDWR) == 0))
+	if (!IsOpenWpfFile() || ((m_dwOpenType & EWOT_RDWR) == 0))
 	{
 		m_eWrLastError = EWR_FILE_NOT_OPEN;
 		return false;
 	}
 
-	if(m_bSaving)
+	if (m_bSaving)
 	{
 		m_eWrLastError = EWR_FILE_SAVING;
 		return false;
 	}
 
-	//如果扩展后要求保存,保证一次扩展的长度大于原来目录结构等信息内容的长度,这样写新目录结构信息时不会覆盖老的,即使新的目录结构信息保存失败也不会覆盖原来的目录结构等信息
+	// 如果扩展后要求保存,保证一次扩展的长度大于原来目录结构等信息内容的长度,这样写新目录结构信息时
+	// 不会覆盖老的,即使新的目录结构信息保存失败也不会覆盖原来的目录结构等信息
 	if (m_bSaveWhenExpended)
 	{
 		DWORD dwFcbListSize_Disk = m_WpfHeader_Disk.dwBlankBlockSize * sizeof(BlankBlock) + (m_WpfHeader_Disk.dwDirCount + m_WpfHeader_Disk.dwFileCount) * FCB_SIZE;
@@ -1895,23 +2137,22 @@ bool CWpf::WpfExpend(DWORD dwLen)
 		}		
 	}
 
-	//凑成m_WpfHeader.wBytesPerBlock的倍数
+	// 凑成m_WpfHeader.wBytesPerBlock的倍数
 	if((dwLen % m_WpfHeader.wBytesPerBlock) != 0)
-	{
 		dwLen += m_WpfHeader.wBytesPerBlock - (dwLen % m_WpfHeader.wBytesPerBlock);
-	}
-	//指定文件大小
+
+	// 指定文件大小
 	__int64 iNewWpfSize = m_WpfHeader.iWpfSize + dwLen;
 	DWORD dwNewTotalBlocks = DWORD(iNewWpfSize/m_WpfHeader.wBytesPerBlock);
 	DWORD dwOldTotalBlocks = m_WpfHeader.dwTotalBlocks;
 	DWORD dwNewBlankBlockSize = m_WpfHeader.dwBlankBlockSize;
 
-
-	//检查能不能合并块
+	// 查找空闲块链表，检查能不能合并块(扩展前最后一块是BlankBlock则可以合并)
 	bool bFind = false;
-	PBlankBlockNode pBlankBlock = m_pBlankBlockList,pLast = m_pBlankBlockList,pFindBlock = NULL;
-
-	while(pBlankBlock)
+	PBlankBlockNode pBlankBlock = m_pBlankBlockList;
+	PBlankBlockNode pLast = m_pBlankBlockList;
+	PBlankBlockNode pFindBlock = NULL;
+	while (pBlankBlock)
 	{
 		if (!bFind)
 		{
@@ -1929,18 +2170,16 @@ bool CWpf::WpfExpend(DWORD dwLen)
 
 	if (!bFind)
 	{
-		dwNewBlankBlockSize ++;
+		dwNewBlankBlockSize++;	///< 新扩展的空白块不能合并到已有空闲块列表，则要新加一个空白块信息
 	}
 
-
-	//分配空间
+	// 分配空间
 	errno_t err = _chsize_s(m_iFileHandle[EFT_MAIN],m_iWpfStartPos + m_WpfHeader.wHeaderSize + iNewWpfSize + dwNewBlankBlockSize * sizeof(BlankBlock) + (m_WpfHeader.dwDirCount + m_WpfHeader.dwFileCount) * FCB_SIZE);
-	if(err != 0)
+	if (err != 0)
 	{
 		m_eWrLastError = EWR_ERROR;
 		return false;
 	}
-
 
 	m_WpfHeader.iWpfSize = iNewWpfSize;
 	m_WpfHeader.dwTotalBlocks = dwNewTotalBlocks;
@@ -1948,8 +2187,7 @@ bool CWpf::WpfExpend(DWORD dwLen)
 	m_WpfHeader.dwBlankBlockSize  = dwNewBlankBlockSize;
 	m_WpfHeader.iFatPos = m_WpfHeader.iBlankBlockPos + dwNewBlankBlockSize * sizeof(BlankBlock);
 
-
-	//没有合并就新加一块在后面
+	// 没有合并就新加一块在后面
 	if (!bFind)
 	{
 		pBlankBlock = new BlankBlockNode();
@@ -1959,11 +2197,11 @@ bool CWpf::WpfExpend(DWORD dwLen)
 		pBlankBlock->pNext = NULL;
 		if (pLast)
 		{
-			pLast->pNext = pBlankBlock;
+			pLast->pNext = pBlankBlock;			///< 加入到链表结尾
 		}
-		else//一定是m_pBlankBlockList为空
+		else
 		{
-			m_pBlankBlockList = pBlankBlock;
+			m_pBlankBlockList = pBlankBlock;	// /< 链表为空,一定是m_pBlankBlockList为空
 			m_pBlankBlockList->pParent = NULL;
 		}
 	}
@@ -1973,12 +2211,12 @@ bool CWpf::WpfExpend(DWORD dwLen)
 	}
 	else
 	{
-		int i = 3;
+		int i = 3;	///< 出错
 	}
 
-
-	//每次扩展之后都保存一下,否则出错整个文件系统崩溃
 	m_bModifyed = true;
+
+	// 每次扩展之后都保存一下,否则出错整个文件系统崩溃
 	if (m_bSaveWhenExpended)
 	{
 		if(!WpfSave())
@@ -1989,34 +2227,32 @@ bool CWpf::WpfExpend(DWORD dwLen)
 
 	return true;
 }
-
+//-------------------------------------------------------------------------------------------------
 PBlankBlockNode CWpf::FindBlankBlock(DWORD dwNum)
 {
-	if(!IsOpenWpfFile() || ((m_dwOpenType & EWOT_RDWR) == 0))
+	if (!IsOpenWpfFile() || ((m_dwOpenType & EWOT_RDWR) == 0))
 	{
 		m_eWrLastError = EWR_FILE_NOT_OPEN;
 		return NULL;
 	}
 
-	if(dwNum <= 0)
+	if (dwNum <= 0)
 	{
 		dwNum = 1;
 	}
 
 	PBlankBlockNode pBlankBlockList = m_pBlankBlockList;
-	while(pBlankBlockList)
+	while (pBlankBlockList)
 	{
 		if (pBlankBlockList->blankBlock.dwSize >= dwNum)
-		{
 			return pBlankBlockList;
-		}
 
 		pBlankBlockList = pBlankBlockList->pNext;
 	}
 
 	return NULL;
 }
-
+//-------------------------------------------------------------------------------------------------
 bool CWpf::WpfSave()
 {
 	if (!m_bModifyed)
@@ -2026,7 +2262,7 @@ bool CWpf::WpfSave()
 
 	m_bModifyed = false;
 
-	if(!IsOpenWpfFile() || ((m_dwOpenType & EWOT_RDWR) == 0 ))
+	if (!IsOpenWpfFile() || ((m_dwOpenType & EWOT_RDWR) == 0))
 	{
 		m_eWrLastError = EWR_FILE_NOT_OPEN;
 		return false;
@@ -2040,18 +2276,17 @@ bool CWpf::WpfSave()
 
 	m_bSaving = true;
 
-	//先关闭当前访问的文件
+	// 先关闭当前访问的文件
 	FileClose();
-
 	
-	
-	//如果备份FCB已经被后面的文件覆盖(m_WpfHeader_Bak.bySavingHeader为TRUE),或者上次要求写备份头,却没有写成功,那么当前FCB不要覆盖,成为备份FCB,新的FCB写在备份的FCB后面
+	// 如果备份FCB已经被后面的文件覆盖(m_WpfHeader_Bak.bySavingHeader为TRUE),
+	// 或者上次要求写备份头,却没有写成功,那么当前FCB不要覆盖,成为备份FCB,新的FCB写在备份的FCB后面
 	if (m_WpfHeader_Bak.bySavingHeader)
 	{
 		//写入备份头正在保存的标记,如果此时写失败,下次会使用原来的文件头及fcblist,并且下次保存时会重新到这里来保存备份头
-		_lseeki64(m_iFileHandle[EFT_MAIN],m_iWpfStartPos + sizeof(S_WpfHeader) * 2 - 1,SEEK_SET);
+		_lseeki64(m_iFileHandle[EFT_MAIN], m_iWpfStartPos + sizeof(S_WpfHeader) * 2 - 1, SEEK_SET);
 		m_WpfHeader_Bak.bySavingHeader = TRUE;
-		if(_write(m_iFileHandle[EFT_MAIN],&(m_WpfHeader_Bak.bySavingHeader),sizeof(BYTE)) <= 0)
+		if (_write(m_iFileHandle[EFT_MAIN],&(m_WpfHeader_Bak.bySavingHeader),sizeof(BYTE)) <= 0)
 		{
 			goto Save_Fail;
 		}
@@ -2073,7 +2308,7 @@ bool CWpf::WpfSave()
 		}
 	}
 
-	//如果m_WpfHeader_Bak指向的FCB等信息是有效的,应该避免覆盖掉
+	// 如果m_WpfHeader_Bak指向的FCB等信息是有效的,应该避免覆盖掉
 	if(!m_WpfHeader_Bak.bySavingHeader)
 	{
 		//m_WpfHeader_Bak对应的FCB大小
@@ -2085,7 +2320,7 @@ bool CWpf::WpfSave()
 		}
 	}
 	
-	//重新设置文件的长度,有可能中间删除或新加目录,fcblist的大小就发生了改变,整个文件的大小也应该变小
+	// 重新设置文件的长度,有可能中间删除或新加目录,fcblist的大小就发生了改变,整个文件的大小也应该变小
 	DWORD dwFcbSize = m_WpfHeader.dwBlankBlockSize * sizeof(BlankBlock) + (m_WpfHeader.dwDirCount + m_WpfHeader.dwFileCount) * FCB_SIZE;
 	//errno_t err = _chsize_s(m_iFileHandle[EFT_MAIN],m_iWpfStartPos + m_WpfHeader.wHeaderSize + m_WpfHeader.iWpfSize + dwFcbSize);
 	errno_t err = _chsize_s(m_iFileHandle[EFT_MAIN],m_WpfHeader.iBlankBlockPos + dwFcbSize);
@@ -2094,9 +2329,7 @@ bool CWpf::WpfSave()
 		goto Save_Fail;
 	}
 
-
-
-	//写入正在保存的标记,如果此时写失败,下次会使用原来的文件头及fcblist
+	// 写入正在保存的标记,如果此时写失败,下次会使用原来的文件头及fcblist
 	_lseeki64(m_iFileHandle[EFT_MAIN],m_iWpfStartPos + sizeof(S_WpfHeader) - 1,SEEK_SET);
 	m_WpfHeader.bySavingHeader = TRUE;
 	if(_write(m_iFileHandle[EFT_MAIN],&(m_WpfHeader.bySavingHeader),sizeof(BYTE)) <= 0)
@@ -2104,8 +2337,7 @@ bool CWpf::WpfSave()
 		goto Save_Fail;
 	}
 
-
-	//写入空白块信息,如果此时写失败,下次会使用备份的文件头及fcblist
+	// 写入空白块信息,如果此时写失败,下次会使用备份的文件头及fcblist
 	if (m_WpfHeader.dwBlankBlockSize > 0)
 	{
 		PBlankBlock pBlock = new BlankBlock[m_WpfHeader.dwBlankBlockSize];
@@ -2131,14 +2363,14 @@ bool CWpf::WpfSave()
 
 	m_WpfHeader.iFatPos = m_WpfHeader.iBlankBlockPos + m_WpfHeader.dwBlankBlockSize * sizeof(BlankBlock);
 	
-	//写入FCB,如果此时写失败,下次会使用备份的文件头及fcblist
+	// 写入FCB,如果此时写失败,下次会使用备份的文件头及fcblist
 	if(!WpfWriteFCB())
 	{
 		goto Save_Fail;
 	}
 
 
-	//写入文件头,如果此时写失败,m_WpfHeader.bySavingHeader必定为TRUE,因为这是头的最后一字节,为了防止头部一分写入新的,一部分老的,m_WpfHeader.bySavingHeader为TRUE时读取时用备份的文件头和备份的FCB
+	// 写入文件头,如果此时写失败,m_WpfHeader.bySavingHeader必定为TRUE,因为这是头的最后一字节,为了防止头部一分写入新的,一部分老的,m_WpfHeader.bySavingHeader为TRUE时读取时用备份的文件头和备份的FCB
 	m_WpfHeader.bySavingHeader = FALSE;
 	_lseeki64(m_iFileHandle[EFT_MAIN],m_iWpfStartPos,SEEK_SET);
 	if(_write(m_iFileHandle[EFT_MAIN],&m_WpfHeader,sizeof(S_WpfHeader)) <= 0)
@@ -2146,10 +2378,8 @@ bool CWpf::WpfSave()
 		goto Save_Fail;
 	}
 
-
-
-	//把缓冲区的内容立即更新到磁盘,改成了使用句柄后打开的文件是没有buff的,不需要fflush
-	//    fflush(m_pFp[EFT_MAIN]);
+	// 把缓冲区的内容立即更新到磁盘,改成了使用句柄后打开的文件是没有buff的,不需要fflush
+	// fflush(m_pFp[EFT_MAIN]);
 
 	m_bSaving = false;
 	m_WpfHeader_Disk = m_WpfHeader;//重新记录修改前状态
@@ -2164,15 +2394,11 @@ Save_Fail:
 	m_dwOpenType &= (~EWOT_RDWR);//EWOT_LISTDIR和EWOT_LISTFCBHASH留着,以便外部进行读取操作
 	return false;
 }
-
+//-------------------------------------------------------------------------------------------------
 void CWpf::ClearEmptyDirAndFile(PWpfFileList pList)
 {
-	MList &dirlist = pList->MDirs;
-	MSFCB &filelist = pList->MFiles;
-
-	PFCB pfcb = NULL;
 	PWpfFileList pDelList = NULL;
-
+	MList &dirlist = pList->MDirs;
 	for (MList::iterator itr = dirlist.begin();itr != dirlist.end(); )
 	{
 		ClearEmptyDirAndFile(itr->second);
@@ -2196,6 +2422,8 @@ void CWpf::ClearEmptyDirAndFile(PWpfFileList pList)
 		}
 	}
 
+	PFCB pfcb = NULL;
+	MSFCB &filelist = pList->MFiles;
 	MSFCB::iterator itr = filelist.begin();
 	while(itr != filelist.end())
 	{
@@ -2217,35 +2445,32 @@ void CWpf::ClearEmptyDirAndFile(PWpfFileList pList)
 	}
 
 }
-
+//-------------------------------------------------------------------------------------------------
 bool CWpf::WpfWriteFCB()
 {
-
-	//如果要求清除空目录及文件
+	// 如果要求清除空目录及文件
 	if (m_bClearEmptyDirAndFile)
 	{
 		ClearEmptyDirAndFile(m_pWpfRoot);
 	}
 
-
-	//写入fcb
+	// 写入fcb
 	DWORD dwCount = m_WpfHeader.dwDirCount + m_WpfHeader.dwFileCount;
 	if (m_bSpeedPrior)
 	{
 		//为了速度这里先申请一块空间,然后 一并写入磁盘
-		PFCB1 fcb1 = new FCB1[dwCount];//fcb1列表
-		PFCB2 fcb2 = new FCB2[dwCount];//fcb2列表
-
+		PFCB1 fcb1 = new FCB1[dwCount];	///< fcb1列表
+		PFCB2 fcb2 = new FCB2[dwCount];	///< fcb2列表
 
 		vector<PWpfFileList> VDirs;
 		VDirs.push_back(m_pWpfRoot);
+
 		m_pWpfRoot->pfcb->pfcb1->dwStart = 1;
 		m_pWpfRoot->pfcb->pfcb1->dwSize = (DWORD)(m_pWpfRoot->MDirs.size() + m_pWpfRoot->MFiles.size());
 		m_pWpfRoot->pfcb->pfcb1->iHashKey = 0;
 
-		memcpy(&fcb1[0],m_pWpfRoot->pfcb->pfcb1,FCB1_SIZE);
-		memcpy(&fcb2[0],m_pWpfRoot->pfcb->pfcb2,FCB2_SIZE);
-
+		memcpy(&fcb1[0], m_pWpfRoot->pfcb->pfcb1, FCB1_SIZE);
+		memcpy(&fcb2[0], m_pWpfRoot->pfcb->pfcb2, FCB2_SIZE);
 
 		PWpfFileList pFront = NULL;
 		PFCB pfcb = NULL;
@@ -2262,7 +2487,6 @@ bool CWpf::WpfWriteFCB()
 			dwNo = pFront->pfcb->pfcb1->dwStart;
 
 			//子目录及子文件的fcb
-
 			for (MList::iterator itr = dirlist.begin();itr != dirlist.end(); itr++,dwNo++)
 			{
 				pfcb = itr->second->pfcb;
@@ -2326,11 +2550,11 @@ bool CWpf::WpfWriteFCB()
 
 		PWpfFileList pFront = NULL;
 		PFCB pfcb = NULL;
-		DWORD dwNo = 0;//该目录对应fcb的位置
-		DWORD dwStart = 1;//该目录子目录fcb所在的位置
+		DWORD dwNo = 0;		///< 该目录对应fcb的位置
+		DWORD dwStart = 1;	///< 该目录子目录fcb所在的位置
 		dwStart += m_pWpfRoot->pfcb->pfcb1->dwSize;
 
-		while(!VDirs.empty())
+		while (!VDirs.empty())
 		{
 			pFront = VDirs.front();
 
@@ -2345,7 +2569,6 @@ bool CWpf::WpfWriteFCB()
 				pfcb->pfcb1->dwStart = dwStart;
 				pfcb->pfcb1->dwSize = (DWORD)(itr->second->MDirs.size() + itr->second->MFiles.size());
 				dwStart += pfcb->pfcb1->dwSize;
-
 
 				_lseeki64(m_iFileHandle[EFT_MAIN],m_iWpfStartPos + m_WpfHeader.iFatPos + dwNo * FCB1_SIZE,SEEK_SET);
 				if(_write(m_iFileHandle[EFT_MAIN],pfcb->pfcb1,FCB1_SIZE) <= 0)
@@ -2385,22 +2608,22 @@ bool CWpf::WpfWriteFCB()
 
 	return true;
 }
-
+//-------------------------------------------------------------------------------------------------
 bool CWpf::WpfLoadFat()
 {
-	if(!IsOpenWpfFile())
+	if (!IsOpenWpfFile())
 	{
 		m_eWrLastError = EWR_FILE_NOT_OPEN;
 		return false;
 	}
 
-	if(m_WpfHeader.dwDirCount < 1)
+	if (m_WpfHeader.dwDirCount < 1)
 	{
 		m_eWrLastError = EWR_NOT_WPF_FILE;
 		return false;
 	}
 
-	_lseeki64(m_iFileHandle[EFT_MAIN],m_iWpfStartPos + m_WpfHeader.iFatPos,SEEK_SET);
+	_lseeki64(m_iFileHandle[EFT_MAIN], m_iWpfStartPos + m_WpfHeader.iFatPos, SEEK_SET);
 
 	DWORD dwCount = m_WpfHeader.dwDirCount + m_WpfHeader.dwFileCount;
 
@@ -2591,29 +2814,26 @@ bool CWpf::WpfLoadFat()
 				VDirs.erase(VDirs.begin());
 			}
 		}
-
 	}
-
-
 
 	return true;
 }
-
+//-------------------------------------------------------------------------------------------------
 bool CWpf::WpfFormat()
 {
-	if(!IsOpenWpfFile() || ((m_dwOpenType & EWOT_RDWR) == 0))
+	if (!IsOpenWpfFile() || ((m_dwOpenType & EWOT_RDWR) == 0))
 	{
 		m_eWrLastError = EWR_FILE_NOT_OPEN;
 		return false;
 	}
 
-	if(m_bSaving)
+	if (m_bSaving)
 	{
 		m_eWrLastError = EWR_FILE_SAVING;
 		return false;
 	}
 
-	//清空
+	// 清空
 	WpfClear();
 
 	m_WpfHeader.dwBlankBlockSize = 1;
@@ -2622,6 +2842,7 @@ bool CWpf::WpfFormat()
 	m_pBlankBlockList = new BlankBlockNode();
 	m_pBlankBlockList->blankBlock.dwStart = 0;
 	m_pBlankBlockList->blankBlock.dwSize = m_WpfHeader.dwTotalBlocks;
+
 	//加入根目录,目录下没有内容
 	PFCB pfcb = new FCB();
 	pfcb->pfcb1 = new FCB1();
@@ -2629,7 +2850,6 @@ bool CWpf::WpfFormat()
 
 	m_pWpfRoot = new WpfFileList;
 	m_pWpfRoot->pfcb = pfcb;
-
 
 	//速度优先时一次性存取整个fcb,这个fcb可以一次性释放,但中间新加的fcb得记下来,以便最后释放
 	if (m_bSpeedPrior)
@@ -2651,26 +2871,175 @@ bool CWpf::WpfFormat()
 	m_pWpfRoot->pfcb->pfcb1->dwStart = 0;
 	m_pWpfRoot->pfcb->pfcb1->dwSize = 0;
 	m_WpfHeader.dwDirCount = 1;
+
 	//清空文件列表
 	m_pWpfRoot->MFiles.clear();
 	m_pWpfRoot->MDirs.clear();
 
 	return true;
 }
-
+//-------------------------------------------------------------------------------------------------
 bool CWpf::IsOpenWpfFile()
 {
 	return (m_iFileHandle[EFT_MAIN] != -1);
 }
-
-PFCB CWpf::ImportFile(const char *strParnetDir,const char *strFilePath,bool bCompress,bool bFailExist)
+//-------------------------------------------------------------------------------------------------
+PFCB CWpf::ImportFile(const char* strParnetDir, const char* strFilePath, bool bCompress, bool bFailExist)
 {
-	
+	if (strFilePath == NULL)
+	{
+		m_eWrLastError = EWR_PARA_ERROR;
 		return NULL;
-	
-}
+	}
 
-PWpfFileList CWpf::ImportDir(const char *strParnetDir,const char *strDirPath,bool bCompress,bool bFailExist,LPWpfCallBack pCallBack)
+	if (m_bSaving)
+	{
+		m_eWrLastError = EWR_FILE_SAVING;
+		return false;
+	}
+
+	if (!IsOpenWpfFile() || (m_dwOpenType & EWOT_RDWR))
+	{
+		m_eWrLastError = EWR_FILE_NOT_OPEN;
+		return NULL;
+	}
+
+	// 从导入文件路径提取文件名
+	string strSrc = strFilePath;
+	replace(strSrc.begin(), strSrc.end(), '/', '\\');	///< 替换路径分隔符
+	size_t iPos = strSrc.find_last_of("\\");			///< ??为什么是双引号不是单引号??
+	string strFileName = "";
+	if (iPos != string::npos)
+	{
+		strFileName = strSrc.substr(iPos+1, strSrc.length() - iPos);
+	}
+	else
+	{
+		m_eWrLastError = EWR_PATH_INVALID;
+		return NULL;
+	}
+
+	// 生成wpf内目标路径
+	string strDest = strParnetDir ? strParnetDir : "";
+	replace(strDest.begin(), strDest.end(), '/', '\\');	///< 替换路径分隔符
+	size_t iPos2 = strDest.find_last_not_of('\\');		///< 去掉后面连续的"\\"
+	if (iPos2 == string::npos)
+	{
+		strDest = strFileName;
+	}
+	else if (iPos2 != strDest.length() - 1)
+	{
+		strDest = strDest.substr(0, iPos2+1) + "\\" + strFileName;
+	}
+	else
+	{
+		strDest = strDest + "\\" + strFileName;
+	}
+
+	if (strDest.empty())
+	{
+		m_eWrLastError = EWR_PATH_INVALID;
+		return false;
+	}
+
+	// 打开待导入文件
+	FILE* fp = fopen(strFilePath, "rb");
+	if (!fp)
+	{
+		m_eWrLastError = EWR_FILE_NOT_EXIST;
+		return false;
+	}
+
+	fseek(fp, 0, SEEK_END);		///< 寻址到到文件末尾(这里没改为64位模式,也就是说导入文件不能大于4G)
+	DWORD dwLen = ftell(fp);	///< 获取文件长度
+	fseek(fp, 0, SEEK_SET);		///< 寻址到到文件头(这里没改为64位模式,也就是说导入文件不能大于4G)
+
+	//
+	BYTE* buf = new BYTE[BLOCK_SIZE];
+
+	DWORD dwUnCompressLen = dwLen;	///< 压缩前尺寸
+	DWORD dwLeftBytes = dwLen;
+	DWORD dwReadBytes = 0;
+
+	DWORD dwCompressBufLen = BLOCK_SIZE * 4;
+	BYTE* pCompressBuf = NULL;
+
+//	if (bCompress)
+//	{
+//		// 先预压缩一遍得到压缩后文件大小
+//		pCompressBuf = new BYTE[dwCompressBufLen];
+//		DWORD dwCompressSize = 0;
+//		DWORD dwDestSize = 0;
+//		while (dwLeftBytes > 0)
+//		{
+//			DWORD dwReadBytes = min(BLOCK_SIZE, dwLeftBytes);
+//			if (fread(buf, dwReadBytes, 1, fp) <= 0)
+//				break;
+//
+//			dwDestSize = dwCompressBufLen;
+//			Compress(pCompressBuf, &dwDestSize, buf, dwReadBytes, CL_DEFAULT_COMPRESS);
+//			dwCompressSize += dwDestSize;
+//			dwCompressSize += 4;		///< 用来记录该块压缩后的大小，分块解压时会用到
+//			dwLeftBytes -= dwReadBytes;
+//		}
+//
+//		dwLeftBytes = dwUnCompressLen;	///< 还原，后面压缩还要用到
+//		dwLen = dwCompressSize;
+//	}
+
+	// 在wpf内部创建文件
+	PFCB pfcb = CreateFile(strDest.c_str(), dwLen, bFailExist);
+	if (!pfcb)
+	{
+		fclose(fp);
+		SAFE_DELETE_ARRAY(pCompressBuf);
+		SAFE_DELETE_ARRAY(buf);
+		return NULL;
+	}
+
+//	if (bCompress && pCompressBuf)
+//	{
+//		pfcb->pfcb2->dwAttribute |= EFA_COMPRESS;
+//		pfcb->pfcb2->dwRev = dwUnCompressLen;		///< 保存压缩之前尺寸
+//
+//		DWORD dwDestSize = 0;
+//		fseek(fp, 0, SEEK_SET);
+//
+//		while (dwLeftBytes > 0)
+//		{
+//			DWORD dwReadBytes = min(BLOCK_SIZE, dwLeftBytes);
+//			if (fread(buf, dwReadBytes, 1, fp) <= 0)
+//				break;
+//
+//			dwDestSize = dwCompressBufLen;
+//			Compress(pCompressBuf, &dwDestSize, buf, dwReadBytes, CL_DEFAULT_COMPRESS);
+//			FileWrite(&dwDestSize, 4);	///< 用来记录该块压缩后的大小，分块解压时会用到
+//			FileWrite(pCompressBuf, dwDestSize);
+//			dwLeftBytes -= dwReadBytes;
+//		}
+//	}
+//	else
+//	{
+		while (dwLeftBytes > 0)
+		{
+			DWORD dwReadBytes = min(BLOCK_SIZE, dwLeftBytes);
+			if (fread(buf, dwReadBytes, 1, fp) <= 0)
+				break;
+
+			FileWrite(buf, dwReadBytes);
+			dwLeftBytes -= dwReadBytes;
+		}
+//	}
+
+	// 
+	fclose(fp);
+	SAFE_DELETE_ARRAY(pCompressBuf);
+	SAFE_DELETE_ARRAY(buf);
+
+	return pfcb;
+}
+//-------------------------------------------------------------------------------------------------
+PWpfFileList CWpf::ImportDir(const char* strParnetDir, const char* strDirPath, bool bCompress, bool bFailExist, LPWpfCallBack pCallBack)
 {
 	if (!IsOpenWpfFile() || ((m_dwOpenType & EWOT_RDWR) == 0))
 	{
@@ -2678,24 +3047,22 @@ PWpfFileList CWpf::ImportDir(const char *strParnetDir,const char *strDirPath,boo
 		return NULL;
 	}
 
-	if(m_bSaving)
+	if (m_bSaving)
 	{
 		m_eWrLastError = EWR_FILE_SAVING;
 		return NULL;
 	}
 
 	string strSrcDir = strDirPath;
-	if(strSrcDir.empty())
-	{
+	if (strSrcDir.empty())
 		return NULL;
-	}
 
 	string strDestDir = "";
 	if (strParnetDir)
 		strDestDir = strDestDir + strParnetDir;
 
-	//去掉后面连续的"\\"
-	size_t iPos = strSrcDir.find_last_not_of('\\');
+	// 去掉待导入路径末尾连续的"\\"
+	size_t iPos = strSrcDir.find_last_not_of('\\');	///< 去掉后面连续的"\\"
 	if(iPos == string::npos)
 	{
 		m_eWrLastError = EWR_PATH_INVALID;
@@ -2703,9 +3070,10 @@ PWpfFileList CWpf::ImportDir(const char *strParnetDir,const char *strDirPath,boo
 	}
 	else if(iPos != strSrcDir.length() - 1)
 	{
-		strSrcDir = strSrcDir.substr(0,iPos + 1);
+		strSrcDir = strSrcDir.substr(0, iPos + 1);
 	}
 
+	// 去掉wpf内目标路径末尾连续的"\\"
 	if (!strDestDir.empty())
 	{
 		iPos = strDestDir.find_last_not_of('\\');
@@ -2716,38 +3084,41 @@ PWpfFileList CWpf::ImportDir(const char *strParnetDir,const char *strDirPath,boo
 		}
 		else if(iPos != strDestDir.length() - 1)
 		{
-			strDestDir = strDestDir.substr(0,iPos + 1);
+			strDestDir = strDestDir.substr(0, iPos + 1);
 		}
 	}
 
+	// 构建wpf内目标完整路径
 	iPos = strSrcDir.find_last_of('\\');
 	if(iPos != string::npos)
 	{
-		string strTemp = strSrcDir.substr(iPos + 1,strSrcDir.length() - iPos - 1);
+		string strTemp = strSrcDir.substr(iPos + 1, strSrcDir.length() - iPos - 1);
 		if (strDestDir.empty())
 			strDestDir = strTemp;
 		else
 			strDestDir = strDestDir + "\\" + strTemp;
 	}
 
-	//创建目录
-	PWpfFileList pList = this->FindDir(strDestDir.c_str());
+	// 创建导入目录
+	PWpfFileList pList = FindDir(strDestDir.c_str());
 	if (!pList)
 	{
-		pList = this->CreateDir(strDestDir.c_str());
+		pList = CreateDir(strDestDir.c_str());
 	}
+
 	if (!pList)
 	{
 		m_eWrLastError = EWR_PATH_INVALID;
 		return NULL;
 	}
 
-	ImportSubDir(strDestDir.c_str(),strDirPath,bCompress,bFailExist,pCallBack);
+	// 导入目录下的子目录与文件
+	ImportSubDir(strDestDir.c_str(), strDirPath, bCompress, bFailExist, pCallBack);
 
 	return pList;
 }
-
-bool CWpf::ImportDirFromList(CWpfInterface * pWpf,PWpfFileList pSrcList,PWpfFileList pDestList,bool bFailExist,LPWpfCallBack pCallBack)
+//-------------------------------------------------------------------------------------------------
+bool CWpf::ImportDirFromList(CWpfInterface* pWpf, PWpfFileList pSrcList, PWpfFileList pDestList, bool bFailExist, LPWpfCallBack pCallBack)
 {
 	if (!pWpf || !pSrcList || !pDestList)
 	{
@@ -2760,14 +3131,14 @@ bool CWpf::ImportDirFromList(CWpfInterface * pWpf,PWpfFileList pSrcList,PWpfFile
 		return NULL;
 	}
 
-	if(m_bSaving)
+	if (m_bSaving)
 	{
 		m_eWrLastError = EWR_FILE_SAVING;
 		return false;
 	}
 
+	// 查找待导入FileList在wpf内对应的目录,不存在则创建之
 	PWpfFileList pList = NULL;
-
 	MList::iterator itr = pDestList->MDirs.find(pSrcList->pfcb->pfcb2->strName);
 	if(itr != pDestList->MDirs.end())
 	{
@@ -2776,7 +3147,7 @@ bool CWpf::ImportDirFromList(CWpfInterface * pWpf,PWpfFileList pSrcList,PWpfFile
 
 	if (!pList)
 	{
-		pList = this->CreateDirToList(pSrcList->pfcb->pfcb2->strName,pDestList);
+		pList = CreateDirToList(pSrcList->pfcb->pfcb2->strName, pDestList);
 	}
 
 	if (!pList)
@@ -2784,11 +3155,13 @@ bool CWpf::ImportDirFromList(CWpfInterface * pWpf,PWpfFileList pSrcList,PWpfFile
 		return NULL;
 	}
 
+	// 导入目录下的子目录与文件
 	ImportSubDirFromList(pWpf,pSrcList,pList,bFailExist,pCallBack);
+
 	return true;
 }
-
-PWpfFileList CWpf::ImportSubDir(const char *strParnetDir,const char *strDirPath,bool bCompress,bool bFailExist,LPWpfCallBack pCallBack)
+//-------------------------------------------------------------------------------------------------
+PWpfFileList CWpf::ImportSubDir(const char* strParnetDir, const char* strDirPath, bool bCompress, bool bFailExist, LPWpfCallBack pCallBack)
 {
 	if (!IsOpenWpfFile() || ((m_dwOpenType & EWOT_RDWR) == 0) || !strParnetDir || !strDirPath)
 	{
@@ -2796,49 +3169,47 @@ PWpfFileList CWpf::ImportSubDir(const char *strParnetDir,const char *strDirPath,
 		return NULL;
 	}
 
-	if(m_bSaving)
+	if (m_bSaving)
 	{
 		m_eWrLastError = EWR_FILE_SAVING;
 		return NULL;
 	}
 
-	struct _finddata_t file;
 	string strSrcDir = strDirPath;
 	if (strSrcDir.empty())
 	{
 		return NULL;
-	}	
+	}
+
 	string strSrc = strSrcDir + "\\*.*";
 	string strDestDir = strParnetDir;
-
+	struct _finddata_t file;
 	intptr_t fhandle = _findfirst(strSrc.c_str(), &file);
-	if(fhandle == -1)
+	if (fhandle == -1)
+		return NULL;
+
+	// 创建目录
+	PWpfFileList list = FindDir(strParnetDir);
+	if (!list)
+	{
+		list = CreateDir(strParnetDir);
+	}
+
+	if(!list)
 	{
 		return NULL;
 	}
-
-	//创建目录
-	PWpfFileList list = this->FindDir(strParnetDir);
-	if(!list)
-	{
-		list = this->CreateDir(strParnetDir);
-	}
-
-	if(!list)
-	{
-		return NULL;
-	}
-
 
 	do
 	{
-		if(file.attrib & _A_SUBDIR)
+		if (file.attrib & _A_SUBDIR)
 		{
-			//if(strcmp(file.name,".") != 0 && strcmp(file.name,"..") != 0 && strcmp(file.name,".svn") != 0)
-			if(file.name[0] != '.')
+			// 处理目录
+			//if (strcmp(file.name, ".") != 0 && strcmp(file.name, "..") != 0 && strcmp(file.name, ".svn") != 0)
+			if (file.name[0] != '.')
 			{        
 				string strd;
-				if(strDestDir.empty())
+				if (strDestDir.empty())
 					strd = file.name; 
 				else
 					strd = strDestDir + "\\" + file.name;
@@ -2849,21 +3220,22 @@ PWpfFileList CWpf::ImportSubDir(const char *strParnetDir,const char *strDirPath,
 				else
 					strs = strSrcDir + "\\" + file.name;
 
-				PWpfFileList sublist = ImportSubDir(strd.c_str() , strs.c_str(),bCompress,bFailExist,pCallBack);
-				if(sublist)
+				PWpfFileList sublist = ImportSubDir(strd.c_str() , strs.c_str(), bCompress, bFailExist, pCallBack);
+				if (sublist)
 				{
 					list->MDirs[file.name] = sublist;
 				}
-				else if (!IsOpenWpfFile() || (m_dwOpenType & EWOT_RDWR) == 0)//有可能在ImportFile时扩展失败导致文件的写操作被关闭
+				else if (!IsOpenWpfFile() || (m_dwOpenType & EWOT_RDWR) == 0)
 				{
+					//有可能在ImportFile时扩展失败导致文件的写操作被关闭
 					m_eWrLastError = EWR_FILE_NOT_OPEN;
 					return NULL;
 				}
-
 			}
 		}
 		else
 		{ 
+			// 处理文件
 			string strd = strDestDir;
 			string strs;
 			if(strSrcDir.empty())
@@ -2871,32 +3243,29 @@ PWpfFileList CWpf::ImportSubDir(const char *strParnetDir,const char *strDirPath,
 			else
 				strs = strSrcDir + "\\" + file.name;
 
-			PFCB pfcb = ImportFile(strd.c_str() , strs.c_str(),bCompress,bFailExist);
+			PFCB pfcb = ImportFile(strd.c_str(), strs.c_str(), bCompress, bFailExist);
 			if(pfcb)
 			{
 				list->MFiles[file.name] = pfcb;
 			}
-			else if (!IsOpenWpfFile() || (m_dwOpenType & EWOT_RDWR) == 0)//有可能在ImportFile时扩展失败导致文件的写操作被关闭
+			else if (!IsOpenWpfFile() || (m_dwOpenType & EWOT_RDWR) == 0)
 			{
+				// 有可能在ImportFile时扩展失败导致文件的写操作被关闭
 				m_eWrLastError = EWR_FILE_NOT_OPEN;
 				return NULL;
 			}
 
-
 			if (pCallBack)
-			{
-				pCallBack(strs.c_str());
-			}
+				pCallBack(strs.c_str());	///< 回调函数
 		}
 	} while(!_findnext(fhandle, &file));
 
 	_findclose(fhandle);
 
-
 	return list;
 }
-
-bool CWpf::ImportSubDirFromList(CWpfInterface * pWpf,PWpfFileList pSrcList,PWpfFileList pDestList,bool bFailExist,LPWpfCallBack pCallBack)
+//-------------------------------------------------------------------------------------------------
+bool CWpf::ImportSubDirFromList(CWpfInterface* pWpf, PWpfFileList pSrcList, PWpfFileList pDestList, bool bFailExist, LPWpfCallBack pCallBack)
 {
 	if (!pWpf || !pSrcList || !pDestList)
 	{
@@ -2909,27 +3278,27 @@ bool CWpf::ImportSubDirFromList(CWpfInterface * pWpf,PWpfFileList pSrcList,PWpfF
 		return NULL;
 	}
 
-	if(m_bSaving)
+	if (m_bSaving)
 	{
 		m_eWrLastError = EWR_FILE_SAVING;
 		return false;
 	}
 
-	//导入目录
+	// 导入目录
 	MList &subdirs = pSrcList->MDirs;
 	PWpfFileList sublist = NULL;
 	for (MList::iterator itr = subdirs.begin(); itr != subdirs.end(); itr++)
 	{
 		sublist = NULL;
 		MList::iterator itr2 = pDestList->MDirs.find(itr->first);
-		if(itr2 != pDestList->MDirs.end())
+		if (itr2 != pDestList->MDirs.end())
 		{
 			sublist = itr2->second;
 		}
 
 		if (!sublist)
 		{
-			sublist = this->CreateDirToList(itr->first,pDestList);
+			sublist = CreateDirToList(itr->first,pDestList);
 		}
 
 		if (sublist)
@@ -2938,7 +3307,7 @@ bool CWpf::ImportSubDirFromList(CWpfInterface * pWpf,PWpfFileList pSrcList,PWpfF
 		}
 	}
 
-	//导入文件
+	// 导入文件
 	MSFCB &srcfiles = pSrcList->MFiles;
 	PFCB subfile = NULL,srcfcb = NULL;
 
@@ -2980,15 +3349,11 @@ bool CWpf::ImportSubDirFromList(CWpfInterface * pWpf,PWpfFileList pSrcList,PWpfF
 		//	subfile->pfcb2->dwAttribute |= srcfcb->pfcb2->dwAttribute;		
 		//}
 
-		if (!ImportFileToDir(pWpf,srcfcb,pDestList,bFailExist))
-		{
+		if (!ImportFileToDir(pWpf, srcfcb, pDestList, bFailExist))
 			continue;
-		}
 
 		if (pCallBack)
-		{
 			pCallBack((strParentPath + "\\" + itr->first).c_str());
-		}
 
 		pWpf->FileClose();
 	}	
@@ -2997,26 +3362,25 @@ bool CWpf::ImportSubDirFromList(CWpfInterface * pWpf,PWpfFileList pSrcList,PWpfF
 
 	return true;
 }
-
-bool CWpf::ExportFile(const char *strSrcPath,const char *strDestPath)
+//-------------------------------------------------------------------------------------------------
+bool CWpf::ExportFile(const char* strSrcPath, const char* strDestPath)
 {
-	if(m_bSaving)
+	if (m_bSaving)
 	{
 		m_eWrLastError = EWR_FILE_SAVING;
 		return false;
 	}
 
 	PFCB pfcb = FindFile_PFCB(strSrcPath);
-
-	if (ExportFile(pfcb,strDestPath))
+	if (ExportFile(pfcb, strDestPath))
 	{
 		return true;
 	}
 
 	return false;
 }
-
-bool CWpf::ExportAllFileFromFCB1(const char *strDestPath)
+//-------------------------------------------------------------------------------------------------
+bool CWpf::ExportAllFileFromFCB1(const char* strDestPath)
 {
 	if (!IsOpenWpfFile() || ((m_dwOpenType & EWOT_LISTHASH) == 0) || !strDestPath || strDestPath[0] == 0)
 	{
@@ -3024,12 +3388,11 @@ bool CWpf::ExportAllFileFromFCB1(const char *strDestPath)
 		return false;
 	}
 
-	if(m_bSaving)
+	if (m_bSaving)
 	{
 		m_eWrLastError = EWR_FILE_SAVING;
 		return false;
 	}
-
 
 	BYTE *pReadBuf = new BYTE[BLOCK_SIZE + 1024];
 	char szFileName[32] = {0};
@@ -3037,16 +3400,16 @@ bool CWpf::ExportAllFileFromFCB1(const char *strDestPath)
 	{
 		if (itr->second && itr->second->iHashKey != 0 && itr->second->dwSize > 0 && itr->second->dwStart > 0)
 		{
-			string szFilePath = strDestPath;
-			sprintf_s(szFileName,32,"%I64d",itr->second->iHashKey);
-
 			//if (-7889083853190628685 == itr->second->iHashKey)
 			//{
 			//	int i = 3;
 			//}
-			
-			szFilePath = szFilePath + "\\" + szFileName;
-			FILE* fpDest = fopen(szFilePath.c_str(),"wb");
+
+			sprintf_s(szFileName, 32, "%I64d", itr->second->iHashKey);	///< 以HashKey作为文件名
+			string szFilePath = strDestPath;
+			szFilePath = szFilePath + "\\" + szFileName;				///< 导出路径
+
+			FILE* fpDest = fopen(szFilePath.c_str(), "wb");
 			if (!fpDest)
 			{
 				continue;
@@ -3060,17 +3423,13 @@ bool CWpf::ExportAllFileFromFCB1(const char *strDestPath)
 
 			DWORD dwReadBytes = 0;
 			DWORD dwLeftBytes = itr->second->dwSize;
-
 			while(dwLeftBytes > 0)
 			{
-				dwReadBytes = min(dwLeftBytes,BLOCK_SIZE);
-				if (FileRead(pReadBuf,dwReadBytes) <= 0)
-				{
+				dwReadBytes = min(dwLeftBytes, BLOCK_SIZE);
+				if (FileRead(pReadBuf, dwReadBytes) <= 0)
 					break;
-				}
 
 				fwrite(pReadBuf,dwReadBytes,1,fpDest);
-
 				dwLeftBytes -= dwReadBytes;
 			}
 
@@ -3081,73 +3440,104 @@ bool CWpf::ExportAllFileFromFCB1(const char *strDestPath)
 	SAFE_DELETE_ARRAY(pReadBuf);
 	return true;
 }
-
-bool CWpf::ExportFile(PFCB pfcb,const char *strDestPath)
+//-------------------------------------------------------------------------------------------------
+bool CWpf::ExportFile(PFCB pfcb, const char* strDestPath)
 {
-	
+	if (!pfcb || !strDestPath)
+	{
+		m_eWrLastError = EWR_FILE_NOT_EXIST;
 		return false;
-	
-}
+	}
 
-bool CWpf::ExportDir(const char *strSrcPath,const char *strDestPath,LPWpfCallBack pCallBack)
-{
-	if(m_bSaving)
+	if (m_bSaving)
 	{
 		m_eWrLastError = EWR_FILE_SAVING;
 		return false;
 	}
 
-	PWpfFileList pList = FindDir(strSrcPath);
-
-	if (!pList || !strDestPath)
+	// 打开目标文件
+	FILE* fpDest = fopen(strDestPath, "wb");
+	if (!fpDest)
 	{
-		m_eWrLastError = EWR_DIR_NOT_EXIST;
 		return false;
 	}
 
-	string strPath = strDestPath;
-	//去掉后面连续的"\\"
-	size_t iPos = strPath.find_last_not_of('\\');
-	if(iPos == string::npos)
+	// 打开wpf的待导出文件
+	if (!FileOpen(pfcb->pfcb1))
 	{
-		m_eWrLastError = EWR_PATH_INVALID;
-		return NULL;
-	}
-	else if(iPos != strPath.length() - 1)
-	{
-		strPath = strPath.substr(0,iPos + 1);
-	}
-
-	if(strPath.empty())
-	{
-		m_eWrLastError = EWR_PATH_INVALID;
 		return false;
 	}
 
-	ExportDirFromList(strPath,pList,pCallBack);
+	bool bCompress = (pfcb->pfcb2->dwAttribute & EFA_COMPRESS) ? true : false;
+	DWORD dwReadBytes = 0;
+	DWORD dwUnCompressBytes = 0;
+	DWORD dwLeftBytes = pfcb->pfcb1->dwSize;
+
+	BYTE* pReadBuf = new BYTE[BLOCK_SIZE + 1024];	///< ??为什么加上1024??
+
+	DWORD dwUnCompressBufLen = BLOCK_SIZE * 8;
+	BYTE* pUnCompressBuf = bCompress ? new BYTE[dwUnCompressBufLen] : NULL;
+
+	while (dwLeftBytes > 0)
+	{
+//		if (pUnCompressBuf)
+//		{
+//			if (FileRead(&dwReadBytes, 4) <= 0)	///< 分块压缩,这4个字节表示后面一段压缩数据的长度
+//				break;
+//
+//			if (dwReadBytes <= 0)
+//				break;
+//		}
+//		else
+//		{
+			dwReadBytes = min(dwLeftBytes, BLOCK_SIZE);
+//		}
+
+		if (FileRead(pReadBuf, dwReadBytes) <= 0)
+		{
+			break;
+		}
+
+//		if (pUnCompressBuf)
+//		{
+//			dwUnCompressBytes = dwUnCompressBufLen;
+//			Uncompress(pUnCompressBuf, &dwUnCompressBytes, pReadBuf, dwReadBytes);
+//			fwrite(pUnCompressBuf, dwUnCompressBytes, 1, fpDest);
+//			dwReadBytes += 4;	///< 分块压缩,这4个字节表示后面一段压缩数据的长度
+//		}
+//		else
+//		{
+			fwrite(pReadBuf, dwReadBytes, 1, fpDest);
+//		}
+
+		dwLeftBytes -= dwReadBytes;
+	}
+
+	SAFE_DELETE_ARRAY(pReadBuf);
+	SAFE_DELETE_ARRAY(pUnCompressBuf);
+	fclose(fpDest);
 
 	return true;
 }
-
-bool CWpf::ExportSubDir(const char *strSrcPath,const char *strDestPath,LPWpfCallBack pCallBack)
+//-------------------------------------------------------------------------------------------------
+bool CWpf::ExportDir(const char* strSrcPath, const char* strDestPath, LPWpfCallBack pCallBack)
 {
-	if(m_bSaving)
+	if (m_bSaving)
 	{
 		m_eWrLastError = EWR_FILE_SAVING;
 		return false;
 	}
 
 	PWpfFileList pList = FindDir(strSrcPath);
-
 	if (!pList || !strDestPath)
 	{
 		m_eWrLastError = EWR_DIR_NOT_EXIST;
 		return false;
 	}
 
+	// 裁剪导出目标路径末尾的"\\"
 	string strPath = strDestPath;
-	//去掉后面连续的"\\"
-	size_t iPos = strPath.find_last_not_of('\\');
+	size_t iPos = strPath.find_last_not_of('\\');	///< 去掉后面连续的"\\"
 	if(iPos == string::npos)
 	{
 		m_eWrLastError = EWR_PATH_INVALID;
@@ -3155,7 +3545,7 @@ bool CWpf::ExportSubDir(const char *strSrcPath,const char *strDestPath,LPWpfCall
 	}
 	else if(iPos != strPath.length() - 1)
 	{
-		strPath = strPath.substr(0,iPos + 1);
+		strPath = strPath.substr(0, iPos + 1);
 	}
 
 	if(strPath.empty())
@@ -3164,74 +3554,115 @@ bool CWpf::ExportSubDir(const char *strSrcPath,const char *strDestPath,LPWpfCall
 		return false;
 	}
 
+	// 导出
+	ExportDirFromList(strPath, pList, pCallBack);
+
+	return true;
+}
+//-------------------------------------------------------------------------------------------------
+bool CWpf::ExportSubDir(const char* strSrcPath, const char* strDestPath, LPWpfCallBack pCallBack)
+{
+	if (m_bSaving)
+	{
+		m_eWrLastError = EWR_FILE_SAVING;
+		return false;
+	}
+
+	PWpfFileList pList = FindDir(strSrcPath);
+	if (!pList || !strDestPath)
+	{
+		m_eWrLastError = EWR_DIR_NOT_EXIST;
+		return false;
+	}
+
+	// 裁剪导出目标路径末尾的"\\"
+	string strPath = strDestPath;
+	size_t iPos = strPath.find_last_not_of('\\');	///< 去掉后面连续的"\\"
+	if(iPos == string::npos)
+	{
+		m_eWrLastError = EWR_PATH_INVALID;
+		return NULL;
+	}
+	else if(iPos != strPath.length() - 1)
+	{
+		strPath = strPath.substr(0, iPos + 1);
+	}
+
+	if(strPath.empty())
+	{
+		m_eWrLastError = EWR_PATH_INVALID;
+		return false;
+	}
+
+	// 导出
 	ExportSubDirFromList(strPath,pList,pCallBack);
 
 	return true;
 }
-
-void CWpf::ExportDirFromList(const string &strDestPath,PWpfFileList pList,LPWpfCallBack pCallBack)
+//-------------------------------------------------------------------------------------------------
+void CWpf::ExportDirFromList(const string& strDestPath, PWpfFileList pList, LPWpfCallBack pCallBack)
 {
 	if (!pList || !pList->pfcb || !pList->pfcb->pfcb2)
 		return;
 
-	if(m_bSaving)
+	if (m_bSaving)
 	{
 		m_eWrLastError = EWR_FILE_SAVING;
 		return;
 	}
 
 	string strPath = strDestPath + "\\" + pList->pfcb->pfcb2->strName;
-	ExportSubDirFromList(strPath,pList,pCallBack);
+	ExportSubDirFromList(strPath, pList, pCallBack);
 }
-
-void CWpf::ExportSubDirFromList(const string &strDestPath,PWpfFileList pList,LPWpfCallBack pCallBack)
+//-------------------------------------------------------------------------------------------------
+void CWpf::ExportSubDirFromList(const string&strDestPath, PWpfFileList pList, LPWpfCallBack pCallBack)
 {
 	if (!pList || !pList->pfcb || !pList->pfcb->pfcb2)
 		return;
 
-	if(m_bSaving)
+	if (m_bSaving)
 	{
 		m_eWrLastError = EWR_FILE_SAVING;
 		return;
 	}
+	
+	// 确认导出目标目录存在
+	SHCreateDirectoryEx(NULL, strDestPath.c_str(), NULL);
 
-	SHCreateDirectoryEx(NULL,strDestPath.c_str(),NULL);
-
-	//先导出子目录
+	// 先导出子目录
 	for (MList::iterator itr = pList->MDirs.begin(); itr != pList->MDirs.end(); itr++)
 	{
-		ExportSubDirFromList(strDestPath + "\\" + itr->first,itr->second,pCallBack);
+		ExportSubDirFromList(strDestPath + "\\" + itr->first, itr->second, pCallBack);
 	}
 
+	// 导出目录下的文件
 	string strFilePath = "";
 	for (MSFCB::iterator itr = pList->MFiles.begin(); itr != pList->MFiles.end(); itr++)
 	{
 		strFilePath = strDestPath + "\\" + itr->first;
-		ExportFile(itr->second,strFilePath.c_str());
+		ExportFile(itr->second, strFilePath.c_str());
 
 		if (pCallBack)
-		{
 			pCallBack(strFilePath.c_str());
-		}
 	}
 }
-
-bool CWpf::MeargeWpf(const char *strSrcPath,__int64 iOffset,LPWpfCallBack pCallBack)
+//-------------------------------------------------------------------------------------------------
+bool CWpf::MeargeWpf(const char *strSrcPath, __int64 iOffset, LPWpfCallBack pCallBack)
 {
-	if(!IsOpenWpfFile() || !m_pWpfRoot)
+	if (!IsOpenWpfFile() || !m_pWpfRoot)
 	{
 		m_eWrLastError = EWR_FILE_NOT_OPEN;
 		return false;
 	}
 
-	if(m_bSaving)
+	if (m_bSaving)
 	{
 		m_eWrLastError = EWR_FILE_SAVING;
 		return false;
 	}
 
 	CWpfInterface *pWpf = new CWpf();
-	if (!pWpf->WpfOpen(strSrcPath,iOffset,EWOT_RDWR))
+	if (!pWpf->WpfOpen(strSrcPath, iOffset,EWOT_RDWR))
 	{
 		SAFE_DELETE(pWpf);
 		return false;
@@ -3244,22 +3675,25 @@ bool CWpf::MeargeWpf(const char *strSrcPath,__int64 iOffset,LPWpfCallBack pCallB
 		return false;
 	}
 
-	bool bRtn = ImportSubDirFromList(pWpf,pRoot,m_pWpfRoot,false,pCallBack);
+	bool bRtn = ImportSubDirFromList(pWpf, pRoot, m_pWpfRoot, false, pCallBack);
+	if (bRtn)
+		m_bModifyed = true;
 
 	SAFE_DELETE(pWpf);
 
 	return bRtn;
 }
-
+//-------------------------------------------------------------------------------------------------
 bool CWpf::InitBuffer()
 {
 	DWORD seed = 0x00100001;
 	DWORD index1 = 0;
 	DWORD index2 = 0;
-	DWORD temp1 = 0,temp2 = 0;
+	DWORD temp1 = 0;
+	DWORD temp2 = 0;
 	int i = 0;
 
-	memset(m_dwCryptTable,0,sizeof(m_dwCryptTable));
+	memset(m_dwCryptTable, 0, sizeof(m_dwCryptTable));
 	for(index1 = 0; index1 < 0x100; index1++)
 	{
 		for (index2 = index1,i = 0; i < 5; i++,index2 += 0x100)
@@ -3274,14 +3708,14 @@ bool CWpf::InitBuffer()
 
 	return true;
 }
-
-inline DWORD CWpf::HashString(const char * pStr,DWORD type)
+//-------------------------------------------------------------------------------------------------
+inline DWORD CWpf::HashString(const char* pStr, DWORD type)
 {
 	DWORD seed1 = 0x7FED7FED;
 	DWORD seed2 = 0xEEEEEEEE;
 	DWORD ch;			/* One key character */
 
-	while(*pStr != 0)
+	while (*pStr != 0)
 	{
 		ch = toupper(*pStr++);
 		seed1 = m_dwCryptTable[(type << 8) + ch] ^ (seed1 + seed2);
@@ -3290,33 +3724,34 @@ inline DWORD CWpf::HashString(const char * pStr,DWORD type)
 
 	return seed1;	
 }
-
-__int64 CWpf::GetHashKey(const char *str)
+//-------------------------------------------------------------------------------------------------
+__int64 CWpf::GetHashKey(const char* str)
 {
-	if(!str)
+	if (!str)
 	{
 		return 0;
 	}
 
 	return HashFileName(str);
 }
-
-inline __int64 CWpf::HashFileName(const char * strFileName)
+//-------------------------------------------------------------------------------------------------
+inline __int64 CWpf::HashFileName(const char* strFileName)
 {
-	DWORD o1 = HashString(strFileName,1);
-	DWORD o2 = HashString(strFileName,2);
+	DWORD o1 = HashString(strFileName, 1);
+	DWORD o2 = HashString(strFileName, 2);
 
-	return ( (((__int64)(o1)) << 32) + o2);
+	return ((((__int64)(o1)) << 32) + o2);
 }
-
+//-------------------------------------------------------------------------------------------------
 bool CWpf::CleanUpFragment()
 {
+	// 未实现
 	return false;
 }
-
-bool CWpf::GetSubFileName(const char *strParnetDir,LPWpfCallBack pCallBack,bool bSubDir)
+//-------------------------------------------------------------------------------------------------
+bool CWpf::GetSubFileName(const char* strParnetDir, LPWpfCallBack pCallBack, bool bSubDir)
 {
-	if(!IsOpenWpfFile())
+	if (!IsOpenWpfFile())
 	{
 		m_eWrLastError = EWR_FILE_NOT_OPEN;
 		return false;
@@ -3328,13 +3763,14 @@ bool CWpf::GetSubFileName(const char *strParnetDir,LPWpfCallBack pCallBack,bool 
 		return false;
 	}
 
-	//定位到fcb所在位置,第一个是根目录
+	// 定位到fcb所在位置,第一个是根目录
 	FCB1 fcb1;
 	FCB2 fcb2;
 	DWORD dwCount = m_WpfHeader.dwDirCount + m_WpfHeader.dwFileCount;
-	//读取根目录
-	_lseeki64(m_iFileHandle[EFT_MAIN],m_iWpfStartPos + m_WpfHeader.iFatPos,SEEK_SET);
-	_read(m_iFileHandle[EFT_MAIN],&fcb1,FCB1_SIZE);	
+	
+	// 读取根目录
+	_lseeki64(m_iFileHandle[EFT_MAIN], m_iWpfStartPos + m_WpfHeader.iFatPos, SEEK_SET);
+	_read(m_iFileHandle[EFT_MAIN], &fcb1, FCB1_SIZE);	
 
 	string strPath = strParnetDir;
 	string strParentPath = strPath;
@@ -3391,10 +3827,10 @@ bool CWpf::GetSubFileName(const char *strParnetDir,LPWpfCallBack pCallBack,bool 
 
 	return true;
 }
-
-bool CWpf::CreateHashFile(const char *strFilePath, const char *strDirPath)
+//-------------------------------------------------------------------------------------------------
+bool CWpf::CreateHashFile(const char* strFilePath, const char* strDirPath)
 {
-	if(!IsOpenWpfFile())
+	if (!IsOpenWpfFile())
 	{
 		m_eWrLastError = EWR_FILE_NOT_OPEN;
 		return false;
@@ -3410,7 +3846,7 @@ bool CWpf::CreateHashFile(const char *strFilePath, const char *strDirPath)
 	if (pList == NULL)
 		return false;
 
-	FILE *fp = fopen(strFilePath,"wb");
+	FILE *fp = fopen(strFilePath, "wb");
 	if (!fp)
 	{
 		m_eWrLastError = EWR_PATH_INVALID;
@@ -3421,14 +3857,13 @@ bool CWpf::CreateHashFile(const char *strFilePath, const char *strDirPath)
 	
 	HashFileHeader header;
 	header.dwSize = dwCount;
-	fseek(fp,0,SEEK_SET);
-	fwrite(&header,sizeof(HashFileHeader),1,fp);	
+	fseek(fp, 0, SEEK_SET);
+	fwrite(&header,sizeof(HashFileHeader), 1, fp);	
 
 	vector<PWpfFileList> VDirs;
 	VDirs.push_back(pList);
 
 	PWpfFileList pFront = NULL;
-	
 	while(!VDirs.empty())
 	{
 		pFront = VDirs.front();
@@ -3436,7 +3871,7 @@ bool CWpf::CreateHashFile(const char *strFilePath, const char *strDirPath)
 		MList &dirlist = pFront->MDirs;
 		MSFCB &filelist = pFront->MFiles;
 
-		//子目录及子文件的fcb
+		// 子目录及子文件的fcb
 		for (MList::iterator itr = dirlist.begin();itr != dirlist.end(); itr++)
 		{		
 			//fwrite(&(itr->second->pfcb->pfcb1->iHashKey),sizeof(__int64),1,fp);
@@ -3445,7 +3880,7 @@ bool CWpf::CreateHashFile(const char *strFilePath, const char *strDirPath)
 			VDirs.push_back(itr->second);
 		}
 
-		for(MSFCB::iterator itr = filelist.begin(); itr != filelist.end(); itr++)
+		for (MSFCB::iterator itr = filelist.begin(); itr != filelist.end(); itr++)
 		{
 			fwrite(&(itr->second->pfcb1->iHashKey),sizeof(__int64),1,fp);
 			++dwCount;
@@ -3455,35 +3890,33 @@ bool CWpf::CreateHashFile(const char *strFilePath, const char *strDirPath)
 		VDirs.erase(VDirs.begin());
 	}
 
-
 	header.dwSize = dwCount;
 	fseek(fp,0,SEEK_SET);
-	fwrite(&header,sizeof(HashFileHeader),1,fp);	
+	fwrite(&header, sizeof(HashFileHeader), 1, fp);	
 
 	fclose(fp);
 	
 	return true;
 
 }
-
+//-------------------------------------------------------------------------------------------------
 bool CWpf::IsBuildTempFileHashEnabled() const
 {
 	return m_bBuildTempFileHashEnabled;
 }
-
+//-------------------------------------------------------------------------------------------------
 void CWpf::SetBuildTempFileHashEnabled(bool val)
 {
 	m_bBuildTempFileHashEnabled = val; 
 }
-
+//-------------------------------------------------------------------------------------------------
 const map<__int64,BYTE>& CWpf::GetTempFileHash() const 
 {
 	return m_kTempFileHash;
 }
-
+//-------------------------------------------------------------------------------------------------
 void CWpf::ClearTempFileHash()
 {
 	m_kTempFileHash.clear();
 }
-
-
+//-------------------------------------------------------------------------------------------------
