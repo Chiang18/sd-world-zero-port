@@ -3,7 +3,7 @@
 //---------------------------------------------------------
 // 作者:		
 // 创建:		2012-10-08
-// 最后修改:	2014-03-23
+// 最后修改:	2014-04-20
 //*************************************************************************************************
 #include "../common.h"
 
@@ -63,14 +63,15 @@ VS_OUTPUT VS_Main(VS_INPUT kInput)
 	kOutput.vProjPos = mul(float4(kInput.vPos, 1.0f), g_mWorldViewProj);
 	
 	// 投影空间齐次坐标
-	float2 vTPos = kOutput.vProjPos.xy / kOutput.vProjPos.w;
+	float2 vTProjPos = kOutput.vProjPos.xy / kOutput.vProjPos.w;
 	
 	// 当前点对应远裁剪面上的点的世界坐标
-	float4 vUVFarClipProjPos  = float4(vTPos.xy, 1.f, 1.f);
+	float4 vUVFarClipProjPos  = float4(vTProjPos.xy, 1.f, 1.f);
 	kOutput.vUVFarClipViewPos = mul(vUVFarClipProjPos, g_mDepthToView) * kOutput.vProjPos.w;
 	
 	// 投影坐标转换到屏幕纹理坐标(修正半像素偏移)
-	float2 vUVSetScreenTex = vTPos.xy * float2(0.5f, -0.5f) + float2(0.5f, 0.5f) + g_vHalfPixelOffset;
+	//float2 vUVSetScreenTex = vTProjPos.xy * float2(0.5f, -0.5f) + float2(0.5f, 0.5f) + g_vHalfPixelOffset;
+	float2 vUVSetScreenTex = GetTexCoordForPixel(vTProjPos);
 	kOutput.vUVSetScreenTex = float4(vUVSetScreenTex, 0.f, 1.f) * kOutput.vProjPos.w;
 	
 	return kOutput;
