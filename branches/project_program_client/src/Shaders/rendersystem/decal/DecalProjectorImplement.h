@@ -1,9 +1,9 @@
 //*************************************************************************************************
-// 内容:	decal着色器具体实现
+// 内容:	贴花着色器具体实现
 //---------------------------------------------------------
 // 作者:		
 // 创建:		2012-11-09
-// 最后修改:
+// 最后修改:	2014-04-20
 //*************************************************************************************************
 #include "DecalCommon.h"
 
@@ -20,9 +20,7 @@
 
 #undef DIFFUSEMAP
 #undef NORMALMAP
-#undef GLOSSMAP
 #undef LIGHTMAP
-//#undef AOMAP
 #undef GLOWMAP
 
 //---------------------------------------------------------------------------------------
@@ -40,23 +38,11 @@
 	#define NORMALMAP 0
 #endif
 
-#if TEST_CHANNEL(CHANNELS_FLAG, GLOSSMAP_CHANNEL)
-	#define GLOSSMAP 1
-#else
-	#define GLOSSMAP 0
-#endif
-
 #if TEST_CHANNEL(CHANNELS_FLAG, LIGHTMAP_CHANNEL)
 	#define LIGHTMAP 1
 #else
 	#define LIGHTMAP 0
 #endif
-
-//#if TEST_CHANNEL(CHANNELS_FLAG, AOMAP_CHANNEL)
-//	#define AOMAP 1
-//#else
-//	#define AOMAP 0
-//#endif
 
 #if TEST_CHANNEL(CHANNELS_FLAG, GLOWMAP_CHANNEL)
 	#define GLOWMAP 1
@@ -67,7 +53,7 @@
 //---------------------------------------------------------------------------------------
 // 根据当前启用的通道情况来决定具体的组合情况
 //---------------------------------------------------------------------------------------
-#if (DIFFUSEMAP || GLOWMAP) && !GLOSSMAP && !LIGHTMAP
+#if (DIFFUSEMAP || GLOWMAP)
 	#define PS_SHADER	HEADER_KEY(PS_Main, CHANNELS_FLAG)
 	#define TECHNIQUE	HEADER_KEY(Decal_Projector, CHANNELS_FLAG)
 #endif
@@ -79,31 +65,43 @@
 //---------------------------------------------------------------------------------------
 float4 PS_SHADER(VS_OUTPUT kInput) : COLOR0
 {
+	// DepthBuf
+	// @{
+	// 屏幕纹理坐标
+	float2 vUVSetScreenTex = kInput.vUVSetScreenTex.xy / kInput.vUVSetScreenTex.w;
+	
 	// 深度
-	float4 vGeomData 	= tex2D(sdGeomSampler, kInput.vUVSetProjPos.xy/kInput.vUVSetProjPos.w);
-	float  fDepth		= UnpackDepth(vGeomData.xy);
+	float4 vGeoTex 	= tex2D(sdGeomSampler, vUVSetScreenTex);
+	float  fDepth	= UnpackDepth(vGeoTex.xy);
 
-	// 观察坐标
+	// 反算观察坐标系坐标
 	float3 vViewPos = kInput.vUVSetFarClipViewPos.xyz / kInput.vUVSetFarClipViewPos.w * fDepth;
+	// @}
 	
-	// 从eye坐标系转回到decal立方体坐标系
-	float4 vDecalPos = mul(float4(vViewPos, 1.f), g_mViewToProjectorUV);
+	// Projecting
+	// @{
+	// 从eye坐标系转回到projector投射坐标系
+	float4 vDecalUVSet = mul(float4(vViewPos, 1.f), g_mViewToProjectorUV);
+	vDecalUVSet /= vDecalUVSet.w;
 	
-	// 计算像素对应的decal纹理坐标
-	float4 vUVSet = vDecalPos / vDecalPos.w;
+	// 裁剪掉投影体之外的像素(只保留了[0,1][0,1][0,1]投影立方体)
+	clip(vDecalUVSet.xyz);
+	clip(1.f - vDecalUVSet.xyz);
+	// @}
 	
-	// 裁剪掉UV不在[0,1]范围的像素
-	clip(vUVSet.xyz);
-	clip(1.f - vUVSet.xyz);
-	
+	// 采样FilterMap
 #if LIGHTMAP
-	float4	vLightColor = tex2D(sdDarkSampler, vUVSet.xy);
+	float4 vLightColor = tex2D(sdDarkSampler, vDecalUVSet.xy);
 	clip(vLightColor.a - g_fAlphaTestRef);
 #endif
 
 	// 计算Decal纹理坐标
-	float2 vUVSetBase = vUVSet.xy * g_vProjectorUVScaleOffset.xy + g_vProjectorUVScaleOffset.zw;
+//	float2 vCycle = 1.f / g_vProjectorUVSpeed;
+//	float2 vTranslation = fmod(float2(g_fTime, g_fTime), vCycle) * g_vProjectorUVSpeed;
+//	float2 vUVSetBase = (vDecalUVSet.xy + vTranslation) * g_vProjectorUVScale + g_vProjectorUVOffset;
+	float2 vUVSetBase = vDecalUVSet.xy * g_vProjectorUVScale + g_vProjectorUVOffset;
 	
+	// 采样GlowMap/DiffuseMap
 #if GLOWMAP
 	float4 vDiffuseColor = tex2D(sdGlowSampler, vUVSetBase) * g_vDiffuseMaterial;
 #elif DIFFUSEMAP
@@ -120,20 +118,21 @@ float4 PS_SHADER(VS_OUTPUT kInput) : COLOR0
 	return vDiffuseColor;
 #endif
 
+	// 计算光照
 #if DIFFUSEMAP
 	#if NORMALMAP
 		float3 vLocalNormal = (tex2D(sdNormalSampler, vUVSetBase).xyz - 0.5f) * float3(2.f, 2.f, -2.f);
 		float3 vViewNormal = normalize(mul(vLocalNormal, g_mWorldView));
 	#else
-		float3 vViewNormal = UnpackNormal(vGeomData.zw);
+		float3 vViewNormal = UnpackNormal(vGeoTex.zw);
 	#endif
 
 	float3 vViewVec = -normalize(vViewPos);
 	
 	float3 vDiffuseLight;
 	float3 vSpecularLight;
-	float4 vLocalLight = tex2D(sdLightSampler, kInput.vUVSetProjPos.xy);
-	AccumLighting(vViewVec, vViewNormal, g_vSpecularMaterial.a, 1, 1, vLocalLight, vDiffuseLight, vSpecularLight);
+	float4 vLocalLight = tex2D(sdLightSampler, kInput.vUVSetScreenTex);
+	AccumLighting(vViewVec, vViewNormal, g_vSpecularMaterial.a, 1.f, 1.f, vLocalLight, vDiffuseLight, vSpecularLight);
 	
 	float4 vColor;
 	vColor.rgb = vDiffuseColor.rgb * vDiffuseLight + vSpecularLight * g_vSpecularMaterial.rgb;

@@ -3,7 +3,7 @@
 //---------------------------------------------------------
 // 作者:		
 // 创建:		2012-11-09
-// 最后修改:
+// 最后修改:	2014-04-20
 //*************************************************************************************************
 #define CHANNELS_FLAG	0x00000000
 #include "DecalProjectorImplement.h"
@@ -18,6 +18,22 @@
 #undef 	CHANNELS_FLAG
 
 #define CHANNELS_FLAG	0x00000003
+#include "DecalProjectorImplement.h"
+#undef 	CHANNELS_FLAG
+
+#define CHANNELS_FLAG	0x00000008
+#include "DecalProjectorImplement.h"
+#undef 	CHANNELS_FLAG
+
+#define CHANNELS_FLAG	0x00000009
+#include "DecalProjectorImplement.h"
+#undef 	CHANNELS_FLAG
+
+#define CHANNELS_FLAG	0x0000000a
+#include "DecalProjectorImplement.h"
+#undef 	CHANNELS_FLAG
+
+#define CHANNELS_FLAG	0x0000000b
 #include "DecalProjectorImplement.h"
 #undef 	CHANNELS_FLAG
 
@@ -37,34 +53,19 @@
 #include "DecalProjectorImplement.h"
 #undef 	CHANNELS_FLAG
 
-#define CHANNELS_FLAG	0x00000020
+#define CHANNELS_FLAG	0x00000018
 #include "DecalProjectorImplement.h"
 #undef 	CHANNELS_FLAG
 
-#define CHANNELS_FLAG	0x00000021
+#define CHANNELS_FLAG	0x00000019
 #include "DecalProjectorImplement.h"
 #undef 	CHANNELS_FLAG
 
-#define CHANNELS_FLAG	0x00000022
+#define CHANNELS_FLAG	0x0000001a
 #include "DecalProjectorImplement.h"
 #undef 	CHANNELS_FLAG
 
-#define CHANNELS_FLAG	0x00000023
+#define CHANNELS_FLAG	0x0000001b
 #include "DecalProjectorImplement.h"
 #undef 	CHANNELS_FLAG
 
-#define CHANNELS_FLAG	0x00000030
-#include "DecalProjectorImplement.h"
-#undef 	CHANNELS_FLAG
-
-#define CHANNELS_FLAG	0x00000031
-#include "DecalProjectorImplement.h"
-#undef 	CHANNELS_FLAG
-
-#define CHANNELS_FLAG	0x00000032
-#include "DecalProjectorImplement.h"
-#undef 	CHANNELS_FLAG
-
-#define CHANNELS_FLAG	0x00000033
-#include "DecalProjectorImplement.h"
-#undef 	CHANNELS_FLAG
